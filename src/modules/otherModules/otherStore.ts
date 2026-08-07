@@ -1,0 +1,115 @@
+import { useState, useEffect } from 'react';
+import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem } from '../../types/otherModules';
+import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
+
+const OTHER_STORAGE_KEY = 'schoolerp_other_modules_v1';
+
+const INITIAL_ATTENDANCE: AttendanceRecord[] = [
+  { id: 'att-1', studentId: 'std-101', studentName: 'Aarav Sharma', classSection: 'Class 10-A', rollNo: 1, date: new Date().toISOString().split('T')[0], status: 'Present' },
+  { id: 'att-2', studentId: 'std-102', studentName: 'Ananya Verma', classSection: 'Class 10-A', rollNo: 2, date: new Date().toISOString().split('T')[0], status: 'Present' },
+  { id: 'att-3', studentId: 'std-103', studentName: 'Rohan Patel', classSection: 'Class 10-B', rollNo: 1, date: new Date().toISOString().split('T')[0], status: 'Late', remarks: 'Bus delay' }
+];
+
+const INITIAL_FEES: FeeTransaction[] = [
+  { id: 'fee-1', receiptNo: 'REC-2026-901', studentId: 'std-101', studentName: 'Aarav Sharma', classSection: 'Class 10-A', amountPaid: 4500, paymentMode: 'UPI', paymentDate: '2026-03-01', feeHead: 'Tuition Fee - March 2026', status: 'Paid' },
+  { id: 'fee-2', receiptNo: 'REC-2026-902', studentId: 'std-102', studentName: 'Ananya Verma', classSection: 'Class 10-A', amountPaid: 4500, paymentMode: 'Online', paymentDate: '2026-03-02', feeHead: 'Tuition Fee - March 2026', status: 'Paid' },
+  { id: 'fee-3', receiptNo: 'REC-2026-903', studentId: 'std-103', studentName: 'Rohan Patel', classSection: 'Class 10-B', amountPaid: 4500, paymentMode: 'Cash', paymentDate: '2026-03-05', feeHead: 'Tuition Fee - March 2026', status: 'Paid' }
+];
+
+const INITIAL_TIMETABLE: TimetableSlot[] = [
+  { id: 'tt-1', day: 'Monday', periodNumber: 1, timeSlot: '08:00 AM - 08:45 AM', subject: 'Mathematics', teacherName: 'Mr. Rajesh Namboodiri', classSection: 'Class 10-A', roomNo: 'Room 301' },
+  { id: 'tt-2', day: 'Monday', periodNumber: 2, timeSlot: '08:45 AM - 09:30 AM', subject: 'Science & Tech', teacherName: 'Dr. Priya Nambiar', classSection: 'Class 10-A', roomNo: 'Lab 2' },
+  { id: 'tt-3', day: 'Monday', periodNumber: 3, timeSlot: '09:30 AM - 10:15 AM', subject: 'English Language', teacherName: 'Mrs. M. Das', classSection: 'Class 10-A', roomNo: 'Room 301' }
+];
+
+const INITIAL_BOOKS: LibraryBook[] = [
+  { id: 'bk-1', isbn: '978-0131103627', title: 'The C Programming Language', author: 'Brian W. Kernighan, Dennis M. Ritchie', category: 'Computer Science', copiesTotal: 10, copiesAvailable: 7, rackLocation: 'Rack CS-2' },
+  { id: 'bk-2', isbn: '978-0070671560', title: 'Concepts of Physics (Vol 1)', author: 'H. C. Verma', category: 'Physics', copiesTotal: 25, copiesAvailable: 18, rackLocation: 'Rack PHY-1' },
+  { id: 'bk-3', isbn: '978-0199535569', title: 'Mathematics for Class X', author: 'R. D. Sharma', category: 'Mathematics', copiesTotal: 30, copiesAvailable: 22, rackLocation: 'Rack MATH-3' }
+];
+
+const INITIAL_VISITORS: VisitorPass[] = [
+  { id: 'vis-1', passNo: 'VP-2026-041', visitorName: 'Mr. Sunil Grover', phone: '+91 98111 55443', purpose: 'Admission Inquiry', whomToMeet: 'Admission Cell', entryTime: '10:15 AM', status: 'Checked Out', exitTime: '11:00 AM' },
+  { id: 'vis-2', passNo: 'VP-2026-042', visitorName: 'Mrs. Rekha Sen', phone: '+91 98111 88990', purpose: 'Parent Meeting', whomToMeet: 'Class Teacher 10-A', entryTime: '11:30 AM', status: 'Inside' }
+];
+
+const INITIAL_INVENTORY: InventoryItem[] = [
+  { id: 'inv-1', itemCode: 'LAB-MIC-01', itemName: 'Digital Microscope 1000x', category: 'Lab Equipment', quantity: 15, unitPrice: 12000, location: 'Biology Lab', status: 'In Stock' },
+  { id: 'inv-2', itemCode: 'DESK-DUAL-04', itemName: 'Dual Seater Wooden Bench', category: 'Furniture', quantity: 200, unitPrice: 3500, location: 'Classrooms Block B', status: 'In Stock' }
+];
+
+export function useOtherModulesStore() {
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE);
+  const [fees, setFees] = useState<FeeTransaction[]>(INITIAL_FEES);
+  const [timetable, setTimetable] = useState<TimetableSlot[]>(INITIAL_TIMETABLE);
+  const [books, setBooks] = useState<LibraryBook[]>(INITIAL_BOOKS);
+  const [notices, setNotices] = useState<NoticeItem[]>(INITIAL_NOTICES);
+  const [visitors, setVisitors] = useState<VisitorPass[]>(INITIAL_VISITORS);
+  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+  const [staff] = useState(INITIAL_STAFF);
+  const [routes] = useState(INITIAL_ROUTES);
+
+  const addFeeTransaction = (trx: Omit<FeeTransaction, 'id' | 'receiptNo' | 'status'>) => {
+    const newTrx: FeeTransaction = {
+      ...trx,
+      id: `fee-${Date.now()}`,
+      receiptNo: `REC-2026-${Math.floor(100 + Math.random() * 900)}`,
+      status: 'Paid'
+    };
+    setFees((prev) => [newTrx, ...prev]);
+    return newTrx;
+  };
+
+  const markAttendance = (records: AttendanceRecord[]) => {
+    setAttendance((prev) => {
+      const dates = records.map((r) => r.date);
+      const filtered = prev.filter((p) => !dates.includes(p.date));
+      return [...records, ...filtered];
+    });
+  };
+
+  const addNotice = (notice: Omit<NoticeItem, 'id' | 'date'>) => {
+    const newNot: NoticeItem = {
+      ...notice,
+      id: `not-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0]
+    };
+    setNotices((prev) => [newNot, ...prev]);
+  };
+
+  const addVisitor = (visitor: Omit<VisitorPass, 'id' | 'passNo' | 'entryTime' | 'status'>) => {
+    const newVis: VisitorPass = {
+      ...visitor,
+      id: `vis-${Date.now()}`,
+      passNo: `VP-2026-${Math.floor(100 + Math.random() * 900)}`,
+      entryTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'Inside'
+    };
+    setVisitors((prev) => [newVis, ...prev]);
+  };
+
+  const checkOutVisitor = (id: string) => {
+    setVisitors((prev) =>
+      prev.map((v) =>
+        v.id === id ? { ...v, status: 'Checked Out', exitTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : v
+      )
+    );
+  };
+
+  return {
+    attendance,
+    markAttendance,
+    fees,
+    addFeeTransaction,
+    timetable,
+    books,
+    notices,
+    addNotice,
+    visitors,
+    addVisitor,
+    checkOutVisitor,
+    inventory,
+    staff,
+    routes
+  };
+}

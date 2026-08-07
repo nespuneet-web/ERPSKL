@@ -1,0 +1,6 @@
+{
+  "name": "ABC School ERP",
+  "description": "Enterprise Modular School Management System featuring Examination Calculation Engine, Attendance Sync, Timetable Substitutions, HR Interview Panel, Transport Management, and Custom Branding.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
