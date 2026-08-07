@@ -335,7 +335,7 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
           <div>
             <h3 className="font-extrabold text-slate-900 dark:text-white text-base flex items-center gap-2">
-              <Code className="w-5 h-5 text-emerald-600" /> 1-Click Automated Supabase Database SQL Script
+              <Code className="w-5 h-5 text-emerald-600" /> 1-Click Automated Supabase Database SQL Script (टेबल जनरेटर)
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
               Generates all database tables automatically: <strong>students, staff, timetables, examinations, student_marks, fee_collections, daily_attendance, admission_leads, transport_routes, library_books</strong> with pre-seeded data & RLS policies.
@@ -345,19 +345,40 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleCopySql}
-              className="px-3.5 py-2 text-xs font-bold text-slate-800 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 transition-all"
+              className="px-3.5 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5 transition-all"
             >
-              {copiedSql ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-              {copiedSql ? 'Copied to Clipboard!' : 'Copy SQL Script'}
+              {copiedSql ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+              {copiedSql ? '✓ Copied SQL to Clipboard!' : '1. Copy SQL Script'}
             </button>
+
+            <a
+              href={`https://supabase.com/dashboard/project/${supabaseUrl.replace('https://', '').split('.')[0] || 'sxsuebbwgeqkqyxfqvnt'}/sql/new`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5 transition-all"
+            >
+              <ExternalLink className="w-4 h-4" /> 2. Open Supabase SQL Editor ↗
+            </a>
 
             <button
               onClick={handleDownloadSql}
-              className="px-3.5 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5 transition-all"
+              className="px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 rounded-xl cursor-pointer flex items-center gap-1.5 transition-all"
             >
               <Download className="w-4 h-4" /> Download `schema.sql`
             </button>
           </div>
+        </div>
+
+        {/* 3 EASY STEPS BANNER */}
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs space-y-2">
+          <p className="font-extrabold text-emerald-900 dark:text-emerald-200 text-sm">
+            ⚡ केवल 3 आसान स्टेप्स में Supabase में सारे टेबल्स खुद ही बनायें (3 Easy Steps to Create All Database Tables):
+          </p>
+          <ol className="list-decimal list-inside space-y-1 font-semibold text-emerald-800 dark:text-emerald-300">
+            <li>ऊपर हरे रंग वाले <strong>"1. Copy SQL Script"</strong> बटन पर क्लिक करें। (स्क्रिप्ट क्लिपबोर्ड पर कॉपी हो जाएगी)</li>
+            <li>नीले रंग के <strong>"2. Open Supabase SQL Editor ↗"</strong> बटन पर क्लिक करके सीधे अपने Supabase डैशबोर्ड पर जाएँ।</li>
+            <li>वहाँ बक्से में Paste (Ctrl + V) करें और <strong>"Run"</strong> (या Ctrl + Enter) दबा दें! सारे 10+ टेबल्स तुरंत बन जायेंगे।</li>
+          </ol>
         </div>
 
         {/* SQL SCRIPT PREVIEW */}
