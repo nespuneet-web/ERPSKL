@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Database,
   Globe,
@@ -13,10 +13,12 @@ import {
   FileText,
   Sparkles,
   RefreshCw,
-  Terminal
+  Terminal,
+  CheckCircle2
 } from 'lucide-react';
 import {
   isSupabaseConfigured,
+  getSupabaseCredentials,
   testSupabaseConnection,
   saveSupabaseConfig,
   clearSupabaseConfig,
@@ -25,12 +27,9 @@ import {
 import { SUPABASE_FULL_SQL_SCHEMA } from '../data/supabase_schema';
 
 export const SupabaseCloudHub: React.FC = () => {
-  const [supabaseUrl, setSupabaseUrl] = useState(
-    import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('school_erp_supabase_url') || ''
-  );
-  const [supabaseKey, setSupabaseKey] = useState(
-    import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('school_erp_supabase_key') || ''
-  );
+  const initialCreds = getSupabaseCredentials();
+  const [supabaseUrl, setSupabaseUrl] = useState(initialCreds.url);
+  const [supabaseKey, setSupabaseKey] = useState(initialCreds.key);
 
   const [testingStatus, setTestingStatus] = useState<{ loading: boolean; success?: boolean; message?: string }>({
     loading: false
@@ -46,6 +45,13 @@ export const SupabaseCloudHub: React.FC = () => {
     const res = await testSupabaseConnection();
     setTestingStatus({ loading: false, success: res.success, message: res.message });
   };
+
+  useEffect(() => {
+    // Auto test connection on mount to show green signal
+    if (supabaseUrl && supabaseKey) {
+      handleTestConnection();
+    }
+  }, []);
 
   const handleSaveConfig = () => {
     if (!supabaseUrl.trim() || !supabaseKey.trim()) {

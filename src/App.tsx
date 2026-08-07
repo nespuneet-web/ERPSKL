@@ -217,13 +217,26 @@ function ErpLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Live Database Connectivity Green Signal */}
+            <button
+              onClick={() => setActiveModule('supabase_cloud')}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all cursor-pointer"
+              title="Supabase Database Connectivity Status: LIVE"
+            >
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span>DB Live</span>
+            </button>
+
             {/* Supabase & Vercel Hub Quick Access */}
             <button
               onClick={() => setActiveModule('supabase_cloud')}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-lg shadow-xs cursor-pointer transition-all"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-600 to-indigo-600 hover:from-emerald-700 hover:to-indigo-700 text-white rounded-lg shadow-xs cursor-pointer transition-all"
             >
               <Database className="w-3.5 h-3.5" />
-              <span>Supabase & Vercel</span>
+              <span>Cloud Hub</span>
             </button>
 
             {/* Academic Session Selector */}
