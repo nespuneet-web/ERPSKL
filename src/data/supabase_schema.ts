@@ -213,6 +213,36 @@ CREATE TABLE IF NOT EXISTS public.visitor_passes (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 16. EXAM TIMETABLE / DATESHEET SCHEDULE TABLE
+CREATE TABLE IF NOT EXISTS public.exam_timetables (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    exam_name VARCHAR(100) NOT NULL,
+    class_name VARCHAR(20) NOT NULL,
+    subject_name VARCHAR(100) NOT NULL,
+    exam_date DATE NOT NULL,
+    start_time VARCHAR(20) NOT NULL,
+    end_time VARCHAR(20) NOT NULL,
+    room_number VARCHAR(30),
+    max_marks INT DEFAULT 100,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 17. SUBJECT CONFIGURATIONS MASTER TABLE
+CREATE TABLE IF NOT EXISTS public.subject_configs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code VARCHAR(30) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    department VARCHAR(50) DEFAULT 'General',
+    passing_marks INT DEFAULT 33,
+    has_theory BOOLEAN DEFAULT true,
+    theory_max_marks INT DEFAULT 80,
+    has_practical BOOLEAN DEFAULT false,
+    practical_max_marks INT DEFAULT 0,
+    has_internal BOOLEAN DEFAULT true,
+    internal_max_marks INT DEFAULT 20,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
@@ -229,6 +259,8 @@ ALTER TABLE public.exit_interviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.hostel_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.visitor_passes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exam_timetables ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subject_configs ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
 DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
@@ -245,6 +277,8 @@ DROP POLICY IF EXISTS "Allow public full access to exit_interviews" ON public.ex
 DROP POLICY IF EXISTS "Allow public full access to inventory_items" ON public.inventory_items;
 DROP POLICY IF EXISTS "Allow public full access to hostel_rooms" ON public.hostel_rooms;
 DROP POLICY IF EXISTS "Allow public full access to visitor_passes" ON public.visitor_passes;
+DROP POLICY IF EXISTS "Allow public full access to exam_timetables" ON public.exam_timetables;
+DROP POLICY IF EXISTS "Allow public full access to subject_configs" ON public.subject_configs;
 
 CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
@@ -261,6 +295,8 @@ CREATE POLICY "Allow public full access to exit_interviews" ON public.exit_inter
 CREATE POLICY "Allow public full access to inventory_items" ON public.inventory_items FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to hostel_rooms" ON public.hostel_rooms FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to visitor_passes" ON public.visitor_passes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to exam_timetables" ON public.exam_timetables FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to subject_configs" ON public.subject_configs FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS

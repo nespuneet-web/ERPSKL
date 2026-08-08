@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ExaminationType, SubjectConfig, ExamMarkSheet, ReportCardTemplate, StudentMarkEntry } from '../../types/examination';
 import { INITIAL_EXAM_TYPES, INITIAL_SUBJECTS, INITIAL_REPORT_TEMPLATES } from '../../data/mockData';
+import { syncMarksheetToSupabase } from '../../lib/supabaseSync';
 
 const EXAM_TYPES_KEY = 'schoolerp_exam_types_v1';
 const SUBJECTS_KEY = 'schoolerp_subjects_v1';
@@ -43,6 +44,8 @@ export function useExamStore() {
     const saved = localStorage.getItem(TEMPLATES_KEY);
     return saved ? JSON.parse(saved) : INITIAL_REPORT_TEMPLATES;
   });
+
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(EXAM_TYPES_KEY, JSON.stringify(examTypes));
@@ -101,6 +104,35 @@ export function useExamStore() {
     );
   };
 
+  const syncMarksheetBatch = async (
+    examName: string,
+    className: string,
+    sectionName: string,
+    subjectName: string,
+    studentList: { admissionNo: string; name: string; marksObtained: number; remarks?: string }[]
+  ) => {
+    if (studentList.length === 0) return;
+    setSyncStatus(`Syncing ${studentList.length} student marks for "${subjectName}" to Supabase...`);
+    
+    let lastMsg = '';
+    for (const item of studentList) {
+      const res = await syncMarksheetToSupabase({
+        examName,
+        className,
+        sectionName,
+        subjectName,
+        studentAdmissionNo: item.admissionNo,
+        studentName: item.name,
+        marksObtained: item.marksObtained,
+        remarks: item.remarks || 'Marksheet evaluated'
+      });
+      lastMsg = res.message;
+    }
+
+    setSyncStatus(lastMsg || '🟢 Marks synced successfully to Supabase!');
+    setTimeout(() => setSyncStatus(null), 5000);
+  };
+
   const toggleMarksheetLock = (marksheetId: string, lockedBy: string) => {
     setMarksheets((prev) =>
       prev.map((ms) => {
@@ -134,7 +166,9 @@ export function useExamStore() {
     addSubject,
     updateSubject,
     marksheets,
+    syncStatus,
     saveStudentMark,
+    syncMarksheetBatch,
     toggleMarksheetLock,
     reportTemplates,
     saveReportTemplate

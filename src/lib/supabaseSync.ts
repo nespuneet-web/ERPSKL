@@ -474,6 +474,78 @@ export async function syncInventoryToSupabase(item: {
 }
 
 /**
+ * 10. EXAMINATIONS & STUDENT MARKS SYNC
+ */
+export async function syncMarksheetToSupabase(params: {
+  examName: string;
+  className: string;
+  sectionName: string;
+  subjectName: string;
+  studentAdmissionNo: string;
+  studentName: string;
+  marksObtained: number;
+  remarks?: string;
+}): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    // 1. Ensure examination record exists
+    let examId: string | null = null;
+    const { data: existingExams } = await supabase
+      .from('examinations')
+      .select('id')
+      .eq('exam_name', params.examName)
+      .eq('class_name', params.className)
+      .eq('subject_name', params.subjectName)
+      .limit(1);
+
+    if (existingExams && existingExams.length > 0) {
+      examId = existingExams[0].id;
+    } else {
+      const { data: newExam, error: examErr } = await supabase
+        .from('examinations')
+        .insert([{
+          exam_name: params.examName,
+          academic_year: '2025-2026',
+          class_name: params.className,
+          subject_name: params.subjectName,
+          max_marks: 100,
+          passing_marks: 33,
+          exam_date: new Date().toISOString().split('T')[0]
+        }])
+        .select();
+
+      if (examErr) {
+        console.error('Error creating examination entry in Supabase:', examErr);
+      } else if (newExam && newExam[0]) {
+        examId = newExam[0].id;
+      }
+    }
+
+    // 2. Insert student mark entry
+    const markPayload = {
+      examination_id: examId,
+      student_admission_no: params.studentAdmissionNo,
+      student_name: params.studentName.toUpperCase(),
+      marks_obtained: params.marksObtained,
+      grade: params.marksObtained >= 90 ? 'A1' : params.marksObtained >= 75 ? 'A2' : params.marksObtained >= 60 ? 'B1' : params.marksObtained >= 33 ? 'C' : 'F',
+      remarks: params.remarks || 'Marks evaluated'
+    };
+
+    const { data, error } = await supabase.from('student_marks').insert([markPayload]).select();
+    if (error) return { success: false, message: `Supabase Error: ${error.message}` };
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Marks (${params.marksObtained}) for "${params.studentName}" synced to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
  * Live Trial Execution Function
  * Inserts sample trial records into live Supabase tables and verifies round-trip
  */

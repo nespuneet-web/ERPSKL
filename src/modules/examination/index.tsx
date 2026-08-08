@@ -21,7 +21,9 @@ export const ExaminationModule: React.FC = () => {
     addSubject,
     updateSubject,
     marksheets,
+    syncStatus,
     saveStudentMark,
+    syncMarksheetBatch,
     toggleMarksheetLock,
     reportTemplates,
     saveReportTemplate
@@ -40,6 +42,13 @@ export const ExaminationModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Live Sync Status Notification Banner */}
+      {syncStatus && (
+        <div className="bg-emerald-600 text-white p-3 rounded-lg text-sm font-semibold shadow-md flex items-center justify-between animate-fadeIn">
+          <span>{syncStatus}</span>
+        </div>
+      )}
+
       {/* Tab Controls */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
         <button
@@ -116,6 +125,7 @@ export const ExaminationModule: React.FC = () => {
           students={students}
           marksheets={marksheets}
           onSaveMark={saveStudentMark}
+          onSyncMarksBatch={syncMarksheetBatch}
           onToggleLock={(msId, user) => {
             toggleMarksheetLock(msId, user);
             logActivity('TOGGLE_MARKS_LOCK', 'Examination', `Toggled lock for marksheet ${msId}`);

@@ -9,6 +9,7 @@ interface MarksEntryGridProps {
   students: Student[];
   marksheets: ExamMarkSheet[];
   onSaveMark: (marksheetId: string, studentId: string, entry: StudentMarkEntry) => void;
+  onSyncMarksBatch?: (examName: string, className: string, sectionName: string, subjectName: string, studentList: any[]) => void;
   onToggleLock: (marksheetId: string, lockedBy: string) => void;
   currentUserRole: string;
 }
@@ -19,6 +20,7 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
   students,
   marksheets,
   onSaveMark,
+  onSyncMarksBatch,
   onToggleLock,
   currentUserRole
 }) => {
@@ -30,9 +32,14 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
   const activeSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
   const activeExam = examTypes.find((e) => e.id === selectedExamId) || examTypes[0];
 
-  const filteredStudents = students.filter(
-    (s) => s.currentClass === selectedClass && s.section === selectedSection
-  );
+  const targetClassNorm = selectedClass.toLowerCase().replace(/class/g, '').trim();
+  const targetSectionNorm = selectedSection.toLowerCase().trim();
+
+  const filteredStudents = students.filter((s) => {
+    const stdClassNorm = (s.currentClass || s.admissionClass || '').toLowerCase().replace(/class/g, '').trim();
+    const stdSecNorm = (s.section || 'A').toLowerCase().trim();
+    return (stdClassNorm === targetClassNorm || stdClassNorm === selectedClass.toLowerCase()) && stdSecNorm === targetSectionNorm;
+  });
 
   const marksheetId = `ms-${selectedClass.toLowerCase().replace(/\s+/g, '')}-${selectedSection.toLowerCase()}-${selectedSubjectId}-${selectedExamId}`;
   const currentMarksheet = marksheets.find((m) => m.id === marksheetId) || {
@@ -93,6 +100,33 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Sync to Supabase Button */}
+            {onSyncMarksBatch && (
+              <button
+                onClick={() => {
+                  const studentData = filteredStudents.map((s) => {
+                    const entry = currentMarksheet.entries[s.id] || { totalMarksObtained: 0 };
+                    return {
+                      admissionNo: s.admissionNo,
+                      name: s.fullName,
+                      marksObtained: entry.totalMarksObtained || 0,
+                      remarks: entry.remarks || 'Marks evaluated'
+                    };
+                  });
+                  onSyncMarksBatch(
+                    activeExam?.name || 'Term Exam',
+                    selectedClass,
+                    selectedSection,
+                    activeSubject?.name || 'Subject',
+                    studentData
+                  );
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-extrabold bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm transition-colors cursor-pointer"
+              >
+                <Save className="w-4 h-4 text-blue-200" /> Save & Sync Marks to Supabase
+              </button>
+            )}
+
             {/* Lock/Unlock Button */}
             <button
               onClick={() => onToggleLock(marksheetId, 'Examination Incharge')}
