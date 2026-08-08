@@ -41,8 +41,10 @@ import {
   Smartphone,
   Lock,
   Unlock,
-  Radio
+  Radio,
+  Database
 } from 'lucide-react';
+import { syncTeacherAndTimetableToSupabase, fetchTeachersAndTimetablesFromSupabase } from '../../lib/supabaseSync';
 import { TimetableArrangement, TeacherAvailability } from '../../types/otherModules';
 import {
   TeacherTimetableRecord,
@@ -116,7 +118,10 @@ export const TimetableModule: React.FC = () => {
     return INITIAL_TEACHER_TIMETABLES;
   });
 
-  // Save to localStorage when updated
+  // Supabase Live Sync Banner state
+  const [dbSyncBanner, setDbSyncBanner] = useState<{ type: 'success' | 'info' | 'error'; message: string } | null>(null);
+
+  // Save to localStorage & auto-sync to live Supabase DB
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(teacherTimetables));
@@ -124,6 +129,45 @@ export const TimetableModule: React.FC = () => {
       console.error('Failed to save timetables:', e);
     }
   }, [teacherTimetables]);
+
+  // Initial mount: Auto sync all loaded teachers (including ANKUR KABRA) to Supabase
+  useEffect(() => {
+    let isMounted = true;
+    async function performInitialSupabaseSync() {
+      // 1. First fetch any remote records from Supabase
+      const remoteTeachers = await fetchTeachersAndTimetablesFromSupabase();
+      if (remoteTeachers && remoteTeachers.length > 0 && isMounted) {
+        setTeacherTimetables((prev) => {
+          const mergedMap: Record<string, TeacherTimetableRecord> = {};
+          prev.forEach((t) => { mergedMap[t.teacherName.toUpperCase()] = t; });
+          remoteTeachers.forEach((rt) => { mergedMap[rt.teacherName.toUpperCase()] = rt; });
+          return Object.values(mergedMap);
+        });
+      }
+
+      // 2. Sync active teachers to live Supabase DB
+      if (teacherTimetables.length > 0 && isMounted) {
+        setDbSyncBanner({ type: 'info', message: 'Syncing teacher timetables with live Supabase Database...' });
+        let successCount = 0;
+        for (const teacher of teacherTimetables) {
+          const res = await syncTeacherAndTimetableToSupabase(teacher);
+          if (res.success) successCount++;
+        }
+        if (isMounted) {
+          setDbSyncBanner({
+            type: 'success',
+            message: `🟢 Live Supabase DB Connected & Synced! (${successCount} teachers active in public.staff & public.timetables)`
+          });
+        }
+      }
+    }
+
+    performInitialSupabaseSync();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Round Duty Patrol Locations (Customizable)
   const [roundLocations, setRoundLocations] = useState<string[]>(() => {
@@ -450,7 +494,7 @@ export const TimetableModule: React.FC = () => {
   const [printIncludeDepartmentStats, setPrintIncludeDepartmentStats] = useState(true);
 
   // Handler: Save or Update single teacher
-  const handleSaveTeacher = (updatedTeacher: TeacherTimetableRecord) => {
+  const handleSaveTeacher = async (updatedTeacher: TeacherTimetableRecord) => {
     setTeacherTimetables((prev) => {
       const idx = prev.findIndex((t) => t.id === updatedTeacher.id);
       if (idx >= 0) {
@@ -460,18 +504,33 @@ export const TimetableModule: React.FC = () => {
       }
       return [updatedTeacher, ...prev];
     });
+
+    setDbSyncBanner({ type: 'info', message: `Sending "${updatedTeacher.teacherName}" to live Supabase DB...` });
+    const res = await syncTeacherAndTimetableToSupabase(updatedTeacher);
+    setDbSyncBanner({
+      type: res.success ? 'success' : 'error',
+      message: res.message
+    });
   };
 
   // Handler: Add brand new teacher
-  const handleAddNewTeacher = (teacherName: string) => {
+  const handleAddNewTeacher = async (teacherName: string) => {
+    const cleanName = teacherName.trim().toUpperCase();
     const newRecord: TeacherTimetableRecord = {
       id: `tt-new-${Date.now()}`,
-      teacherName,
+      teacherName: cleanName,
       department: 'Senior Secondary',
       lastUpdated: new Date().toLocaleString(),
       schedule: {}
     };
     setTeacherTimetables((prev) => [newRecord, ...prev]);
+
+    setDbSyncBanner({ type: 'info', message: `Adding "${cleanName}" to live Supabase DB...` });
+    const res = await syncTeacherAndTimetableToSupabase(newRecord);
+    setDbSyncBanner({
+      type: res.success ? 'success' : 'error',
+      message: res.message
+    });
   };
 
   // Handler: Bulk Upload Success
@@ -794,6 +853,28 @@ export const TimetableModule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* LIVE SUPABASE DB SYNC STATUS BANNER */}
+      {dbSyncBanner && (
+        <div className={`p-4 rounded-2xl border text-xs font-extrabold flex items-center justify-between transition-all ${
+          dbSyncBanner.type === 'success'
+            ? 'bg-emerald-50 dark:bg-emerald-950/70 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 shadow-xs'
+            : dbSyncBanner.type === 'error'
+            ? 'bg-rose-50 dark:bg-rose-950/70 border-rose-300 dark:border-rose-700 text-rose-900 dark:text-rose-200 shadow-xs'
+            : 'bg-indigo-50 dark:bg-indigo-950/70 border-indigo-300 dark:border-indigo-700 text-indigo-900 dark:text-indigo-200 shadow-xs'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <Database className="w-4 h-4 text-emerald-600 animate-pulse shrink-0" />
+            <span>{dbSyncBanner.message}</span>
+          </div>
+          <button
+            onClick={() => setDbSyncBanner(null)}
+            className="text-slate-400 hover:text-slate-600 font-bold px-2 py-1 rounded-lg cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* TABS NAVIGATION BAR */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">

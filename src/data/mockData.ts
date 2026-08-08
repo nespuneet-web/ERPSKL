@@ -526,6 +526,7 @@ export const INITIAL_CANDIDATES: CandidateApplicant[] = [
 ];
 
 export const INITIAL_STAFF: StaffMember[] = [
+  { id: 'stf-ankur', employeeCode: 'EMP-ANKUR', fullName: 'Ankur Kabra', designation: 'PGT Mathematics', department: 'Mathematics Dept', email: 'ankur.kabra@school.edu', phone: '+91 98765 43210', joiningDate: '2024-04-01', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 68000, status: 'Active' },
   { id: 'stf-1', employeeCode: 'EMP-001', fullName: 'Dr. V. K. Sharma', designation: 'Principal', department: 'Administration', email: 'principal@school.edu', phone: '+91 98100 11223', joiningDate: '2015-06-01', qualification: 'Ph.D. Education, M.Sc.', monthlySalary: 120000, status: 'Active' },
   { id: 'stf-2', employeeCode: 'EMP-002', fullName: 'Mrs. S. Roy', designation: 'HOD Computer Science', department: 'Academics', email: 's.roy@school.edu', phone: '+91 98100 11224', joiningDate: '2018-04-01', qualification: 'M.Tech CSE, B.Ed.', monthlySalary: 75000, status: 'Active' },
   { id: 'stf-3', employeeCode: 'EMP-003', fullName: 'Mr. Rajesh Namboodiri', designation: 'Examination Incharge', department: 'Examination Dept', email: 'exam@school.edu', phone: '+91 98100 11225', joiningDate: '2019-07-15', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 70000, status: 'Active' }

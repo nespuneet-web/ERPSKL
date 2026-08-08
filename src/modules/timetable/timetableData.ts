@@ -178,6 +178,20 @@ export interface TeacherTimetableRecord {
 // Sample dataset accurately representing the Excel screenshot attached by the user
 export const INITIAL_TEACHER_TIMETABLES: TeacherTimetableRecord[] = [
   {
+    id: 'tt-ankur-kabra',
+    teacherName: 'ANKUR KABRA',
+    department: 'Mathematics Dept',
+    lastUpdated: '2026-03-01 10:00 AM',
+    schedule: {
+      'Monday_1': 'X A',
+      'Monday_2': 'X B',
+      'Tuesday_1': 'XI A',
+      'Wednesday_3': 'XII A',
+      'Thursday_2': 'X A',
+      'Friday_1': 'XI B'
+    }
+  },
+  {
     id: 'tt-1',
     teacherName: 'ANIL KUMAR SINGH',
     department: 'Senior Secondary',
