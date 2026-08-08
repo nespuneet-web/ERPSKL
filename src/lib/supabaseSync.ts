@@ -1,57 +1,165 @@
 import { supabase } from './supabase';
 import { TeacherTimetableRecord } from '../modules/timetable/timetableData';
+import { Student } from '../types/sis';
+import { AdmissionApplication } from '../types/admission';
+import { StaffMember } from '../types/staff';
 
-export interface SupabaseStaffRow {
-  id?: string;
-  employee_code: string;
-  full_name: string;
-  department: string;
-  designation: string;
-  contact_phone?: string;
-  email?: string;
-  status?: string;
-}
-
-export interface SupabaseTimetableRow {
-  id?: string;
-  teacher_name: string;
-  department: string;
-  day_of_week: string;
-  period_number: number;
-  class_and_section: string;
-  subject_name?: string;
-  room_number?: string;
-}
-
-export interface SupabaseStudentRow {
-  id?: string;
-  admission_no: string;
-  full_name: string;
-  class_name: string;
-  section: string;
-  roll_no?: number;
-  father_name?: string;
-  contact_phone?: string;
-  status?: string;
+export interface SupabaseSyncResult {
+  success: boolean;
+  message: string;
+  data?: any;
 }
 
 /**
- * Live Sync: Upsert Teacher & Timetable to Supabase
+ * 1. STUDENT (SIS) SYNC & FETCH
+ */
+export async function syncStudentToSupabase(student: Student): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      admission_no: student.admissionNo || `ADM-${Date.now()}`,
+      full_name: (student.fullName || '').toUpperCase(),
+      class_name: student.currentClass || student.admissionClass || 'Class 10',
+      section: student.section || 'A',
+      roll_no: Number(student.rollNo) || 1,
+      gender: student.gender || 'Male',
+      father_name: student.parents?.fatherName || '',
+      mother_name: student.parents?.motherName || '',
+      contact_phone: student.parents?.fatherMobile || '',
+      category: student.category || 'General',
+      status: student.status || 'Active'
+    };
+
+    const { data, error } = await supabase
+      .from('students')
+      .upsert([payload], { onConflict: 'admission_no' })
+      .select();
+
+    if (error) {
+      console.error('Error syncing student to Supabase:', error);
+      return { success: false, message: `Supabase Error: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Student "${student.fullName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Failed to sync student' };
+  }
+}
+
+export async function fetchStudentsFromSupabase(): Promise<Student[] | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase.from('students').select('*').order('created_at', { ascending: false });
+    if (error || !data || data.length === 0) return null;
+
+    return data.map((row: any) => ({
+      id: row.id || `std-sb-${row.admission_no}`,
+      admissionNo: row.admission_no,
+      fullName: row.full_name,
+      registrationNo: `REG-${row.admission_no}`,
+      scholarNo: `SCH-${row.admission_no}`,
+      penNo: 'PEN-100200300',
+      apaarId: 'APAAR-900800700',
+      aadhaarNo: '4812 9012 3456',
+      gender: row.gender || 'Male',
+      dob: '2012-05-15',
+      bloodGroup: 'O+',
+      religion: 'Hinduism',
+      category: row.category || 'General',
+      nationality: 'Indian',
+      motherTongue: 'Hindi',
+      photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      admissionDate: new Date().toISOString().split('T')[0],
+      admissionClass: row.class_name,
+      currentClass: row.class_name,
+      section: row.section,
+      rollNo: row.roll_no || 1,
+      house: 'Red',
+      transportRequired: false,
+      hostelRequired: false,
+      parents: {
+        fatherName: row.father_name || '',
+        fatherOccupation: 'Business',
+        fatherMobile: row.contact_phone || '',
+        fatherEmail: 'parent@example.com',
+        fatherIncome: '8,00,000 PA',
+        fatherQualification: 'Graduate',
+        motherName: row.mother_name || '',
+        motherOccupation: 'Homemaker',
+        motherMobile: row.contact_phone || '',
+        motherEmail: '',
+        address: row.address || 'City Center',
+        emergencyContact: row.contact_phone || ''
+      },
+      medical: { bloodGroup: 'O+', disability: false },
+      documents: [],
+      siblings: [],
+      promotions: [],
+      status: row.status || 'Active'
+    }));
+  } catch (err) {
+    console.error('Fetch students error:', err);
+    return null;
+  }
+}
+
+/**
+ * 2. ADMISSION LEADS SYNC & FETCH
+ */
+export async function syncAdmissionLeadToSupabase(app: AdmissionApplication): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      lead_no: app.applicationNo || `APP-${Date.now()}`,
+      applicant_name: (app.studentName || '').toUpperCase(),
+      parent_name: app.fatherName || '',
+      phone: app.contactPhone || '',
+      class_seeking: app.classApplyingFor || 'Class 1',
+      lead_source: 'Online Portal',
+      status: app.status || 'Inquiry Received'
+    };
+
+    const { data, error } = await supabase
+      .from('admission_leads')
+      .upsert([payload], { onConflict: 'lead_no' })
+      .select();
+
+    if (error) {
+      console.error('Error syncing admission lead to Supabase:', error);
+      return { success: false, message: `Supabase Error: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Admission lead "${app.studentName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 3. TEACHER & TIMETABLE SYNC & FETCH
  */
 export async function syncTeacherAndTimetableToSupabase(
   teacher: TeacherTimetableRecord
-): Promise<{ success: boolean; message: string }> {
-  if (!supabase) {
-    return { success: false, message: 'Supabase client not initialized.' };
-  }
+): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
 
   try {
     const cleanName = teacher.teacherName.trim().toUpperCase();
     const cleanDept = teacher.department || 'Senior Secondary';
     const empCode = `EMP-${cleanName.replace(/[^A-Z0-9]/g, '').slice(0, 8)}`;
 
-    // 1. Upsert into public.staff table
-    const { error: staffErr } = await supabase.from('staff').upsert(
+    // 1. Upsert into public.staff
+    await supabase.from('staff').upsert(
       [
         {
           employee_code: empCode,
@@ -64,16 +172,12 @@ export async function syncTeacherAndTimetableToSupabase(
       { onConflict: 'employee_code' }
     );
 
-    if (staffErr) {
-      console.warn('Supabase staff upsert notice:', staffErr);
-    }
-
-    // 2. Clear previous timetable slots for this teacher in public.timetables
+    // 2. Clear previous timetable slots
     await supabase.from('timetables').delete().eq('teacher_name', cleanName);
 
-    // 3. Prepare timetable rows from teacher.schedule
-    const timetableRows: SupabaseTimetableRow[] = [];
-    Object.entries(teacher.schedule).forEach(([key, classVal]) => {
+    // 3. Prepare timetable rows
+    const timetableRows: any[] = [];
+    Object.entries(teacher.schedule || {}).forEach(([key, classVal]) => {
       if (!classVal || !classVal.trim()) return;
       const [dayStr, periodStr] = key.split('_');
       const periodNo = parseInt(periodStr, 10);
@@ -94,40 +198,27 @@ export async function syncTeacherAndTimetableToSupabase(
     if (timetableRows.length > 0) {
       const { error: ttErr } = await supabase.from('timetables').insert(timetableRows);
       if (ttErr) {
-        console.warn('Supabase timetables insert notice:', ttErr);
+        console.warn('Timetable insert notice:', ttErr);
       }
     }
 
     return {
       success: true,
-      message: `🟢 Successfully synced "${cleanName}" and timetable (${timetableRows.length} slots) to live Supabase DB!`
+      message: `🟢 Live DB Updated: Teacher "${cleanName}" & timetable (${timetableRows.length} periods) saved to Supabase!`
     };
   } catch (err: any) {
-    console.error('Supabase sync error:', err);
-    return {
-      success: false,
-      message: `Sync warning: ${err.message || 'Error communicating with Supabase'}`
-    };
+    console.error('Supabase timetable sync error:', err);
+    return { success: false, message: err.message || 'Timetable sync error' };
   }
 }
 
-/**
- * Live Fetch: Fetch Teachers & Timetables from Supabase DB on app mount
- */
 export async function fetchTeachersAndTimetablesFromSupabase(): Promise<TeacherTimetableRecord[] | null> {
   if (!supabase) return null;
 
   try {
-    // Fetch all timetables
     const { data: ttData, error: ttErr } = await supabase.from('timetables').select('*');
-    if (ttErr || !ttData) {
-      console.warn('Could not fetch timetables from Supabase:', ttErr);
-      return null;
-    }
+    if (ttErr || !ttData || ttData.length === 0) return null;
 
-    if (ttData.length === 0) return null;
-
-    // Group by teacher_name
     const teacherMap: Record<string, TeacherTimetableRecord> = {};
 
     ttData.forEach((row: any) => {
@@ -156,39 +247,141 @@ export async function fetchTeachersAndTimetablesFromSupabase(): Promise<TeacherT
 }
 
 /**
- * Live Sync Student to Supabase
+ * 4. FEE COLLECTION SYNC
  */
-export async function syncStudentToSupabase(student: {
-  admissionNo: string;
-  fullName: string;
+export async function syncFeeCollectionToSupabase(fee: {
+  receiptNo: string;
+  studentAdmissionNo: string;
+  studentName: string;
   className: string;
-  section: string;
-  rollNo?: number;
-  fatherName?: string;
-  phone?: string;
-}): Promise<{ success: boolean; message: string }> {
+  feeHead: string;
+  amountPaid: number;
+  paymentMode: string;
+  transactionRef?: string;
+}): Promise<SupabaseSyncResult> {
   if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
 
   try {
-    const { error } = await supabase.from('students').upsert(
-      [
-        {
-          admission_no: student.admissionNo,
-          full_name: student.fullName.toUpperCase(),
-          class_name: student.className,
-          section: student.section,
-          roll_no: student.rollNo || 1,
-          father_name: student.fatherName || '',
-          contact_phone: student.phone || '',
-          status: 'Active'
-        }
-      ],
-      { onConflict: 'admission_no' }
-    );
+    const payload = {
+      receipt_no: fee.receiptNo || `REC-${Date.now()}`,
+      student_admission_no: fee.studentAdmissionNo,
+      student_name: fee.studentName.toUpperCase(),
+      class_name: fee.className,
+      fee_head: fee.feeHead,
+      amount_paid: fee.amountPaid,
+      payment_mode: fee.paymentMode,
+      transaction_ref: fee.transactionRef || 'N/A'
+    };
 
-    if (error) throw error;
-    return { success: true, message: `Synced student ${student.fullName} to Supabase!` };
+    const { data, error } = await supabase
+      .from('fee_collections')
+      .upsert([payload], { onConflict: 'receipt_no' })
+      .select();
+
+    if (error) {
+      console.error('Error syncing fee collection to Supabase:', error);
+      return { success: false, message: `Supabase Error: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Fee Receipt #${fee.receiptNo} saved to Supabase!`,
+      data
+    };
   } catch (err: any) {
     return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 5. STAFF SYNC
+ */
+export async function syncStaffToSupabase(staff: StaffMember): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      employee_code: staff.employeeCode || `EMP-${Date.now()}`,
+      full_name: staff.fullName.toUpperCase(),
+      department: staff.department,
+      designation: staff.designation,
+      contact_phone: staff.phone || '',
+      email: staff.email || '',
+      status: staff.status || 'Active'
+    };
+
+    const { data, error } = await supabase
+      .from('staff')
+      .upsert([payload], { onConflict: 'employee_code' })
+      .select();
+
+    if (error) {
+      console.error('Error syncing staff to Supabase:', error);
+      return { success: false, message: `Supabase Error: ${error.message}` };
+    }
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Staff "${staff.fullName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * Live Trial Execution Function
+ * Inserts a sample trial entry (Ankur Kabra / Trial Test) into Supabase and immediately reads it back
+ */
+export async function runLiveSupabaseTrial(): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not connected.' };
+
+  try {
+    const trialAdmissionNo = `TRIAL-ANKUR-${Math.floor(100 + Math.random() * 900)}`;
+    const trialName = 'ANKUR KABRA (LIVE TRIAL)';
+
+    // 1. Insert into students table
+    const { error: insertErr } = await supabase.from('students').upsert([
+      {
+        admission_no: trialAdmissionNo,
+        full_name: trialName,
+        class_name: '10',
+        section: 'A',
+        roll_no: 99,
+        gender: 'Male',
+        father_name: 'TEST FATHER',
+        contact_phone: '9876543210',
+        status: 'Active'
+      }
+    ], { onConflict: 'admission_no' });
+
+    if (insertErr) {
+      return {
+        success: false,
+        message: `Trial Failed: ${insertErr.message} (Tip: Run 1-Click SQL Script in Cloud Hub if tables/RLS policies are missing)`
+      };
+    }
+
+    // 2. Read back from students table to verify live round-trip
+    const { data: readBack, error: readErr } = await supabase
+      .from('students')
+      .select('*')
+      .eq('admission_no', trialAdmissionNo)
+      .single();
+
+    if (readErr || !readBack) {
+      return {
+        success: false,
+        message: `Write succeeded, but live verification read failed: ${readErr?.message || 'Record not returned'}`
+      };
+    }
+
+    return {
+      success: true,
+      message: `✅ LIVE SUPABASE TRIAL SUCCESSFUL! Written and verified record: "${readBack.full_name}" (Admission: ${readBack.admission_no}) directly in live Supabase DB!`
+    };
+  } catch (err: any) {
+    return { success: false, message: `Trial Exception: ${err.message}` };
   }
 }

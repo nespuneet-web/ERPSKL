@@ -24,6 +24,7 @@ import {
   clearSupabaseConfig,
   supabase
 } from '../lib/supabase';
+import { runLiveSupabaseTrial } from '../lib/supabaseSync';
 import { SUPABASE_FULL_SQL_SCHEMA } from '../data/supabase_schema';
 
 export const SupabaseCloudHub: React.FC = () => {
@@ -35,10 +36,25 @@ export const SupabaseCloudHub: React.FC = () => {
     loading: false
   });
 
+  const [trialRunning, setTrialRunning] = useState(false);
+  const [trialResult, setTrialResult] = useState<{ success: boolean; message: string; timestamp?: string } | null>(null);
+
   const [copiedSql, setCopiedSql] = useState(false);
   const [copiedEnv, setCopiedEnv] = useState(false);
   const [syncingData, setSyncingData] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+
+  const handleRunTrialTest = async () => {
+    setTrialRunning(true);
+    setTrialResult(null);
+    const res = await runLiveSupabaseTrial();
+    setTrialRunning(false);
+    setTrialResult({
+      success: res.success,
+      message: res.message,
+      timestamp: new Date().toLocaleTimeString()
+    });
+  };
 
   const handleTestConnection = async () => {
     setTestingStatus({ loading: true });
@@ -257,6 +273,39 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
               </div>
             )}
 
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong className="block text-slate-900 dark:text-white font-extrabold flex items-center gap-1.5 text-xs">
+                    <Zap className="w-4 h-4 text-emerald-500" /> Perform Live DB Trial Test
+                  </strong>
+                  <span className="text-[11px] text-slate-500">Writes a test student entry directly to Supabase & verifies destination receipt</span>
+                </div>
+
+                <button
+                  onClick={handleRunTrialTest}
+                  disabled={trialRunning}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5 shrink-0"
+                >
+                  {trialRunning ? <RefreshCw className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4 text-emerald-200" />}
+                  {trialRunning ? 'Testing...' : 'Run Live Trial Test'}
+                </button>
+              </div>
+
+              {trialResult && (
+                <div className={`p-3.5 rounded-xl border text-xs font-bold space-y-1 ${
+                  trialResult.success
+                    ? 'bg-emerald-50 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-100 dark:border-emerald-700'
+                    : 'bg-rose-50 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-100 dark:border-rose-700'
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <span>{trialResult.message}</span>
+                    <span className="text-[10px] opacity-75 font-mono">{trialResult.timestamp}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <strong className="block text-slate-900 dark:text-white font-extrabold">Push Data Sync</strong>
@@ -266,10 +315,10 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
               <button
                 onClick={handleSyncLocalToSupabase}
                 disabled={syncingData}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5"
               >
                 {syncingData ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                Sync to Supabase
+                Sync All Local Data
               </button>
             </div>
 

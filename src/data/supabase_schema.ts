@@ -155,16 +155,27 @@ ALTER TABLE public.admission_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.library_books ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true);
-CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true);
-CREATE POLICY "Allow public full access to timetables" ON public.timetables FOR ALL USING (true);
-CREATE POLICY "Allow public full access to examinations" ON public.examinations FOR ALL USING (true);
-CREATE POLICY "Allow public full access to student_marks" ON public.student_marks FOR ALL USING (true);
-CREATE POLICY "Allow public full access to daily_attendance" ON public.daily_attendance FOR ALL USING (true);
-CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collections FOR ALL USING (true);
-CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true);
-CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true);
-CREATE POLICY "Allow public full access to library_books" ON public.library_books FOR ALL USING (true);
+DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
+DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
+DROP POLICY IF EXISTS "Allow public full access to timetables" ON public.timetables;
+DROP POLICY IF EXISTS "Allow public full access to examinations" ON public.examinations;
+DROP POLICY IF EXISTS "Allow public full access to student_marks" ON public.student_marks;
+DROP POLICY IF EXISTS "Allow public full access to daily_attendance" ON public.daily_attendance;
+DROP POLICY IF EXISTS "Allow public full access to fee_collections" ON public.fee_collections;
+DROP POLICY IF EXISTS "Allow public full access to admission_leads" ON public.admission_leads;
+DROP POLICY IF EXISTS "Allow public full access to transport_routes" ON public.transport_routes;
+DROP POLICY IF EXISTS "Allow public full access to library_books" ON public.library_books;
+
+CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to timetables" ON public.timetables FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to examinations" ON public.examinations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to student_marks" ON public.student_marks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to daily_attendance" ON public.daily_attendance FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collections FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to library_books" ON public.library_books FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS

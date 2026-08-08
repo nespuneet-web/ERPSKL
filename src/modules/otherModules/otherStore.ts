@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
+import { syncFeeCollectionToSupabase } from '../../lib/supabaseSync';
 
 const OTHER_STORAGE_KEY = 'schoolerp_other_modules_v1';
 
@@ -49,7 +50,9 @@ export function useOtherModulesStore() {
   const [staff] = useState(INITIAL_STAFF);
   const [routes] = useState(INITIAL_ROUTES);
 
-  const addFeeTransaction = (trx: Omit<FeeTransaction, 'id' | 'receiptNo' | 'status'>) => {
+  const [feeSyncStatus, setFeeSyncStatus] = useState<string | null>(null);
+
+  const addFeeTransaction = async (trx: Omit<FeeTransaction, 'id' | 'receiptNo' | 'status'>) => {
     const newTrx: FeeTransaction = {
       ...trx,
       id: `fee-${Date.now()}`,
@@ -57,6 +60,20 @@ export function useOtherModulesStore() {
       status: 'Paid'
     };
     setFees((prev) => [newTrx, ...prev]);
+
+    setFeeSyncStatus(`Syncing receipt ${newTrx.receiptNo} to Supabase...`);
+    const res = await syncFeeCollectionToSupabase({
+      receiptNo: newTrx.receiptNo,
+      studentAdmissionNo: newTrx.studentId || 'ADM-2026-001',
+      studentName: newTrx.studentName,
+      className: newTrx.classSection,
+      feeHead: newTrx.feeHead,
+      amountPaid: newTrx.amountPaid,
+      paymentMode: newTrx.paymentMode
+    });
+    setFeeSyncStatus(res.message);
+    setTimeout(() => setFeeSyncStatus(null), 5000);
+
     return newTrx;
   };
 
@@ -100,6 +117,7 @@ export function useOtherModulesStore() {
     attendance,
     markAttendance,
     fees,
+    feeSyncStatus,
     addFeeTransaction,
     timetable,
     books,

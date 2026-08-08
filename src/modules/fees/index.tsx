@@ -3,7 +3,7 @@ import { useOtherModulesStore } from '../otherModules/otherStore';
 import { DollarSign, Plus, Printer, CheckCircle, Search } from 'lucide-react';
 
 export const FeesModule: React.FC = () => {
-  const { fees, addFeeTransaction } = useOtherModulesStore();
+  const { fees, feeSyncStatus, addFeeTransaction } = useOtherModulesStore();
   const [showCollectModal, setShowCollectModal] = useState(false);
   const [studentName, setStudentName] = useState('Aarav Sharma');
   const [amountPaid, setAmountPaid] = useState(4500);
@@ -26,6 +26,13 @@ export const FeesModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Live Fee Sync Banner */}
+      {feeSyncStatus && (
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-extrabold text-xs rounded-xl shadow-xs animate-fade-in">
+          <span>{feeSyncStatus}</span>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">

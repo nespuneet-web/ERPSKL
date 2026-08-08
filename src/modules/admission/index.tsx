@@ -5,7 +5,7 @@ import { AdmissionApplication } from '../../types/admission';
 import { UserPlus, Search, CheckCircle, Clock, FileText, Award, Layers } from 'lucide-react';
 
 export const AdmissionModule: React.FC = () => {
-  const { applications, seats, addApplication, updateApplicationStatus } = useAdmissionStore();
+  const { applications, seats, syncStatus, addApplication, updateApplicationStatus } = useAdmissionStore();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('All');
@@ -57,6 +57,13 @@ export const AdmissionModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Live Sync Status Banner */}
+      {syncStatus && (
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-extrabold text-xs rounded-xl shadow-xs animate-fade-in">
+          <span>{syncStatus}</span>
+        </div>
+      )}
+
       {/* Seat Availability Bar */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

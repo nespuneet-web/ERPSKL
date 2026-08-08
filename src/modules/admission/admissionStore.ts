@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdmissionApplication, SeatAvailability } from '../../types/admission';
 import { INITIAL_APPLICATIONS } from '../../data/mockData';
+import { syncAdmissionLeadToSupabase } from '../../lib/supabaseSync';
 
 const ADMISSION_STORAGE_KEY = 'schoolerp_admission_apps_v1';
 
@@ -19,12 +20,13 @@ export function useAdmissionStore() {
   });
 
   const [seats] = useState<SeatAvailability[]>(INITIAL_SEATS);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(ADMISSION_STORAGE_KEY, JSON.stringify(applications));
   }, [applications]);
 
-  const addApplication = (app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status'>) => {
+  const addApplication = async (app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status'>) => {
     const newApp: AdmissionApplication = {
       ...app,
       id: `app-${Date.now()}`,
@@ -33,20 +35,39 @@ export function useAdmissionStore() {
       status: 'Received'
     };
     setApplications((prev) => [newApp, ...prev]);
+
+    // Live Sync to Supabase
+    setSyncStatus(`Syncing admission for "${newApp.studentName}" to Supabase...`);
+    const res = await syncAdmissionLeadToSupabase(newApp);
+    setSyncStatus(res.message);
+    setTimeout(() => setSyncStatus(null), 5000);
+
     return newApp;
   };
 
-  const updateApplicationStatus = (id: string, status: AdmissionApplication['status'], remarks?: string) => {
+  const updateApplicationStatus = async (id: string, status: AdmissionApplication['status'], remarks?: string) => {
+    let updatedApp: AdmissionApplication | null = null;
     setApplications((prev) =>
-      prev.map((a) =>
-        a.id === id ? { ...a, status, interviewRemarks: remarks || a.interviewRemarks } : a
-      )
+      prev.map((a) => {
+        if (a.id === id) {
+          updatedApp = { ...a, status, interviewRemarks: remarks || a.interviewRemarks };
+          return updatedApp;
+        }
+        return a;
+      })
     );
+
+    if (updatedApp) {
+      const res = await syncAdmissionLeadToSupabase(updatedApp);
+      setSyncStatus(res.message);
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
   };
 
   return {
     applications,
     seats,
+    syncStatus,
     addApplication,
     updateApplicationStatus
   };

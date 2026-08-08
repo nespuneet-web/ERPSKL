@@ -10,7 +10,7 @@ import { useAuth } from '../../context/AuthContext';
 import { UserCheck, Eye, Plus, ShieldAlert } from 'lucide-react';
 
 export const SisModule: React.FC = () => {
-  const { students, addStudent, updateStudent, deleteStudent, addDocumentToStudent } = useSisStore();
+  const { students, syncStatus, addStudent, updateStudent, deleteStudent, addDocumentToStudent } = useSisStore();
   const { activeRole, logActivity, addNotification } = useAuth();
 
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -60,6 +60,13 @@ export const SisModule: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* Live Sync Alert Banner */}
+      {syncStatus && (
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-extrabold text-xs rounded-xl shadow-xs animate-fade-in flex items-center justify-between">
+          <span>{syncStatus}</span>
+        </div>
+      )}
+
       {/* SIS Mode Switcher Bar */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         <button
