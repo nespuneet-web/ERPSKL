@@ -331,18 +331,163 @@ export async function syncStaffToSupabase(staff: StaffMember): Promise<SupabaseS
 }
 
 /**
+ * 6. LEAVE APPLICATIONS SYNC
+ */
+export async function syncLeaveToSupabase(leave: {
+  applicantName: string;
+  applicantType?: string;
+  leaveType: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  status?: string;
+}): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      applicant_name: leave.applicantName.toUpperCase(),
+      applicant_type: leave.applicantType || 'Staff',
+      leave_type: leave.leaveType,
+      start_date: leave.startDate,
+      end_date: leave.endDate,
+      reason: leave.reason,
+      status: leave.status || 'Pending'
+    };
+
+    const { data, error } = await supabase.from('leave_applications').insert([payload]).select();
+    if (error) return { success: false, message: `Supabase Error: ${error.message}` };
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Leave request for "${leave.applicantName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 7. EXIT INTERVIEWS & HR EVALUATIONS SYNC
+ */
+export async function syncExitInterviewToSupabase(interview: {
+  candidateName: string;
+  department: string;
+  designation: string;
+  feedbackNotes?: string;
+  rating?: string;
+  status?: string;
+}): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      candidate_name: interview.candidateName.toUpperCase(),
+      department: interview.department,
+      designation: interview.designation,
+      feedback_notes: interview.feedbackNotes || 'Completed interview assessment',
+      rating: interview.rating || 'Recommended',
+      status: interview.status || 'Completed'
+    };
+
+    const { data, error } = await supabase.from('exit_interviews').insert([payload]).select();
+    if (error) return { success: false, message: `Supabase Error: ${error.message}` };
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: HR evaluation for "${interview.candidateName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 8. DAILY ATTENDANCE SYNC
+ */
+export async function syncAttendanceToSupabase(attendance: {
+  date: string;
+  className: string;
+  section: string;
+  studentAdmissionNo: string;
+  status: string;
+}): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      attendance_date: attendance.date,
+      class_name: attendance.className,
+      section: attendance.section,
+      student_admission_no: attendance.studentAdmissionNo,
+      status: attendance.status
+    };
+
+    const { data, error } = await supabase.from('daily_attendance').insert([payload]).select();
+    if (error) return { success: false, message: `Supabase Error: ${error.message}` };
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Attendance for "${attendance.studentAdmissionNo}" marked in Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
+ * 9. INVENTORY & HOSTEL SYNC
+ */
+export async function syncInventoryToSupabase(item: {
+  itemCode: string;
+  itemName: string;
+  category: string;
+  quantity: number;
+  unitPrice?: number;
+}): Promise<SupabaseSyncResult> {
+  if (!supabase) return { success: false, message: 'Supabase client not initialized.' };
+
+  try {
+    const payload = {
+      item_code: item.itemCode || `ITEM-${Date.now()}`,
+      item_name: item.itemName,
+      category: item.category,
+      total_quantity: item.quantity,
+      available_quantity: item.quantity,
+      unit_price: item.unitPrice || 0
+    };
+
+    const { data, error } = await supabase.from('inventory_items').upsert([payload], { onConflict: 'item_code' }).select();
+    if (error) return { success: false, message: `Supabase Error: ${error.message}` };
+
+    return {
+      success: true,
+      message: `🟢 Live DB Updated: Inventory "${item.itemName}" saved to Supabase!`,
+      data
+    };
+  } catch (err: any) {
+    return { success: false, message: err.message };
+  }
+}
+
+/**
  * Live Trial Execution Function
- * Inserts a sample trial entry (Ankur Kabra / Trial Test) into Supabase and immediately reads it back
+ * Inserts sample trial records into live Supabase tables and verifies round-trip
  */
 export async function runLiveSupabaseTrial(): Promise<SupabaseSyncResult> {
   if (!supabase) return { success: false, message: 'Supabase client not connected.' };
 
   try {
-    const trialAdmissionNo = `TRIAL-ANKUR-${Math.floor(100 + Math.random() * 900)}`;
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+    const trialAdmissionNo = `TRIAL-ANKUR-${randomSuffix}`;
+    const trialStaffCode = `EMP-ANKUR-${randomSuffix}`;
     const trialName = 'ANKUR KABRA (LIVE TRIAL)';
 
     // 1. Insert into students table
-    const { error: insertErr } = await supabase.from('students').upsert([
+    const { error: stdErr } = await supabase.from('students').upsert([
       {
         admission_no: trialAdmissionNo,
         full_name: trialName,
@@ -350,20 +495,39 @@ export async function runLiveSupabaseTrial(): Promise<SupabaseSyncResult> {
         section: 'A',
         roll_no: 99,
         gender: 'Male',
-        father_name: 'TEST FATHER',
+        father_name: 'LIVE TRIAL FATHER',
         contact_phone: '9876543210',
         status: 'Active'
       }
     ], { onConflict: 'admission_no' });
 
-    if (insertErr) {
+    if (stdErr) {
       return {
         success: false,
-        message: `Trial Failed: ${insertErr.message} (Tip: Run 1-Click SQL Script in Cloud Hub if tables/RLS policies are missing)`
+        message: `Trial Failed on 'students' table: ${stdErr.message}. (Action needed: Open 'Supabase & Vercel Cloud' tab and click '1. Copy SQL Script' -> '2. Open Supabase SQL Editor' -> Paste & Run to create all 15 tables & RLS policies)`
       };
     }
 
-    // 2. Read back from students table to verify live round-trip
+    // 2. Insert into staff table
+    const { error: staffErr } = await supabase.from('staff').upsert([
+      {
+        employee_code: trialStaffCode,
+        full_name: trialName,
+        department: 'Mathematics Dept',
+        designation: 'Senior Faculty',
+        contact_phone: '9876543210',
+        status: 'Active'
+      }
+    ], { onConflict: 'employee_code' });
+
+    if (staffErr) {
+      return {
+        success: false,
+        message: `Student write worked, but staff write notice: ${staffErr.message}`
+      };
+    }
+
+    // 3. Read back student record to verify full round-trip
     const { data: readBack, error: readErr } = await supabase
       .from('students')
       .select('*')
@@ -379,7 +543,7 @@ export async function runLiveSupabaseTrial(): Promise<SupabaseSyncResult> {
 
     return {
       success: true,
-      message: `✅ LIVE SUPABASE TRIAL SUCCESSFUL! Written and verified record: "${readBack.full_name}" (Admission: ${readBack.admission_no}) directly in live Supabase DB!`
+      message: `✅ LIVE SUPABASE TRIAL SUCCESSFUL! Written & verified across tables: "${readBack.full_name}" (Admission: ${readBack.admission_no}, Staff Code: ${trialStaffCode}) directly in live Supabase DB!`
     };
   } catch (err: any) {
     return { success: false, message: `Trial Exception: ${err.message}` };

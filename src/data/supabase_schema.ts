@@ -143,6 +143,76 @@ CREATE TABLE IF NOT EXISTS public.library_books (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 11. LEAVE APPLICATIONS TABLE
+CREATE TABLE IF NOT EXISTS public.leave_applications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    applicant_name VARCHAR(150) NOT NULL,
+    applicant_type VARCHAR(20) DEFAULT 'Staff', -- Staff, Student
+    leave_type VARCHAR(50) NOT NULL, -- Casual, Sick, Earned, Duty
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    reason TEXT,
+    status VARCHAR(20) DEFAULT 'Pending', -- Pending, Approved, Rejected
+    approved_by VARCHAR(150),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 12. EXIT INTERVIEWS & HR EVALUATIONS TABLE
+CREATE TABLE IF NOT EXISTS public.exit_interviews (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    candidate_name VARCHAR(150) NOT NULL,
+    department VARCHAR(100) NOT NULL,
+    designation VARCHAR(100) NOT NULL,
+    interview_type VARCHAR(50) DEFAULT 'Exit Interview', -- Exit Interview, Hiring Interview
+    interview_date DATE DEFAULT CURRENT_DATE,
+    interviewer_name VARCHAR(150),
+    feedback_notes TEXT,
+    rating VARCHAR(20) DEFAULT 'Recommended',
+    status VARCHAR(30) DEFAULT 'Completed',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 13. INVENTORY & ASSETS TABLE
+CREATE TABLE IF NOT EXISTS public.inventory_items (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    item_code VARCHAR(50) UNIQUE NOT NULL,
+    item_name VARCHAR(150) NOT NULL,
+    category VARCHAR(100) NOT NULL,
+    total_quantity INT DEFAULT 1,
+    available_quantity INT DEFAULT 1,
+    unit_price DECIMAL(10, 2) DEFAULT 0.00,
+    storage_location VARCHAR(100),
+    status VARCHAR(30) DEFAULT 'In Stock',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 14. HOSTEL MANAGEMENT TABLE
+CREATE TABLE IF NOT EXISTS public.hostel_rooms (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    room_number VARCHAR(30) UNIQUE NOT NULL,
+    block_name VARCHAR(50) NOT NULL, -- Boys Hostel, Girls Hostel
+    room_type VARCHAR(30) NOT NULL, -- Single, Double, Triple
+    total_beds INT DEFAULT 2,
+    occupied_beds INT DEFAULT 0,
+    monthly_rent DECIMAL(10, 2) DEFAULT 5000.00,
+    status VARCHAR(20) DEFAULT 'Available',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 15. VISITOR PASSES TABLE
+CREATE TABLE IF NOT EXISTS public.visitor_passes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    pass_number VARCHAR(50) UNIQUE NOT NULL,
+    visitor_name VARCHAR(150) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    purpose TEXT NOT NULL,
+    person_to_meet VARCHAR(150) NOT NULL,
+    check_in_time TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    check_out_time TIMESTAMP WITH TIME ZONE,
+    status VARCHAR(20) DEFAULT 'Checked In',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
@@ -154,6 +224,11 @@ ALTER TABLE public.fee_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admission_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.library_books ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.leave_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.exit_interviews ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hostel_rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.visitor_passes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
 DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
@@ -165,6 +240,11 @@ DROP POLICY IF EXISTS "Allow public full access to fee_collections" ON public.fe
 DROP POLICY IF EXISTS "Allow public full access to admission_leads" ON public.admission_leads;
 DROP POLICY IF EXISTS "Allow public full access to transport_routes" ON public.transport_routes;
 DROP POLICY IF EXISTS "Allow public full access to library_books" ON public.library_books;
+DROP POLICY IF EXISTS "Allow public full access to leave_applications" ON public.leave_applications;
+DROP POLICY IF EXISTS "Allow public full access to exit_interviews" ON public.exit_interviews;
+DROP POLICY IF EXISTS "Allow public full access to inventory_items" ON public.inventory_items;
+DROP POLICY IF EXISTS "Allow public full access to hostel_rooms" ON public.hostel_rooms;
+DROP POLICY IF EXISTS "Allow public full access to visitor_passes" ON public.visitor_passes;
 
 CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
@@ -176,6 +256,11 @@ CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collec
 CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to library_books" ON public.library_books FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to leave_applications" ON public.leave_applications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to exit_interviews" ON public.exit_interviews FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to inventory_items" ON public.inventory_items FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to hostel_rooms" ON public.hostel_rooms FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to visitor_passes" ON public.visitor_passes FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS
