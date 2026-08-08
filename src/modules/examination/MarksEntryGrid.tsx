@@ -32,13 +32,13 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
   const activeSubject = subjects.find((s) => s.id === selectedSubjectId) || subjects[0];
   const activeExam = examTypes.find((e) => e.id === selectedExamId) || examTypes[0];
 
-  const targetClassNorm = selectedClass.toLowerCase().replace(/class/g, '').trim();
+  const targetClassNorm = selectedClass.toLowerCase().replace(/class/g, '').replace(/th|st|nd|rd/g, '').trim();
   const targetSectionNorm = selectedSection.toLowerCase().trim();
 
   const filteredStudents = students.filter((s) => {
-    const stdClassNorm = (s.currentClass || s.admissionClass || '').toLowerCase().replace(/class/g, '').trim();
-    const stdSecNorm = (s.section || 'A').toLowerCase().trim();
-    return (stdClassNorm === targetClassNorm || stdClassNorm === selectedClass.toLowerCase()) && stdSecNorm === targetSectionNorm;
+    const stdClass = (s.currentClass || s.admissionClass || '').toLowerCase().replace(/class/g, '').replace(/th|st|nd|rd/g, '').trim();
+    const stdSec = (s.section || 'A').toLowerCase().trim();
+    return (stdClass === targetClassNorm || s.currentClass === selectedClass) && (stdSec === targetSectionNorm || !s.section);
   });
 
   const marksheetId = `ms-${selectedClass.toLowerCase().replace(/\s+/g, '')}-${selectedSection.toLowerCase()}-${selectedSubjectId}-${selectedExamId}`;
@@ -53,7 +53,7 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
     entries: {}
   };
 
-  const handleScoreChange = (studentId: string, field: 'theoryMarks' | 'internalMarks' | 'practicalMarks', value: number) => {
+  const handleScoreChange = (studentId: string, field: 'theoryMarks' | 'internalMarks' | 'practicalMarks', rawVal: string) => {
     if (currentMarksheet.isLocked) return;
 
     const existingEntry = currentMarksheet.entries[studentId] || {
@@ -64,7 +64,8 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
       status: 'Present'
     };
 
-    const updated = { ...existingEntry, [field]: value };
+    const numVal = rawVal === '' ? 0 : Math.max(0, Number(rawVal));
+    const updated = { ...existingEntry, [field]: numVal };
     const total = (updated.theoryMarks || 0) + (updated.internalMarks || 0) + (updated.practicalMarks || 0);
     updated.totalMarksObtained = total;
 
@@ -277,8 +278,9 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
                             disabled={currentMarksheet.isLocked || entry.status === 'Absent'}
                             min={0}
                             max={activeSubject.theoryMaxMarks}
-                            value={entry.theoryMarks || 0}
-                            onChange={(e) => handleScoreChange(std.id, 'theoryMarks', Number(e.target.value))}
+                            value={entry.theoryMarks ?? 0}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleScoreChange(std.id, 'theoryMarks', e.target.value)}
                             className="w-20 px-2 py-1 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-900 dark:text-white font-bold"
                           />
                         </td>
@@ -291,8 +293,9 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
                             disabled={currentMarksheet.isLocked || entry.status === 'Absent'}
                             min={0}
                             max={activeSubject.practicalMaxMarks}
-                            value={entry.practicalMarks || 0}
-                            onChange={(e) => handleScoreChange(std.id, 'practicalMarks', Number(e.target.value))}
+                            value={entry.practicalMarks ?? 0}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleScoreChange(std.id, 'practicalMarks', e.target.value)}
                             className="w-20 px-2 py-1 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-900 dark:text-white font-bold"
                           />
                         </td>
@@ -305,8 +308,9 @@ export const MarksEntryGrid: React.FC<MarksEntryGridProps> = ({
                             disabled={currentMarksheet.isLocked || entry.status === 'Absent'}
                             min={0}
                             max={activeSubject.internalMaxMarks}
-                            value={entry.internalMarks || 0}
-                            onChange={(e) => handleScoreChange(std.id, 'internalMarks', Number(e.target.value))}
+                            value={entry.internalMarks ?? 0}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) => handleScoreChange(std.id, 'internalMarks', e.target.value)}
                             className="w-20 px-2 py-1 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-900 dark:text-white font-bold"
                           />
                         </td>
