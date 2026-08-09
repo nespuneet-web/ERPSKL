@@ -27,6 +27,7 @@ import {
   MapPin,
   Plus,
   Trash2,
+  Edit3,
   ShieldCheck,
   Eye,
   Settings,
@@ -240,6 +241,9 @@ export const TimetableModule: React.FC = () => {
   // Teacher Mobile Simulation State
   const [selectedMobileTeacher, setSelectedMobileTeacher] = useState<string>('RAKESH SHARMA');
   const [mobileRemarksInput, setMobileRemarksInput] = useState<{ [dutyId: string]: string }>({});
+
+  // Round Duty Edit Modal state
+  const [editingRoundDuty, setEditingRoundDuty] = useState<RoundDutyRecord | null>(null);
 
   // QR Code Scanner Modal state
   const [qrScannerDuty, setQrScannerDuty] = useState<RoundDutyRecord | null>(null);
@@ -2103,13 +2107,22 @@ export const TimetableModule: React.FC = () => {
                               </div>
                             </td>
                             <td className="py-3 px-4 text-right">
-                              <button
-                                onClick={() => setRoundDuties((prev) => prev.filter((r) => r.id !== rd.id))}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
-                                title="Remove Duty"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              <div className="flex items-center justify-end gap-1">
+                                <button
+                                  onClick={() => setEditingRoundDuty(rd)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-950/40 cursor-pointer"
+                                  title="Edit Round Duty"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => setRoundDuties((prev) => prev.filter((r) => r.id !== rd.id))}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 cursor-pointer"
+                                  title="Remove Duty"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -2654,6 +2667,179 @@ export const TimetableModule: React.FC = () => {
         </div>
       )}
 
+      {/* EDIT ROUND DUTY MODAL */}
+      {editingRoundDuty && (
+        <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-lg rounded-2xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <h3 className="text-base font-extrabold flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                <Edit3 className="w-5 h-5" />
+                Edit Round Patrol Duty
+              </h3>
+              <button
+                onClick={() => setEditingRoundDuty(null)}
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Assigned Faculty / Teacher
+                </label>
+                <select
+                  value={editingRoundDuty.teacherName}
+                  onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, teacherName: e.target.value })}
+                  className="w-full px-3 py-2 font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer"
+                >
+                  {teacherTimetables.map((t) => (
+                    <option key={t.id} value={t.teacherName}>
+                      {t.teacherName} ({t.department || 'General'})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Patrol Location / Campus Area
+                </label>
+                <select
+                  value={editingRoundDuty.location}
+                  onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, location: e.target.value })}
+                  className="w-full px-3 py-2 font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer mb-1.5"
+                >
+                  {roundLocations.map((loc) => (
+                    <option key={loc} value={loc}>
+                      {loc}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="text"
+                  placeholder="Or type custom patrol location..."
+                  value={editingRoundDuty.location}
+                  onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, location: e.target.value })}
+                  className="w-full px-3 py-2 font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Day of Week
+                  </label>
+                  <select
+                    value={editingRoundDuty.day}
+                    onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, day: e.target.value as TimetableDay })}
+                    className="w-full px-3 py-2 font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    {TIMETABLE_DAYS.map((d) => (
+                      <option key={d} value={d}>
+                        {d}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Period Number
+                  </label>
+                  <select
+                    value={editingRoundDuty.periodNumber}
+                    onChange={(e) => {
+                      const pNum = Number(e.target.value);
+                      setEditingRoundDuty({
+                        ...editingRoundDuty,
+                        periodNumber: pNum,
+                        timeSlot: getTimeSlotForPeriod(pNum)
+                      });
+                    }}
+                    className="w-full px-3 py-2 font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => (
+                      <option key={p} value={p}>
+                        Period #{p} ({getTimeSlotForPeriod(p)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={editingRoundDuty.status}
+                    onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, status: e.target.value as any })}
+                    className="w-full px-3 py-2 font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer"
+                  >
+                    <option value="Assigned">Assigned</option>
+                    <option value="Checked In">Checked In</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Missed">Missed</option>
+                    <option value="Alert Dispatched">Alert Dispatched</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Fixed Duty Lock
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setEditingRoundDuty({ ...editingRoundDuty, isFixed: !editingRoundDuty.isFixed })}
+                    className={`w-full py-2 px-3 rounded-xl font-bold border transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                      editingRoundDuty.isFixed
+                        ? 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-300 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {editingRoundDuty.isFixed ? <Lock className="w-3.5 h-3.5 text-amber-600" /> : <Unlock className="w-3.5 h-3.5 text-slate-400" />}
+                    <span>{editingRoundDuty.isFixed ? 'Fixed Daily Duty' : 'Flexible Duty'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Remarks / Observations
+                </label>
+                <input
+                  type="text"
+                  value={editingRoundDuty.remarks || ''}
+                  onChange={(e) => setEditingRoundDuty({ ...editingRoundDuty, remarks: e.target.value })}
+                  placeholder="e.g. Free period security patrol duty"
+                  className="w-full px-3 py-2 font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setEditingRoundDuty(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setRoundDuties((prev) => prev.map((r) => (r.id === editingRoundDuty.id ? editingRoundDuty : r)));
+                  setEditingRoundDuty(null);
+                }}
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs shadow-md cursor-pointer"
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

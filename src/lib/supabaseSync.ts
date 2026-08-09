@@ -2,7 +2,7 @@ import { supabase } from './supabase';
 import { TeacherTimetableRecord } from '../modules/timetable/timetableData';
 import { Student } from '../types/sis';
 import { AdmissionApplication } from '../types/admission';
-import { StaffMember } from '../types/staff';
+import { StaffMember } from '../types/otherModules';
 
 export interface SupabaseSyncResult {
   success: boolean;
@@ -118,11 +118,11 @@ export async function syncAdmissionLeadToSupabase(app: AdmissionApplication): Pr
     const payload = {
       lead_no: app.applicationNo || `APP-${Date.now()}`,
       applicant_name: (app.studentName || '').toUpperCase(),
-      parent_name: app.fatherName || '',
-      phone: app.contactPhone || '',
-      class_seeking: app.classApplyingFor || 'Class 1',
+      parent_name: app.parentName || '',
+      phone: app.contactNumber || '',
+      class_seeking: app.applyingClass || 'Class 1',
       lead_source: 'Online Portal',
-      status: app.status || 'Inquiry Received'
+      status: app.status || 'Received'
     };
 
     const { data, error } = await supabase

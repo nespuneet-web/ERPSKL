@@ -87,8 +87,25 @@ export function useExamStore() {
   };
 
   const saveStudentMark = (marksheetId: string, studentId: string, entry: StudentMarkEntry) => {
-    setMarksheets((prev) =>
-      prev.map((ms) => {
+    setMarksheets((prev) => {
+      const exists = prev.some((ms) => ms.id === marksheetId);
+      if (!exists) {
+        const newSheet: ExamMarkSheet = {
+          id: marksheetId,
+          examTypeId: '',
+          className: '',
+          sectionName: '',
+          subjectId: '',
+          academicYear: '2025-2026',
+          isLocked: false,
+          entries: {
+            [studentId]: entry
+          }
+        };
+        return [...prev, newSheet];
+      }
+
+      return prev.map((ms) => {
         if (ms.id === marksheetId) {
           if (ms.isLocked) return ms; // Cannot edit locked marksheet
           return {
@@ -100,8 +117,8 @@ export function useExamStore() {
           };
         }
         return ms;
-      })
-    );
+      });
+    });
   };
 
   const syncMarksheetBatch = async (
@@ -134,8 +151,24 @@ export function useExamStore() {
   };
 
   const toggleMarksheetLock = (marksheetId: string, lockedBy: string) => {
-    setMarksheets((prev) =>
-      prev.map((ms) => {
+    setMarksheets((prev) => {
+      const exists = prev.some((ms) => ms.id === marksheetId);
+      if (!exists) {
+        const newSheet: ExamMarkSheet = {
+          id: marksheetId,
+          examTypeId: '',
+          className: '',
+          sectionName: '',
+          subjectId: '',
+          academicYear: '2025-2026',
+          isLocked: true,
+          lockedBy: lockedBy,
+          lockedAt: new Date().toISOString(),
+          entries: {}
+        };
+        return [...prev, newSheet];
+      }
+      return prev.map((ms) => {
         if (ms.id === marksheetId) {
           return {
             ...ms,
@@ -145,8 +178,8 @@ export function useExamStore() {
           };
         }
         return ms;
-      })
-    );
+      });
+    });
   };
 
   const saveReportTemplate = (template: ReportCardTemplate) => {

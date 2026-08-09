@@ -21,6 +21,7 @@ import { HostelModule } from './modules/hostel';
 import { VisitorModule } from './modules/visitor';
 import { SettingsModule } from './modules/settings';
 import { SupabaseCloudHub } from './components/SupabaseCloudHub';
+import { UserLoginModal } from './components/UserLoginModal';
 
 import {
   Users,
@@ -47,7 +48,8 @@ import {
   Menu,
   X,
   Database,
-  Globe
+  Globe,
+  LogIn
 } from 'lucide-react';
 
 const MODULE_LIST = [
@@ -79,6 +81,7 @@ function ErpLayout() {
   const [activeModule, setActiveModule] = useState('sis');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
   const { activeRole, setActiveRole, academicYear, setAcademicYear, notifications, auditLogs } = useAuth();
 
@@ -249,11 +252,21 @@ function ErpLayout() {
               <option value="2024-2025">Session 2024-2025</option>
             </select>
 
+            {/* User Login & Password Button */}
+            <button
+              onClick={() => setIsLoginModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
+              title="User Login & Password Credentials"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>User Login</span>
+            </button>
+
             {/* Role Switcher */}
             <select
               value={activeRole}
               onChange={(e) => setActiveRole(e.target.value as any)}
-              className="px-3 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 rounded-lg"
+              className="px-3 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 rounded-lg cursor-pointer"
             >
               <option value="Super Admin">Role: Super Admin</option>
               <option value="School Admin">Role: School Admin</option>
@@ -281,6 +294,8 @@ function ErpLayout() {
             {renderActiveModule()}
           </div>
         </main>
+
+        <UserLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
       </div>
     </div>
   );
