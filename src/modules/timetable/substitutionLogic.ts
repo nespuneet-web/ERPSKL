@@ -77,6 +77,13 @@ export interface CandidateTeacherScore {
   reasons: string[];
 }
 
+export interface SubstitutionExclusionRules {
+  excludeCoordinators?: boolean;
+  excludedDeptList?: string[];
+  excludedTeacherList?: string[];
+  excludedPeriodList?: number[];
+}
+
 /**
  * Ranks and scores all available free teachers for a specific period on a specific day
  */
@@ -87,8 +94,14 @@ export function rankCandidateSubstitutes(
   targetClass: string,
   allTeachers: TeacherTimetableRecord[],
   constraintMode: SubstitutionConstraintMode = 'same_dept_first',
-  roundDutyTeacherNamesForPeriod?: Set<string>
+  roundDutyTeacherNamesForPeriod?: Set<string>,
+  exclusionRules?: SubstitutionExclusionRules
 ): CandidateTeacherScore[] {
+  // Check if period is in excluded periods list
+  if (exclusionRules?.excludedPeriodList && exclusionRules.excludedPeriodList.includes(periodNo)) {
+    return [];
+  }
+
   const absentDept = (absentTeacher.department || 'Senior Secondary').toLowerCase();
   const targetClassLevel = getClassGradeLevel(targetClass);
 
@@ -99,6 +112,26 @@ export function rankCandidateSubstitutes(
     if (roundDutyTeacherNamesForPeriod && roundDutyTeacherNamesForPeriod.has(t.teacherName)) {
       return false; // Exclude teachers on Round Duty!
     }
+
+    // Check exclusion rules: Academic Coordinator
+    if (exclusionRules?.excludeCoordinators) {
+      const tUpper = t.teacherName.toUpperCase();
+      const dUpper = (t.department || '').toUpperCase();
+      if (tUpper.includes('ANKUR KABRA') || tUpper.includes('COORDINATOR') || dUpper.includes('COORDINATOR')) {
+        return false;
+      }
+    }
+
+    // Check exclusion rules: Excluded Departments
+    if (exclusionRules?.excludedDeptList && exclusionRules.excludedDeptList.includes(t.department || '')) {
+      return false;
+    }
+
+    // Check exclusion rules: Excluded Teachers
+    if (exclusionRules?.excludedTeacherList && exclusionRules.excludedTeacherList.includes(t.teacherName)) {
+      return false;
+    }
+
     const slotVal = t.schedule[`${day}_${periodNo}`];
     return !slotVal || slotVal.trim() === ''; // Must be vacant/free
   });
@@ -170,7 +203,8 @@ export function runAutoSubstitutionForDay(
   scheduledPeriods: Array<{ periodNo: number; timeSlot: string; classSec: string; subject: string }>,
   allTeachers: TeacherTimetableRecord[],
   constraintMode: SubstitutionConstraintMode = 'same_dept_first',
-  getRoundDutyTeachersForPeriod?: (periodNo: number) => Set<string>
+  getRoundDutyTeachersForPeriod?: (periodNo: number) => Set<string>,
+  exclusionRules?: SubstitutionExclusionRules
 ): { [periodNo: number]: string } {
   const result: { [periodNo: number]: string } = {};
   const assignedTeachersInSession = new Set<string>();
@@ -184,7 +218,8 @@ export function runAutoSubstitutionForDay(
       slot.classSec,
       allTeachers,
       constraintMode,
-      roundDutySet
+      roundDutySet,
+      exclusionRules
     );
 
     // Pick top candidate not already heavily loaded or assigned in adjacent slots if possible

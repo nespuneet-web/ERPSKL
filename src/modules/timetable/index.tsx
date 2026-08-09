@@ -66,6 +66,7 @@ import {
 } from './substitutionLogic';
 import { TeacherTimetableEditor } from './TeacherTimetableEditor';
 import { BulkUploadSection } from './BulkUploadSection';
+import { TeacherDutyAnalytics } from './TeacherDutyAnalytics';
 
 export interface RoundDutyRecord {
   id: string;
@@ -98,6 +99,7 @@ export const TimetableModule: React.FC = () => {
     | 'master_free_periods'
     | 'arrangements'
     | 'round_duty'
+    | 'duty_analytics'
     | 'dept_manager'
     | 'schedule'
   >('teacher_editor');
@@ -107,6 +109,12 @@ export const TimetableModule: React.FC = () => {
 
   // Department filter for Master Free Periods
   const [selectedDepartmentFilter, setSelectedDepartmentFilter] = useState<string>('ALL');
+
+  // Duty & Substitution Exclusion Rules Constraints
+  const [excludeCoordinators, setExcludeCoordinators] = useState<boolean>(true);
+  const [excludedDeptList, setExcludedDeptList] = useState<string[]>(['Administration']);
+  const [excludedTeacherList, setExcludedTeacherList] = useState<string[]>([]);
+  const [excludedPeriodList, setExcludedPeriodList] = useState<number[]>([]);
 
   // Master Teacher Timetables state (persisted in localStorage)
   const [teacherTimetables, setTeacherTimetables] = useState<TeacherTimetableRecord[]>(() => {
@@ -439,10 +447,15 @@ export const TimetableModule: React.FC = () => {
     let createdCount = 0;
 
     TIMETABLE_PERIODS.forEach((pNo) => {
+      // Check if period is excluded from round duty
+      if (excludedPeriodList.includes(pNo)) return;
+
       // Teachers unavailable in this period:
       // 1. Absent teachers
       // 2. Teachers on substitution in this period
       // 3. Teachers already on fixed round duty in this period
+      // 4. Academic Coordinators (if excludeCoordinators is true)
+      // 5. Excluded departments & excluded teacher list
       const subTeacherNames = new Set(
         activeArrangementsList
           .filter((a) => a.periodNumber === pNo)
@@ -453,6 +466,21 @@ export const TimetableModule: React.FC = () => {
         if (teacherAttendanceMap[t.teacherName] === 'Absent' || teacherAttendanceMap[t.teacherName] === 'On Leave') return false;
         if (subTeacherNames.has(t.teacherName)) return false;
         if (fixedTeachersMap.has(`${pNo}_${t.teacherName}`)) return false;
+
+        // Exclusion constraint 1: Academic Coordinators
+        if (excludeCoordinators) {
+          const tUpper = t.teacherName.toUpperCase();
+          const dUpper = (t.department || '').toUpperCase();
+          if (tUpper.includes('ANKUR KABRA') || tUpper.includes('COORDINATOR') || dUpper.includes('COORDINATOR')) {
+            return false;
+          }
+        }
+
+        // Exclusion constraint 2: Excluded Departments
+        if (excludedDeptList.includes(t.department || '')) return false;
+
+        // Exclusion constraint 3: Excluded Teacher Names
+        if (excludedTeacherList.includes(t.teacherName)) return false;
 
         const slotVal = t.schedule[`${day}_${pNo}`];
         return !slotVal || slotVal.trim() === '';
@@ -620,12 +648,21 @@ export const TimetableModule: React.FC = () => {
 
       if (scheduledPeriods.length === 0) return;
 
+      const exclusionRules = {
+        excludeCoordinators,
+        excludedDeptList,
+        excludedTeacherList,
+        excludedPeriodList
+      };
+
       const autoMap = runAutoSubstitutionForDay(
         selectedDay,
         absentRecord,
         scheduledPeriods,
         teacherTimetables,
-        constraintMode
+        constraintMode,
+        undefined,
+        exclusionRules
       );
 
       scheduledPeriods.forEach((slot) => {
@@ -935,6 +972,17 @@ export const TimetableModule: React.FC = () => {
           }`}
         >
           <Compass className="w-4 h-4 text-rose-300" /> Round Duty Patrol
+        </button>
+
+        <button
+          onClick={() => setActiveTab('duty_analytics')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+            activeTab === 'duty_analytics'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }`}
+        >
+          <Award className="w-4 h-4 text-amber-300" /> Duty Analytics & Leaderboard
         </button>
 
         <button
@@ -1768,6 +1816,96 @@ export const TimetableModule: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* AUTO-DUTY & SUBSTITUTION EXCLUSION CONSTRAINTS CONFIGURATOR */}
+            <div className="bg-slate-950/80 p-5 rounded-xl border border-amber-500/40 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div>
+                  <span className="text-xs font-black text-amber-300 uppercase tracking-wider flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    Auto-Assign Round & Substitution Duty Exclusion Rules
+                  </span>
+                  <p className="text-[11px] text-slate-300 mt-0.5">
+                    Select rules to prevent specific teachers, departments, or periods from being assigned round duties or substitutions.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                {/* Rule 1: Academic Coordinator Exclusion Constraint */}
+                <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                  <label className="flex items-center gap-2.5 font-bold text-white cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={excludeCoordinators}
+                      onChange={(e) => setExcludeCoordinators(e.target.checked)}
+                      className="w-4 h-4 text-amber-500 rounded border-slate-700 focus:ring-amber-500 bg-slate-950"
+                    />
+                    <span>🛡️ Exclude Academic Coordinators (Dr. Ankur Kabra / Coordinators)</span>
+                  </label>
+                  <p className="text-[11px] text-slate-400 pl-6">
+                    When checked, Academic Coordinators will NEVER be assigned round duties or substitution periods during auto-rounds.
+                  </p>
+                </div>
+
+                {/* Rule 2: Department Exclusions Checkboxes */}
+                <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2">
+                  <span className="font-bold text-white block">🏢 Exclude Entire Departments:</span>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    {SCHOOL_DEPARTMENTS.map((dept) => {
+                      const isExcluded = excludedDeptList.includes(dept);
+                      return (
+                        <label key={dept} className="flex items-center gap-2 text-slate-300 cursor-pointer select-none text-[11px]">
+                          <input
+                            type="checkbox"
+                            checked={isExcluded}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setExcludedDeptList((prev) => [...prev, dept]);
+                              } else {
+                                setExcludedDeptList((prev) => prev.filter((d) => d !== dept));
+                              }
+                            }}
+                            className="w-3.5 h-3.5 text-amber-500 rounded border-slate-700 bg-slate-950"
+                          />
+                          <span className={isExcluded ? 'text-amber-300 font-bold line-through' : ''}>{dept}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Rule 3: Period Exclusions */}
+              <div className="p-3.5 bg-slate-900 rounded-xl border border-slate-800 space-y-2 text-xs">
+                <span className="font-bold text-white block">⏰ Exclude Specific Periods From Auto-Duties:</span>
+                <div className="flex items-center gap-2 flex-wrap pt-1">
+                  {TIMETABLE_PERIODS.map((pNo) => {
+                    const isEx = excludedPeriodList.includes(pNo);
+                    return (
+                      <button
+                        key={pNo}
+                        type="button"
+                        onClick={() => {
+                          if (isEx) {
+                            setExcludedPeriodList((prev) => prev.filter((p) => p !== pNo));
+                          } else {
+                            setExcludedPeriodList((prev) => [...prev, pNo]);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl font-extrabold text-[11px] cursor-pointer transition-all border ${
+                          isEx
+                            ? 'bg-rose-950 text-rose-300 border-rose-600 line-through'
+                            : 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700'
+                        }`}
+                      >
+                        {isEx ? `❌ Period #${pNo} Excluded` : `Period #${pNo}`}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* SECTION 1: ADMINISTRATOR REAL-TIME SECURITY RADAR & DUTY MONITOR */}
@@ -1892,6 +2030,21 @@ export const TimetableModule: React.FC = () => {
                             </button>
                           </div>
                         )}
+
+                        {/* Direct Edit Output Button */}
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingRoundDuty(rd);
+                            }}
+                            className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-[11px] rounded-xl shadow cursor-pointer flex items-center justify-center gap-1.5 transition-all"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit Round / Apply Different Assignment</span>
+                          </button>
+                        </div>
                       </div>
                     );
                   })}
@@ -2133,6 +2286,15 @@ export const TimetableModule: React.FC = () => {
             )}
           </div>
         </div>
+      )}
+
+      {/* TAB: DUTY ANALYTICS & ANNUAL WORKLOAD LEADERBOARD */}
+      {activeTab === 'duty_analytics' && (
+        <TeacherDutyAnalytics
+          teacherTimetables={teacherTimetables}
+          roundDuties={roundDuties}
+          arrangements={arrangements}
+        />
       )}
 
       {/* TAB 6: DEPARTMENT ASSIGNMENTS & RULE CONSTRAINTS */}

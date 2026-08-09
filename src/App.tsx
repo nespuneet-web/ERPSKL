@@ -20,6 +20,7 @@ import { InventoryModule } from './modules/inventory';
 import { HostelModule } from './modules/hostel';
 import { VisitorModule } from './modules/visitor';
 import { SettingsModule } from './modules/settings';
+import { LessonPlansModule } from './modules/lessonPlans';
 import { SupabaseCloudHub } from './components/SupabaseCloudHub';
 import { UserLoginModal } from './components/UserLoginModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
@@ -51,7 +52,8 @@ import {
   X,
   Database,
   Globe,
-  LogIn
+  LogIn,
+  BookOpen
 } from 'lucide-react';
 
 const MODULE_LIST = [
@@ -60,6 +62,7 @@ const MODULE_LIST = [
   { id: 'examination', name: 'Examination & Reports', icon: Award, category: 'Core Academic' },
   { id: 'attendance', name: 'Daily Attendance', icon: Calendar, category: 'Core Academic' },
   { id: 'timetable', name: 'Timetable Engine', icon: Clock, category: 'Core Academic' },
+  { id: 'lesson_plans', name: 'Lesson Plans & Syllabus', icon: BookOpen, category: 'Core Academic' },
 
   { id: 'fees', name: 'Fees & Collections', icon: DollarSign, category: 'Finance & Admin' },
   { id: 'staff', name: 'Staff Directory', icon: Users, category: 'Finance & Admin' },
@@ -111,6 +114,8 @@ function ErpLayout() {
         return <AttendanceModule />;
       case 'timetable':
         return <TimetableModule />;
+      case 'lesson_plans':
+        return <LessonPlansModule />;
       case 'transport':
         return <TransportModule />;
       case 'library':
