@@ -26,7 +26,10 @@ export function useAdmissionStore() {
     localStorage.setItem(ADMISSION_STORAGE_KEY, JSON.stringify(applications));
   }, [applications]);
 
-  const addApplication = async (app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status'>) => {
+  const addApplication = async (
+    app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status'>,
+    userContext?: { username?: string; role?: string }
+  ) => {
     const newApp: AdmissionApplication = {
       ...app,
       id: `app-${Date.now()}`,
@@ -38,14 +41,19 @@ export function useAdmissionStore() {
 
     // Live Sync to Supabase
     setSyncStatus(`Syncing admission for "${newApp.studentName}" to Supabase...`);
-    const res = await syncAdmissionLeadToSupabase(newApp);
+    const res = await syncAdmissionLeadToSupabase(newApp, userContext);
     setSyncStatus(res.message);
     setTimeout(() => setSyncStatus(null), 5000);
 
     return newApp;
   };
 
-  const updateApplicationStatus = async (id: string, status: AdmissionApplication['status'], remarks?: string) => {
+  const updateApplicationStatus = async (
+    id: string,
+    status: AdmissionApplication['status'],
+    remarks?: string,
+    userContext?: { username?: string; role?: string }
+  ) => {
     let updatedApp: AdmissionApplication | null = null;
     setApplications((prev) =>
       prev.map((a) => {
@@ -58,7 +66,7 @@ export function useAdmissionStore() {
     );
 
     if (updatedApp) {
-      const res = await syncAdmissionLeadToSupabase(updatedApp);
+      const res = await syncAdmissionLeadToSupabase(updatedApp, userContext);
       setSyncStatus(res.message);
       setTimeout(() => setSyncStatus(null), 5000);
     }

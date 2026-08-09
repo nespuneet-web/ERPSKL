@@ -12,11 +12,11 @@ interface UserCredential {
 }
 
 const DEFAULT_CREDENTIALS: UserCredential[] = [
-  { username: 'student', password: 'student123', role: 'Student', name: 'Aarav Sharma (Student)', id: 'std-101' },
-  { username: 'teacher1', password: 'teacher123', role: 'Teacher', name: 'Ankur Kabra (PGT Maths)', id: 'tch-201' },
-  { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Dr. V. K. Sharma (Super Admin)', id: 'adm-001' },
-  { username: 'schooladmin', password: 'admin123', role: 'School Admin', name: 'Meenakshi Verma (Principal)', id: 'adm-002' },
-  { username: 'parent', password: 'parent123', role: 'Parent', name: 'Rajesh Sharma (Parent)', id: 'prn-301' }
+  { username: 'student', password: 'Student 123', role: 'Student', name: 'Aarav Sharma (Student)', id: 'std-101' },
+  { username: 'teacher1', password: 'Teacher 123', role: 'Teacher', name: 'Ankur Kabra (PGT Maths)', id: 'tch-201' },
+  { username: 'admin', password: 'Admin 123', role: 'Super Admin', name: 'Dr. V. K. Sharma (Super Admin)', id: 'adm-001' },
+  { username: 'principal', password: 'Principal 123', role: 'School Admin', name: 'Meenakshi Verma (Principal)', id: 'adm-002' },
+  { username: 'parent', password: 'Parent 123', role: 'Parent', name: 'Rajesh Sharma (Parent)', id: 'prn-301' }
 ];
 
 const STORAGE_KEY = 'schoolerp_user_credentials_v1';
@@ -64,11 +64,13 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const cleanUser = usernameInput.trim().toLowerCase();
-    const cleanPass = passwordInput.trim();
+    const cleanPass = passwordInput.trim().toLowerCase().replace(/\s+/g, '');
 
-    // 1. Direct match in credentials store
+    // 1. Direct or normalized match in credentials store
     const found = credentials.find(
-      (c) => c.username.toLowerCase() === cleanUser && c.password === cleanPass
+      (c) =>
+        c.username.toLowerCase() === cleanUser &&
+        (c.password.toLowerCase().replace(/\s+/g, '') === cleanPass || c.password === passwordInput.trim())
     );
 
     if (found) {
@@ -433,7 +435,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
         {/* Modal Footer Info */}
         <div className="pt-2 text-[10px] text-slate-400 text-center border-t border-slate-200 dark:border-slate-800 space-y-1.5">
           <div>
-            Default Passwords: Student (<code>student</code> / <code>student123</code>) • Teacher (<code>teacher1</code> / <code>teacher123</code>) • Admin (<code>admin</code> / <code>admin123</code>)
+            Default Passwords: Student (<code>student</code> / <code>Student 123</code>) • Teacher (<code>teacher1</code> / <code>Teacher 123</code>) • Principal (<code>principal</code> / <code>Principal 123</code>) • Admin (<code>admin</code> / <code>Admin 123</code>)
           </div>
           <div>
             <button

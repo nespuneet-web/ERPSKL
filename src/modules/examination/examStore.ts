@@ -126,23 +126,27 @@ export function useExamStore() {
     className: string,
     sectionName: string,
     subjectName: string,
-    studentList: { admissionNo: string; name: string; marksObtained: number; remarks?: string }[]
+    studentList: { admissionNo: string; name: string; marksObtained: number; remarks?: string }[],
+    userContext?: { username?: string; role?: string }
   ) => {
     if (studentList.length === 0) return;
     setSyncStatus(`Syncing ${studentList.length} student marks for "${subjectName}" to Supabase...`);
     
     let lastMsg = '';
     for (const item of studentList) {
-      const res = await syncMarksheetToSupabase({
-        examName,
-        className,
-        sectionName,
-        subjectName,
-        studentAdmissionNo: item.admissionNo,
-        studentName: item.name,
-        marksObtained: item.marksObtained,
-        remarks: item.remarks || 'Marksheet evaluated'
-      });
+      const res = await syncMarksheetToSupabase(
+        {
+          examName,
+          className,
+          sectionName,
+          subjectName,
+          studentAdmissionNo: item.admissionNo,
+          studentName: item.name,
+          marksObtained: item.marksObtained,
+          remarks: item.remarks || 'Marksheet evaluated'
+        },
+        userContext
+      );
       lastMsg = res.message;
     }
 

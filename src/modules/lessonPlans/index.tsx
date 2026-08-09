@@ -27,7 +27,17 @@ export const LessonPlansModule: React.FC = () => {
   const { plans, alerts, updateLessonPlanStatus, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
   const { activeRole, currentUser, logActivity } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'teacher_entry' | 'principal_view' | 'communication_log'>('principal_view');
+  const isTeacherOnly = activeRole.toLowerCase().includes('teacher') && !['Super Admin', 'School Admin', 'Principal', 'Supervisor', 'Examination Incharge'].includes(activeRole);
+
+  const [activeTab, setActiveTab] = useState<'teacher_entry' | 'principal_view' | 'communication_log'>(
+    isTeacherOnly ? 'teacher_entry' : 'principal_view'
+  );
+
+  React.useEffect(() => {
+    if (isTeacherOnly) {
+      setActiveTab('teacher_entry');
+    }
+  }, [isTeacherOnly]);
 
   // Teacher Form State
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
@@ -177,16 +187,19 @@ export const LessonPlansModule: React.FC = () => {
 
         {/* Navigation Tabs */}
         <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button
-            onClick={() => setActiveTab('principal_view')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-              activeTab === 'principal_view'
-                ? 'bg-indigo-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-            }`}
-          >
-            Principal Syllabus View
-          </button>
+          {!isTeacherOnly && (
+            <button
+              onClick={() => setActiveTab('principal_view')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                activeTab === 'principal_view'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+              }`}
+            >
+              Principal Syllabus View
+            </button>
+          )}
+
           <button
             onClick={() => setActiveTab('teacher_entry')}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer ${
@@ -197,21 +210,24 @@ export const LessonPlansModule: React.FC = () => {
           >
             Teacher Lesson Entry
           </button>
-          <button
-            onClick={() => setActiveTab('communication_log')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative ${
-              activeTab === 'communication_log'
-                ? 'bg-indigo-600 text-white shadow'
-                : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-            }`}
-          >
-            <span>Alerts Log</span>
-            {alerts.length > 0 && (
-              <span className="ml-1.5 px-1.5 py-0.2 bg-red-500 text-white text-[10px] font-black rounded-full">
-                {alerts.length}
-              </span>
-            )}
-          </button>
+
+          {!isTeacherOnly && (
+            <button
+              onClick={() => setActiveTab('communication_log')}
+              className={`px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative ${
+                activeTab === 'communication_log'
+                  ? 'bg-indigo-600 text-white shadow'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+              }`}
+            >
+              <span>Alerts Log</span>
+              {alerts.length > 0 && (
+                <span className="ml-1.5 px-1.5 py-0.2 bg-red-500 text-white text-[10px] font-black rounded-full">
+                  {alerts.length}
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </div>
 

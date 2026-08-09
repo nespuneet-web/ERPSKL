@@ -1,4 +1,10 @@
 import { useState, useEffect } from 'react';
+import {
+  syncLessonPlanToSupabase,
+  fetchLessonPlansFromSupabase,
+  syncLessonAlertToSupabase,
+  fetchLessonAlertsFromSupabase
+} from '../../lib/supabaseSync';
 
 export interface LessonPlan {
   id: string;
@@ -331,6 +337,52 @@ export function useLessonPlanStore() {
     return INITIAL_ALERTS;
   });
 
+  // Fetch & Sync Remote Supabase Data on Mount and Periodically
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadRemoteData() {
+      // 1. Fetch lesson plans from Supabase
+      const remotePlans = await fetchLessonPlansFromSupabase();
+      if (remotePlans && remotePlans.length > 0 && isMounted) {
+        setPlans((prev) => {
+          const map: Record<string, LessonPlan> = {};
+          prev.forEach((p) => { map[p.id] = p; });
+          remotePlans.forEach((rp) => { map[rp.id] = rp; });
+          return Object.values(map);
+        });
+      } else if (plans.length > 0 && isMounted) {
+        // Initial push of seed data to Supabase if empty
+        plans.forEach((p) => syncLessonPlanToSupabase(p));
+      }
+
+      // 2. Fetch lesson alerts from Supabase
+      const remoteAlerts = await fetchLessonAlertsFromSupabase();
+      if (remoteAlerts && remoteAlerts.length > 0 && isMounted) {
+        setAlerts((prev) => {
+          const map: Record<string, PrincipalTeacherAlert> = {};
+          prev.forEach((a) => { map[a.id] = a; });
+          remoteAlerts.forEach((ra) => { map[ra.id] = ra; });
+          return Object.values(map);
+        });
+      } else if (alerts.length > 0 && isMounted) {
+        alerts.forEach((a) => syncLessonAlertToSupabase(a));
+      }
+    }
+
+    loadRemoteData();
+
+    // Poll Supabase every 10 seconds for multi-device live sync
+    const timer = setInterval(() => {
+      loadRemoteData();
+    }, 10000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, []);
+
   useEffect(() => {
     try {
       localStorage.setItem(LESSON_PLANS_KEY, JSON.stringify(plans));
@@ -347,40 +399,48 @@ export function useLessonPlanStore() {
     }
   }, [alerts]);
 
-  const updateLessonPlanStatus = (
+  const updateLessonPlanStatus = async (
     id: string,
     status: 'COMPLETED_ON_TIME' | 'NOT_COMPLETED_ON_TIME' | 'IN_PROGRESS',
     periodsRequired: number,
     updatedBy: string,
     remarks?: string
   ) => {
+    let updatedPlan: LessonPlan | null = null;
     setPlans((prev) =>
-      prev.map((p) =>
-        p.id === id
-          ? {
-              ...p,
-              status,
-              periodsRequired,
-              periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : p.periodsCompleted,
-              lastUpdatedBy: updatedBy,
-              lastUpdatedAt: new Date().toISOString(),
-              remarks: remarks !== undefined ? remarks : p.remarks
-            }
-          : p
-      )
+      prev.map((p) => {
+        if (p.id === id) {
+          updatedPlan = {
+            ...p,
+            status,
+            periodsRequired,
+            periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : p.periodsCompleted,
+            lastUpdatedBy: updatedBy,
+            lastUpdatedAt: new Date().toISOString(),
+            remarks: remarks !== undefined ? remarks : p.remarks
+          };
+          return updatedPlan;
+        }
+        return p;
+      })
     );
+
+    if (updatedPlan) {
+      await syncLessonPlanToSupabase(updatedPlan);
+    }
   };
 
-  const addLessonPlan = (newPlan: Omit<LessonPlan, 'id' | 'lastUpdatedAt'>) => {
+  const addLessonPlan = async (newPlan: Omit<LessonPlan, 'id' | 'lastUpdatedAt'>) => {
     const created: LessonPlan = {
       ...newPlan,
       id: `lp-${Date.now()}`,
       lastUpdatedAt: new Date().toISOString()
     };
     setPlans((prev) => [created, ...prev]);
+    await syncLessonPlanToSupabase(created);
   };
 
-  const sendAlertToTeacher = (
+  const sendAlertToTeacher = async (
     lessonPlanId: string,
     teacherName: string,
     className: string,
@@ -400,6 +460,7 @@ export function useLessonPlanStore() {
       status: 'Sent'
     };
     setAlerts((prev) => [newAlert, ...prev]);
+    await syncLessonAlertToSupabase(newAlert);
   };
 
   return {

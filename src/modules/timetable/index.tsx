@@ -45,7 +45,14 @@ import {
   Radio,
   Database
 } from 'lucide-react';
-import { syncTeacherAndTimetableToSupabase, fetchTeachersAndTimetablesFromSupabase } from '../../lib/supabaseSync';
+import {
+  syncTeacherAndTimetableToSupabase,
+  fetchTeachersAndTimetablesFromSupabase,
+  syncSubstitutionToSupabase,
+  fetchSubstitutionsFromSupabase,
+  syncRoundDutyToSupabase,
+  fetchRoundDutiesFromSupabase
+} from '../../lib/supabaseSync';
 import { TimetableArrangement, TeacherAvailability } from '../../types/otherModules';
 import {
   TeacherTimetableRecord,
@@ -139,11 +146,12 @@ export const TimetableModule: React.FC = () => {
     }
   }, [teacherTimetables]);
 
-  // Initial mount: Auto sync all loaded teachers (including ANKUR KABRA) to Supabase
+  // Initial mount & periodic poll: Auto sync teachers, substitutions & round duties to Supabase
   useEffect(() => {
     let isMounted = true;
-    async function performInitialSupabaseSync() {
-      // 1. First fetch any remote records from Supabase
+
+    async function performSupabaseSync() {
+      // 1. Fetch remote teachers & timetables
       const remoteTeachers = await fetchTeachersAndTimetablesFromSupabase();
       if (remoteTeachers && remoteTeachers.length > 0 && isMounted) {
         setTeacherTimetables((prev) => {
@@ -154,27 +162,39 @@ export const TimetableModule: React.FC = () => {
         });
       }
 
-      // 2. Sync active teachers to live Supabase DB
-      if (teacherTimetables.length > 0 && isMounted) {
-        setDbSyncBanner({ type: 'info', message: 'Syncing teacher timetables with live Supabase Database...' });
-        let successCount = 0;
-        for (const teacher of teacherTimetables) {
-          const res = await syncTeacherAndTimetableToSupabase(teacher);
-          if (res.success) successCount++;
-        }
-        if (isMounted) {
-          setDbSyncBanner({
-            type: 'success',
-            message: `🟢 Live Supabase DB Connected & Synced! (${successCount} teachers active in public.staff & public.timetables)`
-          });
-        }
+      // 2. Fetch remote substitutions
+      const remoteSubs = await fetchSubstitutionsFromSupabase();
+      if (remoteSubs && remoteSubs.length > 0 && isMounted) {
+        setArrangements((prev) => {
+          const subMap: Record<string, TimetableArrangement> = {};
+          prev.forEach((s) => { subMap[s.id] = s; });
+          remoteSubs.forEach((rs) => { subMap[rs.id] = rs; });
+          return Object.values(subMap);
+        });
+      }
+
+      // 3. Fetch remote round duties
+      const remoteDuties = await fetchRoundDutiesFromSupabase();
+      if (remoteDuties && remoteDuties.length > 0 && isMounted) {
+        setRoundDuties((prev) => {
+          const dutyMap: Record<string, RoundDutyRecord> = {};
+          prev.forEach((d) => { dutyMap[d.id] = d; });
+          remoteDuties.forEach((rd) => { dutyMap[rd.id] = rd; });
+          return Object.values(dutyMap);
+        });
       }
     }
 
-    performInitialSupabaseSync();
+    performSupabaseSync();
+
+    // Poll every 10s for multi-device sync
+    const interval = setInterval(() => {
+      performSupabaseSync();
+    }, 10000);
 
     return () => {
       isMounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -689,6 +709,11 @@ export const TimetableModule: React.FC = () => {
       const combinedArrangements = [...newArrangementsList, ...arrangements];
       setArrangements((prev) => [...newArrangementsList, ...prev]);
 
+      // Sync all generated substitutions to Supabase DB
+      newArrangementsList.forEach((arrItem) => {
+        syncSubstitutionToSupabase(arrItem);
+      });
+
       // Automatically run Auto Round Duty in tandem
       const autoRdCount = runAutoRoundDutyForDay(selectedDay, combinedArrangements);
 
@@ -820,7 +845,7 @@ export const TimetableModule: React.FC = () => {
     }, 6000);
   };
 
-  const handleCreateArrangement = (
+  const handleCreateArrangement = async (
     periodNo: number,
     timeSlot: string,
     classSec: string,
@@ -846,7 +871,8 @@ export const TimetableModule: React.FC = () => {
     };
 
     setArrangements((prev) => [newArrangement, ...prev]);
-    alert(`✅ Substitution Assigned Successfully!\n\n${subTeacher} will cover Period #${periodNo} (${classSec}) on ${selectedDay}.`);
+    await syncSubstitutionToSupabase(newArrangement);
+    alert(`✅ Substitution Assigned & Synced to DB Successfully!\n\n${subTeacher} will cover Period #${periodNo} (${classSec}) on ${selectedDay}.`);
   };
 
   return (
