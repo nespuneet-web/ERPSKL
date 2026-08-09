@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
+import { AcademicProgressView } from './AcademicProgressView';
 import { User, Calendar, BookOpen, FileCheck, DollarSign, Bell, Award, Download, CheckCircle2, ShieldCheck, Printer, Ticket } from 'lucide-react';
 
 export const StudentPortalView: React.FC<{ student: Student }> = ({ student }) => {
@@ -31,7 +32,7 @@ export const StudentPortalView: React.FC<{ student: Student }> = ({ student }) =
         {[
           { id: 'overview', label: 'Dashboard & Homework', icon: BookOpen },
           { id: 'attendance', label: 'Attendance Log', icon: Calendar },
-          { id: 'report_card', label: 'Consolidated Report Card', icon: Award },
+          { id: 'report_card', label: 'Academic Progress', icon: Award },
           { id: 'admit_card', label: 'Exam Permit & Admit Card', icon: Ticket }
         ].map((tab) => {
           const Icon = tab.icon;
@@ -156,59 +157,9 @@ export const StudentPortalView: React.FC<{ student: Student }> = ({ student }) =
         </div>
       )}
 
-      {/* TAB 3: REPORT CARD */}
+      {/* TAB 3: ACADEMIC PROGRESS */}
       {activeTab === 'report_card' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
-            <div>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">Annual Consolidated Report Card</h3>
-              <p className="text-xs text-slate-500">Includes weightage from Periodic Unit Tests, OA assessments & Term 1 + Term 2</p>
-            </div>
-            <button
-              onClick={() => alert('Downloading official signed PDF report card...')}
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg shadow hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-4 h-4" /> Download Official PDF Report Card
-            </button>
-          </div>
-
-          {/* Consolidated Marks Table */}
-          <div className="overflow-x-auto border rounded-xl border-slate-200 dark:border-slate-800">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-slate-800 text-slate-500 font-bold uppercase border-b">
-                  <th className="py-3 px-4">Subject</th>
-                  <th className="py-3 px-4">UT1 (10%)</th>
-                  <th className="py-3 px-4">Half Yearly (30%)</th>
-                  <th className="py-3 px-4">OA Exam (10%)</th>
-                  <th className="py-3 px-4">Annual (50%)</th>
-                  <th className="py-3 px-4">Final Weighted Total</th>
-                  <th className="py-3 px-4">Grade</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
-                <tr>
-                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Mathematics</td>
-                  <td className="py-3 px-4 text-slate-600">18/20 (9.0%)</td>
-                  <td className="py-3 px-4 text-slate-600">74/80 (27.75%)</td>
-                  <td className="py-3 px-4 text-slate-600">19/20 (9.5%)</td>
-                  <td className="py-3 px-4 text-slate-600">92/100 (46.0%)</td>
-                  <td className="py-3 px-4 font-black text-blue-600">92.25%</td>
-                  <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">A1</span></td>
-                </tr>
-                <tr>
-                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">Science & Tech</td>
-                  <td className="py-3 px-4 text-slate-600">17/20 (8.5%)</td>
-                  <td className="py-3 px-4 text-slate-600">72/80 (27.0%)</td>
-                  <td className="py-3 px-4 text-slate-600">18/20 (9.0%)</td>
-                  <td className="py-3 px-4 text-slate-600">88/100 (44.0%)</td>
-                  <td className="py-3 px-4 font-black text-blue-600">88.50%</td>
-                  <td className="py-3 px-4"><span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold">A1</span></td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
+        <AcademicProgressView student={student} />
       )}
 
       {/* TAB 4: ADMIT CARD & EXAM PERMIT */}

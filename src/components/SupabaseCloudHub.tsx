@@ -24,7 +24,7 @@ import {
   clearSupabaseConfig,
   supabase
 } from '../lib/supabase';
-import { runLiveSupabaseTrial } from '../lib/supabaseSync';
+import { runLiveSupabaseTrial, runFullDatabaseSynchronization } from '../lib/supabaseSync';
 import { SUPABASE_FULL_SQL_SCHEMA } from '../data/supabase_schema';
 
 export const SupabaseCloudHub: React.FC = () => {
@@ -114,27 +114,12 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
     setSyncResult(null);
 
     try {
-      // Sync initial staff/teachers
-      const { error: staffErr } = await supabase.from('staff').upsert([
-        {
-          employee_code: 'EMP-101',
-          full_name: 'POONAM SINGH',
-          department: 'Senior Secondary',
-          designation: 'PGT Physics',
-          contact_phone: '9988776655'
-        },
-        {
-          employee_code: 'EMP-102',
-          full_name: 'RAJAT JAIN',
-          department: 'Science Dept',
-          designation: 'TGT Science',
-          contact_phone: '9988776656'
-        }
-      ], { onConflict: 'employee_code' });
-
-      if (staffErr) throw staffErr;
-
-      setSyncResult('✅ Successfully synced Web ERP tables to Supabase Cloud Database!');
+      const res = await runFullDatabaseSynchronization();
+      if (res.success) {
+        setSyncResult('✅ Successfully synchronized all Web ERP tables (students, staff, student_academic_permissions, fees, attendance, etc.) to Supabase Cloud Database!');
+      } else {
+        setSyncResult(`⚠️ Database Sync Notice: ${res.errorDetails || 'Make sure you ran the SQL Schema script in Supabase first.'}`);
+      }
     } catch (err: any) {
       setSyncResult(`⚠️ Sync Error: ${err.message || 'Make sure you ran the SQL Schema script in Supabase first.'}`);
     } finally {
@@ -308,17 +293,17 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
 
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
-                <strong className="block text-slate-900 dark:text-white font-extrabold">Push Data Sync</strong>
-                <span className="text-[11px] text-slate-500">Upsert local records into Supabase live tables</span>
+                <strong className="block text-slate-900 dark:text-white font-extrabold">Synchronize Database (डेटाबेस सिंक्रोनाइज़ेशन)</strong>
+                <span className="text-[11px] text-slate-500">Create tables & upsert local front-end changes into Supabase live database</span>
               </div>
 
               <button
                 onClick={handleSyncLocalToSupabase}
                 disabled={syncingData}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer transition-all flex items-center gap-1.5"
               >
                 {syncingData ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                Sync All Local Data
+                Synchronize Database
               </button>
             </div>
 

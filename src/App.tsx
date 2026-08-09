@@ -22,6 +22,8 @@ import { VisitorModule } from './modules/visitor';
 import { SettingsModule } from './modules/settings';
 import { SupabaseCloudHub } from './components/SupabaseCloudHub';
 import { UserLoginModal } from './components/UserLoginModal';
+import { DatabaseSyncModal } from './components/DatabaseSyncModal';
+import { RefreshCw } from 'lucide-react';
 
 import {
   Users,
@@ -82,6 +84,7 @@ function ErpLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
 
   const { activeRole, setActiveRole, academicYear, setAcademicYear, notifications, auditLogs } = useAuth();
 
@@ -220,6 +223,16 @@ function ErpLayout() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Synchronize Database Button */}
+            <button
+              onClick={() => setIsSyncModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg shadow-sm cursor-pointer transition-all active:scale-95 border border-indigo-400/30"
+              title="Synchronize Database: Create tables and update database schema"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-indigo-200" />
+              <span>Synchronize Database</span>
+            </button>
+
             {/* Live Database Connectivity Green Signal */}
             <button
               onClick={() => setActiveModule('supabase_cloud')}
@@ -296,6 +309,7 @@ function ErpLayout() {
         </main>
 
         <UserLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+        <DatabaseSyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
       </div>
     </div>
   );

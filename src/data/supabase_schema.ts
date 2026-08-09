@@ -243,6 +243,20 @@ CREATE TABLE IF NOT EXISTS public.subject_configs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 18. STUDENT ACADEMIC EXAM PERMISSIONS TABLE
+CREATE TABLE IF NOT EXISTS public.student_academic_permissions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    student_id VARCHAR(50) UNIQUE NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    half_yearly_granted BOOLEAN DEFAULT true,
+    annual_granted BOOLEAN DEFAULT true,
+    unit_test_granted BOOLEAN DEFAULT true,
+    report_card_active BOOLEAN DEFAULT true,
+    granted_by VARCHAR(100) DEFAULT 'Admission Panel',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App
 ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
@@ -261,6 +275,7 @@ ALTER TABLE public.hostel_rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.visitor_passes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.exam_timetables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subject_configs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.student_academic_permissions ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
 DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
@@ -279,6 +294,7 @@ DROP POLICY IF EXISTS "Allow public full access to hostel_rooms" ON public.hoste
 DROP POLICY IF EXISTS "Allow public full access to visitor_passes" ON public.visitor_passes;
 DROP POLICY IF EXISTS "Allow public full access to exam_timetables" ON public.exam_timetables;
 DROP POLICY IF EXISTS "Allow public full access to subject_configs" ON public.subject_configs;
+DROP POLICY IF EXISTS "Allow public full access to student_academic_permissions" ON public.student_academic_permissions;
 
 CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
@@ -297,6 +313,7 @@ CREATE POLICY "Allow public full access to hostel_rooms" ON public.hostel_rooms 
 CREATE POLICY "Allow public full access to visitor_passes" ON public.visitor_passes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to exam_timetables" ON public.exam_timetables FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to subject_configs" ON public.subject_configs FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to student_academic_permissions" ON public.student_academic_permissions FOR ALL USING (true) WITH CHECK (true);
 
 -- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS

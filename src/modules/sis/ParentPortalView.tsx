@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
+import { AcademicProgressView } from './AcademicProgressView';
 import { Users, Calendar, Award, FileText, PhoneCall, ShieldCheck, Download, CheckCircle2, Ticket, Printer } from 'lucide-react';
 
 export const ParentPortalView: React.FC<{ students: Student[] }> = ({ students }) => {
@@ -98,7 +99,7 @@ export const ParentPortalView: React.FC<{ students: Student[] }> = ({ students }
             activeTab === 'report_card' ? 'bg-blue-600 text-white shadow' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
           }`}
         >
-          Report Card
+          Academic Progress
         </button>
         <button
           onClick={() => setActiveTab('admit_card')}
@@ -135,23 +136,7 @@ export const ParentPortalView: React.FC<{ students: Student[] }> = ({ students }
       )}
 
       {activeTab === 'report_card' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex justify-between items-center border-b pb-3">
-            <h3 className="font-bold text-slate-900 dark:text-white text-base">Ward Official Report Card</h3>
-            <button
-              onClick={() => alert('Downloading Ward Report Card...')}
-              className="px-4 py-2 text-xs font-bold text-white bg-blue-600 rounded-lg shadow hover:bg-blue-700 flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="w-4 h-4" /> Download PDF Report Card
-            </button>
-          </div>
-          <div className="p-4 bg-blue-50 dark:bg-blue-950/40 rounded-xl border border-blue-200 dark:border-blue-800 text-xs">
-            <p className="font-bold text-blue-900 dark:text-blue-100">Weighted Percentage Setup</p>
-            <p className="text-blue-700 dark:text-blue-300 mt-0.5">
-              Calculated using: Unit Test 1 (10%) + Half Yearly Exam (30%) + Objective Assessment OA (10%) + Annual Exam (50%)
-            </p>
-          </div>
-        </div>
+        <AcademicProgressView student={activeStudent} />
       )}
 
       {activeTab === 'admit_card' && (

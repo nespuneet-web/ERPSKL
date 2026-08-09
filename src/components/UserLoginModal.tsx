@@ -14,7 +14,9 @@ interface UserCredential {
 const DEFAULT_CREDENTIALS: UserCredential[] = [
   { username: 'student', password: 'student123', role: 'Student', name: 'Aarav Sharma (Student)', id: 'std-101' },
   { username: 'teacher1', password: 'teacher123', role: 'Teacher', name: 'Ankur Kabra (PGT Maths)', id: 'tch-201' },
-  { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Dr. V. K. Sharma (Admin)', id: 'adm-001' }
+  { username: 'admin', password: 'admin123', role: 'Super Admin', name: 'Dr. V. K. Sharma (Super Admin)', id: 'adm-001' },
+  { username: 'schooladmin', password: 'admin123', role: 'School Admin', name: 'Meenakshi Verma (Principal)', id: 'adm-002' },
+  { username: 'parent', password: 'parent123', role: 'Parent', name: 'Rajesh Sharma (Parent)', id: 'prn-301' }
 ];
 
 const STORAGE_KEY = 'schoolerp_user_credentials_v1';
@@ -61,8 +63,12 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanUser = usernameInput.trim().toLowerCase();
+    const cleanPass = passwordInput.trim();
+
+    // 1. Direct match in credentials store
     const found = credentials.find(
-      (c) => c.username.toLowerCase() === usernameInput.trim().toLowerCase() && c.password === passwordInput
+      (c) => c.username.toLowerCase() === cleanUser && c.password === cleanPass
     );
 
     if (found) {
@@ -78,10 +84,68 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
       setTimeout(() => {
         setLoginMessage(null);
         onClose();
-      }, 1200);
-    } else {
-      setLoginMessage({ type: 'error', text: '🔴 Invalid username or password. Please verify credentials.' });
+      }, 1000);
+      return;
     }
+
+    // 2. Case-insensitive user match check to give accurate password hints
+    const userMatch = credentials.find((c) => c.username.toLowerCase() === cleanUser);
+    if (userMatch) {
+      setLoginMessage({
+        type: 'error',
+        text: `🔴 Incorrect password for ${userMatch.username}. (Default password is: ${userMatch.password})`
+      });
+      return;
+    }
+
+    // 3. Keyword based role detection for general logins (e.g. "student", "teacher", "admin", "parent")
+    if (cleanUser.includes('student') || cleanUser.startsWith('std') || cleanUser.startsWith('2025')) {
+      const stdCred = credentials.find((c) => c.role === 'Student') || DEFAULT_CREDENTIALS[0];
+      setActiveRole('Student');
+      logActivity('USER_LOGIN', 'Authentication', `Logged in as Student (${cleanUser})`);
+      setLoginMessage({ type: 'success', text: `🟢 Logged in to Student Portal as ${stdCred.name}!` });
+      setTimeout(() => {
+        setLoginMessage(null);
+        onClose();
+      }, 1000);
+      return;
+    }
+
+    if (cleanUser.includes('teacher') || cleanUser.startsWith('tch') || cleanUser.startsWith('emp')) {
+      const tchCred = credentials.find((c) => c.role === 'Teacher') || DEFAULT_CREDENTIALS[1];
+      setActiveRole('Teacher');
+      logActivity('USER_LOGIN', 'Authentication', `Logged in as Teacher (${cleanUser})`);
+      setLoginMessage({ type: 'success', text: `🟢 Logged in to Teacher Portal as ${tchCred.name}!` });
+      setTimeout(() => {
+        setLoginMessage(null);
+        onClose();
+      }, 1000);
+      return;
+    }
+
+    if (cleanUser.includes('admin') || cleanUser.includes('principal')) {
+      const admCred = credentials.find((c) => c.role === 'Super Admin') || DEFAULT_CREDENTIALS[2];
+      setActiveRole('Super Admin');
+      logActivity('USER_LOGIN', 'Authentication', `Logged in as Super Admin (${cleanUser})`);
+      setLoginMessage({ type: 'success', text: `🟢 Logged in to Super Admin Portal as ${admCred.name}!` });
+      setTimeout(() => {
+        setLoginMessage(null);
+        onClose();
+      }, 1000);
+      return;
+    }
+
+    setLoginMessage({
+      type: 'error',
+      text: '🔴 Invalid credentials. Please use default usernames (student / teacher1 / admin / parent) or click 1-Click Quick Login.'
+    });
+  };
+
+  const handleResetCredentials = () => {
+    setCredentials(DEFAULT_CREDENTIALS);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CREDENTIALS));
+    setLoginMessage({ type: 'success', text: '🟢 Default credentials restored successfully!' });
+    setTimeout(() => setLoginMessage(null), 2000);
   };
 
   const handleQuickLogin = (preset: UserCredential) => {
@@ -367,8 +431,19 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
         )}
 
         {/* Modal Footer Info */}
-        <div className="pt-2 text-[10px] text-slate-400 text-center border-t border-slate-200 dark:border-slate-800">
-          Default Logins: Student (<code>student</code> / <code>student123</code>) • Teacher (<code>teacher1</code> / <code>teacher123</code>)
+        <div className="pt-2 text-[10px] text-slate-400 text-center border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+          <div>
+            Default Passwords: Student (<code>student</code> / <code>student123</code>) • Teacher (<code>teacher1</code> / <code>teacher123</code>) • Admin (<code>admin</code> / <code>admin123</code>)
+          </div>
+          <div>
+            <button
+              onClick={handleResetCredentials}
+              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Reset Passwords to Defaults
+            </button>
+          </div>
         </div>
       </div>
     </div>
