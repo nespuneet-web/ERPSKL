@@ -1,6 +1,55 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole, UserSession, AcademicSession, SystemNotification, AuditLog } from '../types/common';
 
+export const ALL_MODULE_IDS = [
+  'sis',
+  'admission',
+  'examination',
+  'attendance',
+  'timetable',
+  'lesson_plans',
+  'fees',
+  'staff',
+  'interview',
+  'reports',
+  'transport',
+  'library',
+  'inventory',
+  'hostel',
+  'visitor',
+  'supabase_cloud',
+  'communication',
+  'certificates',
+  'idcards',
+  'settings'
+];
+
+export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
+  'Super Admin': [...ALL_MODULE_IDS],
+  'School Admin': [...ALL_MODULE_IDS],
+  'Principal': [...ALL_MODULE_IDS],
+  'Vice Principal': [...ALL_MODULE_IDS],
+
+  'Teacher': ['sis', 'attendance', 'timetable', 'lesson_plans', 'examination', 'library', 'communication'],
+  'Class Teacher': ['sis', 'attendance', 'timetable', 'lesson_plans', 'examination', 'library', 'communication'],
+
+  'Student': ['sis', 'attendance', 'timetable', 'examination', 'library', 'communication', 'idcards'],
+  'Parent': ['sis', 'attendance', 'timetable', 'examination', 'fees', 'transport', 'communication', 'library'],
+
+  'Examination Incharge': ['examination', 'sis', 'timetable', 'lesson_plans', 'certificates', 'communication'],
+  'Admission Team': ['admission', 'sis', 'fees', 'communication'],
+  'Account Department': ['fees', 'reports', 'sis', 'communication', 'certificates'],
+  'Accountant': ['fees', 'reports', 'sis', 'communication', 'certificates'],
+  'Transport Department': ['transport', 'sis', 'communication'],
+  'Reception': ['visitor', 'sis', 'communication'],
+  'HR': ['staff', 'interview', 'communication'],
+  'Interview Panel': ['staff', 'interview', 'communication'],
+  'Visitor': ['visitor', 'communication'],
+  'Read-only Auditor': ['reports', 'sis', 'examination', 'attendance', 'fees']
+};
+
+const PERMISSIONS_STORAGE_KEY = 'schoolerp_role_permissions_v2';
+
 interface AuthContextType {
   currentUser: UserSession;
   activeRole: UserRole;
@@ -17,6 +66,13 @@ interface AuthContextType {
   toggleTheme: () => void;
   quickSearchQuery: string;
   setQuickSearchQuery: (q: string) => void;
+
+  // Role Module Permissions
+  rolePermissions: Record<UserRole, string[]>;
+  updateRolePermissions: (role: UserRole, allowedModules: string[]) => void;
+  resetRolePermissions: () => void;
+  isModuleAllowed: (moduleId: string, role?: UserRole) => boolean;
+  getAllowedModules: (role?: UserRole) => string[];
 }
 
 const DEFAULT_USER: UserSession = {
@@ -77,6 +133,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   ]);
 
+  const [rolePermissions, setRolePermissions] = useState<Record<UserRole, string[]>>(() => {
+    try {
+      const saved = localStorage.getItem(PERMISSIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_ROLE_PERMISSIONS, ...parsed };
+      }
+    } catch (e) {
+      console.error('Error loading role permissions:', e);
+    }
+    return DEFAULT_ROLE_PERMISSIONS;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(rolePermissions));
+    } catch (e) {
+      console.error('Error saving role permissions:', e);
+    }
+  }, [rolePermissions]);
+
+  const updateRolePermissions = (role: UserRole, allowedModules: string[]) => {
+    setRolePermissions((prev) => ({
+      ...prev,
+      [role]: allowedModules
+    }));
+    logActivity('UPDATE_PERMISSIONS', 'Access Control', `Updated allowed modules for role "${role}" (${allowedModules.length} modules)`);
+  };
+
+  const resetRolePermissions = () => {
+    setRolePermissions(DEFAULT_ROLE_PERMISSIONS);
+    localStorage.removeItem(PERMISSIONS_STORAGE_KEY);
+    logActivity('RESET_PERMISSIONS', 'Access Control', 'Reset all role permissions to factory defaults');
+  };
+
+  const getAllowedModules = (role?: UserRole): string[] => {
+    const targetRole = role || activeRole;
+    // Admins and Principals always have full access to everything
+    if (targetRole === 'Super Admin' || targetRole === 'School Admin' || targetRole === 'Principal') {
+      return ALL_MODULE_IDS;
+    }
+    return rolePermissions[targetRole] || DEFAULT_ROLE_PERMISSIONS[targetRole] || ['sis'];
+  };
+
+  const isModuleAllowed = (moduleId: string, role?: UserRole): boolean => {
+    const allowed = getAllowedModules(role);
+    return allowed.includes(moduleId);
+  };
+
   const setActiveRole = (role: UserRole) => {
     setActiveRoleState(role);
     logActivity('ROLE_SWITCH', 'Auth', `Switched active view role to ${role}`);
@@ -131,7 +236,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         theme,
         toggleTheme,
         quickSearchQuery,
-        setQuickSearchQuery
+        setQuickSearchQuery,
+        rolePermissions,
+        updateRolePermissions,
+        resetRolePermissions,
+        isModuleAllowed,
+        getAllowedModules
       }}
     >
       <div className={theme === 'dark' ? 'dark bg-slate-950 text-slate-100 min-h-screen' : 'bg-slate-50 text-slate-900 min-h-screen'}>

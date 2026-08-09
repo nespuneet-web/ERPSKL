@@ -6,6 +6,7 @@ export type UserRole =
   | 'Examination Incharge'
   | 'Admission Team'
   | 'Account Department'
+  | 'Accountant'
   | 'Transport Department'
   | 'Teacher'
   | 'Class Teacher'
