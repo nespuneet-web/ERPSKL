@@ -1,9 +1,9 @@
 import React from 'react';
 import { useOtherModulesStore } from '../otherModules/otherStore';
-import { Users, Briefcase, Award } from 'lucide-react';
+import { Users, Briefcase, Award, Clock, AlertTriangle, CheckCircle, Calendar } from 'lucide-react';
 
 export const StaffModule: React.FC = () => {
-  const { staff } = useOtherModulesStore();
+  const { staff, updateStaffStatus } = useOtherModulesStore();
 
   return (
     <div className="space-y-6">
@@ -11,10 +11,10 @@ export const StaffModule: React.FC = () => {
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            Staff & Faculty Directory
+            Staff & Faculty Directory (Inter-Connected Database)
           </h2>
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Teacher directory, employee codes, designations, qualifications, and payroll overview.
+            Teacher directory, status changes (Absent, Half Day, On Leave) automatically reflect across Timetable & Substitution logic.
           </p>
         </div>
       </div>
@@ -28,7 +28,7 @@ export const StaffModule: React.FC = () => {
               <th className="py-3 px-4">Designation & Dept</th>
               <th className="py-3 px-4">Qualification</th>
               <th className="py-3 px-4">Monthly Salary</th>
-              <th className="py-3 px-4">Status</th>
+              <th className="py-3 px-4">Attendance & Timetable Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
@@ -46,9 +46,24 @@ export const StaffModule: React.FC = () => {
                 <td className="py-3 px-4 text-xs">{stf.qualification}</td>
                 <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">₹{stf.monthlySalary.toLocaleString()}</td>
                 <td className="py-3 px-4">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                    {stf.status}
-                  </span>
+                  <select
+                    value={stf.status}
+                    onChange={(e) => updateStaffStatus(stf.id, e.target.value as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all ${
+                      stf.status === 'Active'
+                        ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                        : stf.status === 'Absent'
+                        ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300'
+                        : stf.status === 'Half Day'
+                        ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+                        : 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300'
+                    }`}
+                  >
+                    <option value="Active">🟢 Active / Present</option>
+                    <option value="Absent">🔴 Absent</option>
+                    <option value="Half Day">🟡 Half Day Leave</option>
+                    <option value="On Leave">🟣 On Leave</option>
+                  </select>
                 </td>
               </tr>
             ))}

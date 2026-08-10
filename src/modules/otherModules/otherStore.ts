@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem } from '../../types/otherModules';
+import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
 import { syncFeeCollectionToSupabase } from '../../lib/supabaseSync';
 
@@ -47,7 +47,27 @@ export function useOtherModulesStore() {
   const [notices, setNotices] = useState<NoticeItem[]>(INITIAL_NOTICES);
   const [visitors, setVisitors] = useState<VisitorPass[]>(INITIAL_VISITORS);
   const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
-  const [staff] = useState(INITIAL_STAFF);
+  const [staff, setStaff] = useState<StaffMember[]>(() => {
+    try {
+      const saved = localStorage.getItem('schoolerp_staff_list_v1');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_STAFF;
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(staff));
+    } catch (e) {
+      console.error(e);
+    }
+  }, [staff]);
+
+  const updateStaffStatus = (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {
+    setStaff((prev) => prev.map((s) => (s.id === staffId ? { ...s, status } : s)));
+  };
   const [routes] = useState(INITIAL_ROUTES);
 
   const [feeSyncStatus, setFeeSyncStatus] = useState<string | null>(null);
@@ -128,6 +148,7 @@ export function useOtherModulesStore() {
     checkOutVisitor,
     inventory,
     staff,
+    updateStaffStatus,
     routes
   };
 }

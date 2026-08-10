@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import { useAdmissionStore } from './admissionStore';
 import { useAcademicPermissions } from './academicPermissionStore';
+import { useSisStore } from '../sis/sisStore';
 import { AdmissionLetterModal } from './AdmissionLetterModal';
 import { AdmissionApplication } from '../../types/admission';
-import { UserPlus, Search, CheckCircle, Clock, FileText, Award, Layers, ShieldCheck, Lock, Unlock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UserPlus, Search, CheckCircle, Clock, FileText, Award, Layers, ShieldCheck, Lock, Unlock, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
 
 export const AdmissionModule: React.FC = () => {
   const { applications, seats, syncStatus, addApplication, updateApplicationStatus } = useAdmissionStore();
   const { permissions, globalReportCardActive, setGlobalReportCardActive, toggleStudentPermission, grantAllPermissions, revokeAllPermissions } = useAcademicPermissions();
+  const { students, addStudent } = useSisStore();
 
   const [activeSection, setActiveSection] = useState<'applications' | 'exam_permissions'>('applications');
   const [searchTerm, setSearchTerm] = useState('');
@@ -16,12 +18,46 @@ export const AdmissionModule: React.FC = () => {
   const [showNewLeadModal, setShowNewLeadModal] = useState(false);
 
   // New lead form state
+  const [selectedStudentId, setSelectedStudentId] = useState('');
   const [studentName, setStudentName] = useState('');
-  const [applyingClass, setApplyingClass] = useState('Class 6');
+  const [applyingClass, setApplyingClass] = useState('Class 10');
   const [parentName, setParentName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [previousSchool, setPreviousSchool] = useState('');
+
+  // Auto-populate when selecting a registered student
+  const handleSelectRegisteredStudent = (stdId: string) => {
+    setSelectedStudentId(stdId);
+    if (!stdId) return;
+    const std = students.find((s) => s.id === stdId);
+    if (std) {
+      setStudentName(std.fullName);
+      setApplyingClass(std.currentClass || 'Class 10');
+      setParentName(std.parents?.fatherName || '');
+      setContactNumber(std.parents?.fatherMobile || '');
+      setEmail(std.parents?.fatherEmail || '');
+      setPreviousSchool('G D Goenka Public School');
+    }
+  };
+
+  // Merge permissions with all registered students
+  const mergedPermissions = [...permissions];
+  students.forEach((s) => {
+    if (!mergedPermissions.some((p) => p.studentId === s.id)) {
+      mergedPermissions.push({
+        studentId: s.id,
+        studentName: s.fullName,
+        className: `${s.currentClass}-${s.section}`,
+        halfYearlyGranted: true,
+        annualGranted: true,
+        unitTestGranted: true,
+        reportCardActive: true,
+        updatedAt: new Date().toISOString().split('T')[0],
+        grantedBy: 'System Auto-Register'
+      });
+    }
+  });
 
   const filteredApps = applications.filter((app) => {
     const matchesSearch =
@@ -37,6 +73,7 @@ export const AdmissionModule: React.FC = () => {
     e.preventDefault();
     if (!studentName || !parentName || !contactNumber) return;
 
+    // Create admission lead
     addApplication({
       studentName,
       applyingClass,
@@ -45,16 +82,67 @@ export const AdmissionModule: React.FC = () => {
       parentName,
       contactNumber,
       email,
-      previousSchool,
+      previousSchool: previousSchool || 'G D Goenka Public School',
       feePaid: true,
       registrationFee: 1500,
       documentsUploaded: ['10th Marksheet', 'Transfer Certificate', 'Aadhaar']
     });
 
+    // Check if student exists in SIS, otherwise create student record for inter-module integration
+    const exists = students.some((s) => s.fullName.toLowerCase() === studentName.toLowerCase());
+    if (!exists) {
+      addStudent({
+        admissionNo: `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
+        registrationNo: `REG-${Math.floor(10000 + Math.random() * 90000)}`,
+        scholarNo: `SCH-${Math.floor(1000 + Math.random() * 9000)}`,
+        penNo: `PEN-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
+        apaarId: `APAAR-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
+        aadhaarNo: '7812 9012 3456',
+        fullName: studentName,
+        gender: 'Male',
+        dob: '2010-05-10',
+        bloodGroup: 'O+',
+        religion: 'Hinduism',
+        category: 'General',
+        nationality: 'Indian',
+        motherTongue: 'Hindi',
+        photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+        admissionDate: new Date().toISOString().split('T')[0],
+        admissionClass: applyingClass,
+        currentClass: applyingClass,
+        section: 'A',
+        rollNo: students.length + 1,
+        house: 'Blue',
+        transportRequired: true,
+        busRouteNo: 'Route 1 - Civil Lines Metro',
+        hostelRequired: false,
+        parents: {
+          fatherName: parentName,
+          fatherMobile: contactNumber,
+          fatherEmail: email || 'parent@example.com',
+          fatherOccupation: 'Professional',
+          fatherIncome: '15,00,000 PA',
+          fatherQualification: 'Graduate',
+          motherName: 'Mother',
+          motherOccupation: 'Home Maker',
+          motherMobile: contactNumber,
+          motherEmail: email || 'mother@example.com',
+          address: 'Main Town, Agra',
+          emergencyContact: contactNumber
+        },
+        medical: { bloodGroup: 'O+', disability: false },
+        documents: [],
+        siblings: [],
+        promotions: [],
+        status: 'Active'
+      });
+    }
+
     setStudentName('');
     setParentName('');
     setContactNumber('');
     setEmail('');
+    setSelectedStudentId('');
     setShowNewLeadModal(false);
   };
 
@@ -302,7 +390,7 @@ export const AdmissionModule: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
-                {permissions.map((p) => (
+                {mergedPermissions.map((p) => (
                   <tr key={p.studentId} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                     <td className="py-3 px-4">
                       <p className="font-bold text-slate-900 dark:text-white">{p.studentName}</p>
@@ -375,6 +463,25 @@ export const AdmissionModule: React.FC = () => {
           <div className="bg-white dark:bg-slate-900 rounded-xl p-6 max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
             <h3 className="text-lg font-bold text-slate-900 dark:text-white">New Admission Application Lead</h3>
             <form onSubmit={handleCreateLead} className="space-y-3">
+              {/* Registered Student Select Dropdown */}
+              <div>
+                <label className="block text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+                  Select Registered Student (Master SIS Database)
+                </label>
+                <select
+                  value={selectedStudentId}
+                  onChange={(e) => handleSelectRegisteredStudent(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-lg text-slate-900 dark:text-white font-medium"
+                >
+                  <option value="">-- Create New / Select Registered Student --</option>
+                  {students.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.fullName} ({s.currentClass || s.admissionClass} - {s.admissionNo})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Student Name *</label>
                 <input
@@ -396,7 +503,7 @@ export const AdmissionModule: React.FC = () => {
                   <option value="Nursery">Nursery</option>
                   <option value="Class 1">Class 1</option>
                   <option value="Class 6">Class 6</option>
-                  <option value="Class 9">Class 9</option>
+                  <option value="Class 10">Class 10</option>
                   <option value="Class 11 Science">Class 11 Science</option>
                 </select>
               </div>

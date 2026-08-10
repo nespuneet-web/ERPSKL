@@ -524,6 +524,44 @@ export const INITIAL_APPLICATIONS: AdmissionApplication[] = [
     feePaid: true,
     registrationFee: 1500,
     documentsUploaded: ['9th Marksheet', 'TC', 'Aadhaar']
+  },
+  {
+    id: 'app-4',
+    applicationNo: 'APP-2026-104',
+    studentName: 'Abhir Sharma',
+    applyingClass: 'Class 10',
+    gender: 'Male',
+    dob: '2010-04-12',
+    parentName: 'Suresh Sharma',
+    contactNumber: '+91 98100 55443',
+    email: 'suresh.abhir@example.com',
+    previousSchool: 'G D Goenka Public School',
+    applicationDate: '2026-03-15',
+    status: 'Confirmed',
+    entranceTestScore: 92,
+    entranceTestMaxMarks: 100,
+    feePaid: true,
+    registrationFee: 1500,
+    documentsUploaded: ['9th Marksheet', 'Aadhaar', 'TC']
+  },
+  {
+    id: 'app-5',
+    applicationNo: 'APP-2026-105',
+    studentName: 'Amit Kumar',
+    applyingClass: 'Class 10',
+    gender: 'Male',
+    dob: '2010-08-20',
+    parentName: 'Rakesh Kumar',
+    contactNumber: '+91 98100 66554',
+    email: 'rakesh.amit@example.com',
+    previousSchool: 'Modern Convent School',
+    applicationDate: '2026-03-16',
+    status: 'Confirmed',
+    entranceTestScore: 88,
+    entranceTestMaxMarks: 100,
+    feePaid: true,
+    registrationFee: 1500,
+    documentsUploaded: ['9th Marksheet', 'Aadhaar', 'TC']
   }
 ];
 
@@ -620,7 +658,14 @@ export const INITIAL_STAFF: StaffMember[] = [
   { id: 'stf-ankur', employeeCode: 'EMP-ANKUR', fullName: 'Ankur Kabra', designation: 'PGT Mathematics', department: 'Mathematics Dept', email: 'ankur.kabra@school.edu', phone: '+91 98765 43210', joiningDate: '2024-04-01', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 68000, status: 'Active' },
   { id: 'stf-1', employeeCode: 'EMP-001', fullName: 'Dr. V. K. Sharma', designation: 'Principal', department: 'Administration', email: 'principal@school.edu', phone: '+91 98100 11223', joiningDate: '2015-06-01', qualification: 'Ph.D. Education, M.Sc.', monthlySalary: 120000, status: 'Active' },
   { id: 'stf-2', employeeCode: 'EMP-002', fullName: 'Mrs. S. Roy', designation: 'HOD Computer Science', department: 'Academics', email: 's.roy@school.edu', phone: '+91 98100 11224', joiningDate: '2018-04-01', qualification: 'M.Tech CSE, B.Ed.', monthlySalary: 75000, status: 'Active' },
-  { id: 'stf-3', employeeCode: 'EMP-003', fullName: 'Mr. Rajesh Namboodiri', designation: 'Examination Incharge', department: 'Examination Dept', email: 'exam@school.edu', phone: '+91 98100 11225', joiningDate: '2019-07-15', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 70000, status: 'Active' }
+  { id: 'stf-3', employeeCode: 'EMP-003', fullName: 'Mr. Rajesh Namboodiri', designation: 'Examination Incharge', department: 'Examination Dept', email: 'exam@school.edu', phone: '+91 98100 11225', joiningDate: '2019-07-15', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 70000, status: 'Active' },
+  { id: 'stf-4', employeeCode: 'EMP-004', fullName: 'Anil Kumar Singh', designation: 'PGT Physics', department: 'Senior Secondary', email: 'anil.singh@school.edu', phone: '+91 98100 11226', joiningDate: '2020-01-10', qualification: 'M.Sc. Physics, B.Ed.', monthlySalary: 72000, status: 'Active' },
+  { id: 'stf-5', employeeCode: 'EMP-005', fullName: 'Poonam Singh', designation: 'TGT Science', department: 'Science Dept', email: 'poonam.singh@school.edu', phone: '+91 98100 11227', joiningDate: '2021-03-15', qualification: 'B.Sc. Chemistry, B.Ed.', monthlySalary: 58000, status: 'Absent' },
+  { id: 'stf-6', employeeCode: 'EMP-006', fullName: 'Anita Deshmukh', designation: 'TGT English', department: 'English Dept', email: 'anita.d@school.edu', phone: '+91 98100 11228', joiningDate: '2021-06-01', qualification: 'M.A. English, B.Ed.', monthlySalary: 56000, status: 'Absent' },
+  { id: 'stf-7', employeeCode: 'EMP-007', fullName: 'Prateek Bansal', designation: 'PGT Chemistry', department: 'Science Dept', email: 'prateek.b@school.edu', phone: '+91 98100 11229', joiningDate: '2022-04-01', qualification: 'M.Sc. Organic Chemistry', monthlySalary: 64000, status: 'On Leave' },
+  { id: 'stf-8', employeeCode: 'EMP-008', fullName: 'Rakesh Sharma', designation: 'Sports & PE Teacher', department: 'Physical Education', email: 'rakesh.sharma@school.edu', phone: '+91 98100 11230', joiningDate: '2019-08-01', qualification: 'M.P.Ed.', monthlySalary: 52000, status: 'Active' },
+  { id: 'stf-9', employeeCode: 'EMP-009', fullName: 'Rajat Jain', designation: 'TGT Mathematics', department: 'Mathematics Dept', email: 'rajat.jain@school.edu', phone: '+91 98100 11231', joiningDate: '2023-01-15', qualification: 'M.Sc. Maths', monthlySalary: 54000, status: 'Active' },
+  { id: 'stf-10', employeeCode: 'EMP-010', fullName: 'Sudhir Mishra', designation: 'TGT Social Studies', department: 'Social Science', email: 'sudhir.m@school.edu', phone: '+91 98100 11232', joiningDate: '2022-09-01', qualification: 'M.A. History, B.Ed.', monthlySalary: 55000, status: 'Active' }
 ];
 
 export const INITIAL_ROUTES: TransportRoute[] = [

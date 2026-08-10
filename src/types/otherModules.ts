@@ -93,7 +93,7 @@ export interface StaffMember {
   joiningDate: string;
   qualification: string;
   monthlySalary: number;
-  status: 'Active' | 'On Leave' | 'Resigned';
+  status: 'Active' | 'On Leave' | 'Absent' | 'Half Day' | 'Resigned' | 'In Interview';
 }
 
 export interface NoticeItem {

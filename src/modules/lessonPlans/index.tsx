@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLessonPlanStore, LessonPlan } from './lessonPlanStore';
+import { useOtherModulesStore } from '../otherModules/otherStore';
 import { useAuth } from '../../context/AuthContext';
 import {
   BookOpen,
@@ -25,6 +26,7 @@ import {
 
 export const LessonPlansModule: React.FC = () => {
   const { plans, alerts, updateLessonPlanStatus, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
+  const { staff } = useOtherModulesStore();
   const { activeRole, currentUser, logActivity } = useAuth();
 
   const isTeacherOnly = activeRole.toLowerCase().includes('teacher') && !['Super Admin', 'School Admin', 'Principal', 'Supervisor', 'Examination Incharge'].includes(activeRole);
@@ -42,8 +44,16 @@ export const LessonPlansModule: React.FC = () => {
   // Teacher Form State
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedSubject, setSelectedSubject] = useState('Physics');
-  const [teacherName, setTeacherName] = useState('POONAM SINGH');
-  const [teacherRole, setTeacherRole] = useState('PGT Physics');
+  const [teacherName, setTeacherName] = useState('Poonam Singh');
+  const [teacherRole, setTeacherRole] = useState('TGT Science');
+
+  const handleSelectTeacher = (name: string) => {
+    setTeacherName(name);
+    const found = staff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
+    if (found) {
+      setTeacherRole(found.designation);
+    }
+  };
   const [topic, setTopic] = useState('Ray Diagrams & Lens Formula Numerical Exercises');
   const [targetWeek, setTargetWeek] = useState('Week 12 (May Week 1)');
   const [targetDate, setTargetDate] = useState('2026-05-05');
@@ -587,14 +597,19 @@ export const LessonPlansModule: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Teacher Name
+                  Select Teacher (Staff Directory Database)
                 </label>
-                <input
-                  type="text"
+                <select
                   value={teacherName}
-                  onChange={(e) => setTeacherName(e.target.value)}
+                  onChange={(e) => handleSelectTeacher(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
-                />
+                >
+                  {staff.map((stf) => (
+                    <option key={stf.id} value={stf.fullName}>
+                      {stf.fullName} ({stf.designation} - {stf.department})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>

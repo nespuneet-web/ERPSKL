@@ -37,6 +37,28 @@ const DEFAULT_PERMISSIONS: StudentAcademicPermission[] = [
     reportCardActive: true,
     updatedAt: new Date().toISOString().split('T')[0],
     grantedBy: 'Admission Panel'
+  },
+  {
+    studentId: 'std-105',
+    studentName: 'Abhir Sharma',
+    className: 'Class 10-A',
+    halfYearlyGranted: true,
+    annualGranted: true,
+    unitTestGranted: true,
+    reportCardActive: true,
+    updatedAt: new Date().toISOString().split('T')[0],
+    grantedBy: 'Admission Panel'
+  },
+  {
+    studentId: 'std-106',
+    studentName: 'Amit Kumar',
+    className: 'Class 10-A',
+    halfYearlyGranted: true,
+    annualGranted: true,
+    unitTestGranted: true,
+    reportCardActive: true,
+    updatedAt: new Date().toISOString().split('T')[0],
+    grantedBy: 'Admission Panel'
   }
 ];
 

@@ -615,31 +615,50 @@ export const TimetableModule: React.FC = () => {
   const [constraintMode, setConstraintMode] = useState<SubstitutionConstraintMode>('same_dept_first');
   const [autoSubBanner, setAutoSubBanner] = useState<{ count: number; message: string } | null>(null);
 
-  // TEACHER DAILY ATTENDANCE STATE (Present / Absent / On Leave)
-  const [teacherAttendanceMap, setTeacherAttendanceMap] = useState<Record<string, 'Present' | 'Absent' | 'On Leave'>>({
-    'POONAM SINGH': 'Absent',
-    'ANITA DESHMUKH': 'Absent',
-    'PRATEEK BANSAL': 'On Leave'
+  // TEACHER DAILY ATTENDANCE STATE (Present / Absent / On Leave / Half Day) - Synced with Staff Directory
+  const [localAttendanceOverrides, setLocalAttendanceOverrides] = useState<Record<string, 'Present' | 'Absent' | 'On Leave' | 'Half Day'>>({});
+
+  // Compute effective teacher attendance map combining staff directory and local overrides
+  const teacherAttendanceMap: Record<string, 'Present' | 'Absent' | 'On Leave' | 'Half Day'> = {};
+  
+  // 1. Populate from staff directory
+  staff.forEach((stf) => {
+    const nameKey = stf.fullName.toUpperCase();
+    if (stf.status === 'Absent') teacherAttendanceMap[nameKey] = 'Absent';
+    else if (stf.status === 'On Leave') teacherAttendanceMap[nameKey] = 'On Leave';
+    else if (stf.status === 'Half Day') teacherAttendanceMap[nameKey] = 'Half Day';
+    else teacherAttendanceMap[nameKey] = 'Present';
   });
+
+  // 2. Default overrides
+  if (!('POONAM SINGH' in teacherAttendanceMap)) teacherAttendanceMap['POONAM SINGH'] = 'Absent';
+  if (!('ANITA DESHMUKH' in teacherAttendanceMap)) teacherAttendanceMap['ANITA DESHMUKH'] = 'Absent';
+  if (!('PRATEEK BANSAL' in teacherAttendanceMap)) teacherAttendanceMap['PRATEEK BANSAL'] = 'On Leave';
+
+  // 3. Apply local overrides
+  Object.assign(teacherAttendanceMap, localAttendanceOverrides);
 
   const [isPrintGridModalOpen, setIsPrintGridModalOpen] = useState(false);
 
   // Toggle teacher attendance status
-  const handleToggleAttendance = (teacherName: string, status: 'Present' | 'Absent' | 'On Leave') => {
-    setTeacherAttendanceMap((prev) => ({
+  const handleToggleAttendance = (teacherName: string, status: 'Present' | 'Absent' | 'On Leave' | 'Half Day') => {
+    setLocalAttendanceOverrides((prev) => ({
       ...prev,
-      [teacherName]: status
+      [teacherName.toUpperCase()]: status
     }));
   };
 
-  // GLOBAL AUTO-SUBSTITUTION FOR ALL ABSENT / ON LEAVE TEACHERS ON SELECTED DAY
+  // GLOBAL AUTO-SUBSTITUTION FOR ALL ABSENT / ON LEAVE / HALF DAY TEACHERS ON SELECTED DAY
   const handleGlobalAutoSubstituteAll = () => {
     const absentTeacherNames = teacherTimetables
       .map((t) => t.teacherName)
-      .filter((tName) => teacherAttendanceMap[tName] === 'Absent' || teacherAttendanceMap[tName] === 'On Leave');
+      .filter((tName) => {
+        const st = teacherAttendanceMap[tName.toUpperCase()];
+        return st === 'Absent' || st === 'On Leave' || st === 'Half Day';
+      });
 
     if (absentTeacherNames.length === 0) {
-      alert(`No teachers are currently marked as Absent or On Leave today. Please mark teacher attendance first.`);
+      alert(`No teachers are currently marked as Absent, Half Day, or On Leave today. Please mark teacher attendance first in the Staff Directory or Timetable panel.`);
       return;
     }
 
@@ -1325,9 +1344,17 @@ export const TimetableModule: React.FC = () => {
                           A
                         </button>
                         <button
+                          onClick={() => handleToggleAttendance(t.teacherName, 'Half Day')}
+                          className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
+                            status === 'Half Day' ? 'bg-amber-500 text-white' : 'bg-blue-950 text-blue-300 hover:text-white'
+                          }`}
+                        >
+                          H
+                        </button>
+                        <button
                           onClick={() => handleToggleAttendance(t.teacherName, 'On Leave')}
                           className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
-                            status === 'On Leave' ? 'bg-amber-400 text-slate-950' : 'bg-blue-950 text-blue-300 hover:text-white'
+                            status === 'On Leave' ? 'bg-purple-500 text-white' : 'bg-blue-950 text-blue-300 hover:text-white'
                           }`}
                         >
                           L
