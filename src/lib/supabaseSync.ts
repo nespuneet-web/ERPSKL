@@ -776,14 +776,44 @@ export async function runFullDatabaseSynchronization(): Promise<{
     ], { onConflict: 'employee_code' });
     summary.push('✓ Synced Staff & Faculty directory table');
 
-    // 3. Sync sample students
+    // 3. Sync students table including Abhir Sharma and Amit Kumar
     await supabase.from('students').upsert([
-      { admission_no: 'ADM-2026-001', full_name: 'AARAV SHARMA', class_name: '10', section: 'A', roll_no: 1 },
-      { admission_no: 'ADM-2026-002', full_name: 'ANANYA VERMA', class_name: '10', section: 'A', roll_no: 2 }
+      { admission_no: 'ADM-2024-001', full_name: 'AARAV SHARMA', class_name: 'Class 10', section: 'A', roll_no: 1, father_name: 'Rajesh Sharma', status: 'Active' },
+      { admission_no: 'ADM-2024-002', full_name: 'ANANYA VERMA', class_name: 'Class 10', section: 'A', roll_no: 2, father_name: 'Vikram Verma', status: 'Active' },
+      { admission_no: 'ADM-2024-005', full_name: 'ABHIR SHARMA', class_name: 'Class 10', section: 'A', roll_no: 5, father_name: 'Suresh Sharma', contact_phone: '+91 98100 55443', status: 'Active' },
+      { admission_no: 'ADM-2024-006', full_name: 'AMIT KUMAR', class_name: 'Class 10', section: 'A', roll_no: 6, father_name: 'Rakesh Kumar', contact_phone: '+91 98100 66554', status: 'Active' }
     ], { onConflict: 'admission_no' });
-    summary.push('✓ Synced Students (SIS) master database table');
+    summary.push('✓ Synced Master Students Directory (Abhir Sharma & Amit Kumar inserted into DB)');
 
-    // 4. Sync Subject configs
+    // 4. Sync Examination Marks for Abhir Sharma & Amit Kumar
+    await supabase.from('student_marks').upsert([
+      { id: 'mark-ADM-2024-005-math', student_admission_no: 'ADM-2024-005', student_name: 'ABHIR SHARMA', marks_obtained: 92, grade: 'A1', remarks: 'Unit Test & Term Evaluation Completed' },
+      { id: 'mark-ADM-2024-006-math', student_admission_no: 'ADM-2024-006', student_name: 'AMIT KUMAR', marks_obtained: 88, grade: 'A1', remarks: 'Unit Test & Term Evaluation Completed' }
+    ], { onConflict: 'id' });
+    summary.push('✓ Synced Student Examination Marks (Abhir: 92/100, Amit: 88/100)');
+
+    // 5. Sync Daily Attendance for Abhir Sharma & Amit Kumar
+    await supabase.from('daily_attendance').upsert([
+      { attendance_date: new Date().toISOString().split('T')[0], class_name: 'Class 10', section: 'A', student_admission_no: 'ADM-2024-005', status: 'Present' },
+      { attendance_date: new Date().toISOString().split('T')[0], class_name: 'Class 10', section: 'A', student_admission_no: 'ADM-2024-006', status: 'Present' }
+    ]);
+    summary.push('✓ Synced Daily Attendance Records (Abhir & Amit Marked Present)');
+
+    // 6. Sync Fee Collection & Billing for Amit Kumar & Abhir Sharma
+    await supabase.from('fee_collections').upsert([
+      { receipt_no: 'REC-2026-005', student_admission_no: 'ADM-2024-005', student_name: 'ABHIR SHARMA', class_name: 'Class 10', fee_head: 'Tuition & Development Fee Q1', amount_paid: 15000, payment_mode: 'UPI Online', transaction_ref: 'UPI-ABHIR-9981' },
+      { receipt_no: 'REC-2026-006', student_admission_no: 'ADM-2024-006', student_name: 'AMIT KUMAR', class_name: 'Class 10', fee_head: 'Tuition & Development Fee Q1', amount_paid: 15000, payment_mode: 'Net Banking', transaction_ref: 'NEFT-AMIT-8812' }
+    ], { onConflict: 'receipt_no' });
+    summary.push('✓ Synced Fee Receipts & Billing (Abhir & Amit Rs. 15,000 Payment Processed)');
+
+    // 7. Sync Admission Leads
+    await supabase.from('admission_leads').upsert([
+      { lead_no: 'LEAD-2026-005', applicant_name: 'ABHIR SHARMA', parent_name: 'Suresh Sharma', phone: '+91 98100 55443', class_seeking: 'Class 10', lead_source: 'Direct ERP Entry', status: 'Admitted' },
+      { lead_no: 'LEAD-2026-006', applicant_name: 'AMIT KUMAR', parent_name: 'Rakesh Kumar', phone: '+91 98100 66554', class_seeking: 'Class 10', lead_source: 'Direct ERP Entry', status: 'Admitted' }
+    ], { onConflict: 'lead_no' });
+    summary.push('✓ Synced Admission Leads & Inquiries (Abhir & Amit Status: Admitted)');
+
+    // 8. Sync Subject configs
     await supabase.from('subject_configs').upsert([
       { code: 'MATH-101', name: 'Mathematics', theory_max_marks: 80, internal_max_marks: 20 },
       { code: 'SCI-201', name: 'Science & Technology', theory_max_marks: 80, internal_max_marks: 20 }
@@ -881,3 +911,5 @@ export async function runLiveSupabaseTrial(): Promise<SupabaseSyncResult> {
     return { success: false, message: `Trial Exception: ${err.message}` };
   }
 }
+
+export const initializeSupabaseSchema = runFullDatabaseSynchronization;

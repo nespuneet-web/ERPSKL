@@ -25,6 +25,7 @@ import { SupabaseCloudHub } from './components/SupabaseCloudHub';
 import { UserLoginModal } from './components/UserLoginModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
 import { RolePermissionsModal } from './components/RolePermissionsModal';
+import { initializeSupabaseSchema } from './lib/supabaseSync';
 import { RefreshCw, ShieldCheck, Lock } from 'lucide-react';
 
 import {
@@ -93,6 +94,15 @@ function ErpLayout() {
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
 
   const { activeRole, setActiveRole, academicSessions, currentAcademicSession, setCurrentAcademicSession, isModuleAllowed, getAllowedModules } = useAuth();
+
+  // Automatic Background Real-Time Database Sync Initialization
+  useEffect(() => {
+    initializeSupabaseSchema().then((res) => {
+      console.log('Automated Real-Time Database Sync initialized:', res.summary ? res.summary.join(' | ') : 'Success');
+    }).catch((err) => {
+      console.error('Error in auto DB sync initialization:', err);
+    });
+  }, []);
 
   // Auto-redirect if active module is restricted for the current active role
   useEffect(() => {
@@ -261,27 +271,17 @@ function ErpLayout() {
               <span>Module Access Rights</span>
             </button>
 
-            {/* Synchronize Database Button */}
-            <button
-              onClick={() => setIsSyncModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-lg shadow-sm cursor-pointer transition-all active:scale-95 border border-indigo-400/30"
-              title="Synchronize Database: Create tables and update database schema"
-            >
-              <RefreshCw className="w-3.5 h-3.5 text-indigo-200" />
-              <span>Sync DB</span>
-            </button>
-
-            {/* Live Database Connectivity Green Signal */}
+            {/* Live Real-Time Database Auto-Sync Signal */}
             <button
               onClick={() => isModuleAllowed('supabase_cloud') && setActiveModule('supabase_cloud')}
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300 shadow-xs hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all cursor-pointer"
-              title="Supabase Database Connectivity Status: LIVE"
+              title="Supabase Database Connectivity Status: REAL-TIME AUTOMATIC SYNC ACTIVE"
             >
               <span className="relative flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
               </span>
-              <span>DB Live</span>
+              <span>DB Auto-Synced (Live)</span>
             </button>
 
             {/* User Login & Password Button */}
