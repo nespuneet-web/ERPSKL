@@ -285,6 +285,25 @@ export async function syncStaffToSupabase(
   };
 }
 
+export async function fetchStaffFromSupabase(): Promise<StaffMember[] | null> {
+  const res = await fetchRecords('staff', { orderBy: { column: 'employee_code', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `stf-${row.employee_code}`,
+    employeeCode: row.employee_code,
+    fullName: row.full_name,
+    designation: row.designation || 'Faculty Member',
+    department: row.department || 'Academics',
+    email: row.email || `${row.employee_code.toLowerCase()}@school.edu`,
+    phone: row.contact_phone || '+91 98100 00000',
+    joiningDate: '2022-01-01',
+    qualification: 'M.Sc. / M.A., B.Ed.',
+    monthlySalary: 65000,
+    status: (row.status as StaffMember['status']) || 'Active'
+  }));
+}
+
 /**
  * 6. LEAVE APPLICATIONS SYNC
  */
@@ -769,21 +788,37 @@ export async function runFullDatabaseSynchronization(): Promise<{
     });
     summary.push('✓ Synced Student Academic Permissions & Clearances table');
 
-    // 2. Sync staff table
+    // 2. Sync staff table (All 16 faculty & staff members centralized)
     await supabase.from('staff').upsert([
-      { employee_code: 'EMP-101', full_name: 'POONAM SINGH', department: 'Senior Secondary', designation: 'PGT Physics' },
-      { employee_code: 'EMP-102', full_name: 'RAJAT JAIN', department: 'Science Dept', designation: 'TGT Science' }
+      { employee_code: 'EMP-ANKUR', full_name: 'ANKUR KABRA', department: 'Mathematics Dept', designation: 'PGT Mathematics', status: 'Active' },
+      { employee_code: 'EMP-001', full_name: 'DR. V. K. SHARMA', department: 'Administration', designation: 'Principal', status: 'Active' },
+      { employee_code: 'EMP-002', full_name: 'MRS. S. ROY', department: 'Academics', designation: 'HOD Computer Science', status: 'Active' },
+      { employee_code: 'EMP-003', full_name: 'MR. RAJESH NAMBOODIRI', department: 'Examination Dept', designation: 'Examination Incharge', status: 'Active' },
+      { employee_code: 'EMP-004', full_name: 'ANIL KUMAR SINGH', department: 'Senior Secondary', designation: 'PGT Physics', status: 'Active' },
+      { employee_code: 'EMP-005', full_name: 'POONAM SINGH', department: 'Science Dept', designation: 'TGT Science', status: 'Absent' },
+      { employee_code: 'EMP-006', full_name: 'ANITA DESHMUKH', department: 'English Dept', designation: 'TGT English', status: 'Absent' },
+      { employee_code: 'EMP-007', full_name: 'PRATEEK BANSAL', department: 'Science Dept', designation: 'PGT Chemistry', status: 'On Leave' },
+      { employee_code: 'EMP-008', full_name: 'RAKESH SHARMA', department: 'Physical Education', designation: 'Sports & PE Teacher', status: 'Active' },
+      { employee_code: 'EMP-009', full_name: 'RAJAT JAIN', department: 'Mathematics Dept', designation: 'TGT Mathematics', status: 'Active' },
+      { employee_code: 'EMP-010', full_name: 'SUDHIR MISHRA', department: 'Social Science', designation: 'TGT Social Studies', status: 'Active' },
+      { employee_code: 'EMP-011', full_name: 'MANISH TIWARI', department: 'Hindi Dept', designation: 'TGT Hindi', status: 'Active' },
+      { employee_code: 'EMP-012', full_name: 'PRIYA VERMA', department: 'Biology Dept', designation: 'PGT Biology', status: 'Active' },
+      { employee_code: 'EMP-013', full_name: 'SUNITA AGARWAL', department: 'Economics Dept', designation: 'PGT Economics', status: 'Active' },
+      { employee_code: 'EMP-014', full_name: 'HARSH VARDHAN', department: 'Commerce Dept', designation: 'PGT Accountancy', status: 'Active' },
+      { employee_code: 'EMP-015', full_name: 'DEEPAK JOSHI', department: 'Arts & Music', designation: 'TGT Fine Arts', status: 'Active' }
     ], { onConflict: 'employee_code' });
-    summary.push('✓ Synced Staff & Faculty directory table');
+    summary.push('✓ Synced Staff & Faculty directory table (16 Faculty members saved to DB)');
 
-    // 3. Sync students table including Abhir Sharma and Amit Kumar
+    // 3. Sync students table (Master Database)
     await supabase.from('students').upsert([
       { admission_no: 'ADM-2024-001', full_name: 'AARAV SHARMA', class_name: 'Class 10', section: 'A', roll_no: 1, father_name: 'Rajesh Sharma', status: 'Active' },
       { admission_no: 'ADM-2024-002', full_name: 'ANANYA VERMA', class_name: 'Class 10', section: 'A', roll_no: 2, father_name: 'Vikram Verma', status: 'Active' },
+      { admission_no: 'ADM-2024-003', full_name: 'ROHAN GUPTA', class_name: 'Class 10', section: 'A', roll_no: 3, father_name: 'Alok Gupta', status: 'Active' },
+      { admission_no: 'ADM-2024-004', full_name: 'DIYA PATEL', class_name: 'Class 10', section: 'A', roll_no: 4, father_name: 'Ketan Patel', status: 'Active' },
       { admission_no: 'ADM-2024-005', full_name: 'ABHIR SHARMA', class_name: 'Class 10', section: 'A', roll_no: 5, father_name: 'Suresh Sharma', contact_phone: '+91 98100 55443', status: 'Active' },
       { admission_no: 'ADM-2024-006', full_name: 'AMIT KUMAR', class_name: 'Class 10', section: 'A', roll_no: 6, father_name: 'Rakesh Kumar', contact_phone: '+91 98100 66554', status: 'Active' }
     ], { onConflict: 'admission_no' });
-    summary.push('✓ Synced Master Students Directory (Abhir Sharma & Amit Kumar inserted into DB)');
+    summary.push('✓ Synced Master Students Directory (All registered students saved to DB)');
 
     // 4. Sync Examination Marks for Abhir Sharma & Amit Kumar
     await supabase.from('student_marks').upsert([

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AdmissionApplication, SeatAvailability } from '../../types/admission';
 import { INITIAL_APPLICATIONS } from '../../data/mockData';
-import { syncAdmissionLeadToSupabase } from '../../lib/supabaseSync';
+import { syncAdmissionLeadToSupabase, fetchAdmissionLeadsFromSupabase } from '../../lib/supabaseSync';
 
 const ADMISSION_STORAGE_KEY = 'schoolerp_admission_apps_v1';
 
@@ -25,6 +25,24 @@ export function useAdmissionStore() {
   useEffect(() => {
     localStorage.setItem(ADMISSION_STORAGE_KEY, JSON.stringify(applications));
   }, [applications]);
+
+  // Fetch remote admission leads on mount from Supabase
+  useEffect(() => {
+    let active = true;
+    async function loadRemote() {
+      const remote = await fetchAdmissionLeadsFromSupabase();
+      if (remote && remote.length > 0 && active) {
+        setApplications((prev) => {
+          const map: Record<string, AdmissionApplication> = {};
+          prev.forEach((a) => { map[a.applicationNo] = a; });
+          remote.forEach((a) => { map[a.applicationNo] = a; });
+          return Object.values(map);
+        });
+      }
+    }
+    loadRemote();
+    return () => { active = false; };
+  }, []);
 
   const addApplication = async (
     app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status'>,

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
-import { syncFeeCollectionToSupabase } from '../../lib/supabaseSync';
+import { syncFeeCollectionToSupabase, fetchStaffFromSupabase, syncStaffToSupabase } from '../../lib/supabaseSync';
 
 const OTHER_STORAGE_KEY = 'schoolerp_other_modules_v1';
 
@@ -65,8 +65,39 @@ export function useOtherModulesStore() {
     }
   }, [staff]);
 
-  const updateStaffStatus = (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {
-    setStaff((prev) => prev.map((s) => (s.id === staffId ? { ...s, status } : s)));
+  // Load remote staff from Supabase on mount
+  useEffect(() => {
+    let active = true;
+    async function loadRemoteStaff() {
+      const remote = await fetchStaffFromSupabase();
+      if (remote && remote.length > 0 && active) {
+        setStaff((prev) => {
+          const map: Record<string, StaffMember> = {};
+          prev.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
+          remote.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
+          return Object.values(map);
+        });
+      }
+    }
+    loadRemoteStaff();
+    return () => { active = false; };
+  }, []);
+
+  const updateStaffStatus = async (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {
+    let updatedStaffMember: StaffMember | null = null;
+    setStaff((prev) =>
+      prev.map((s) => {
+        if (s.id === staffId) {
+          updatedStaffMember = { ...s, status };
+          return updatedStaffMember;
+        }
+        return s;
+      })
+    );
+
+    if (updatedStaffMember) {
+      await syncStaffToSupabase(updatedStaffMember);
+    }
   };
   const [routes] = useState(INITIAL_ROUTES);
 
