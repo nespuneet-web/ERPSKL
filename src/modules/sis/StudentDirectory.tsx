@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
-import { Search, Filter, Plus, Eye, Edit2, Trash2, ShieldCheck, Bus, Home, FileText, UserCheck, Download } from 'lucide-react';
+import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
+import { Search, Filter, Plus, Eye, Edit2, Trash2, ShieldCheck, Bus, Home, FileText, UserCheck, Download, Award, Shield } from 'lucide-react';
 
 interface StudentDirectoryProps {
   students: Student[];
@@ -9,6 +10,7 @@ interface StudentDirectoryProps {
   onDeleteStudent: (id: string) => void;
   onAddNew: () => void;
 }
+
 
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   students,
@@ -117,13 +119,14 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+              className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white font-medium"
             >
-              <option value="All">All Classes</option>
-              <option value="Class 9">Class 9</option>
-              <option value="Class 10">Class 10</option>
-              <option value="Class 11 Science">Class 11 Science</option>
-              <option value="Class 12 Science">Class 12 Science</option>
+              <option value="All">All Classes (PG to 12th)</option>
+              {ALL_SCHOOL_CLASSES.map((cls) => (
+                <option key={cls} value={cls}>
+                  {cls}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -167,8 +170,9 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                 <th className="py-3 px-4">Student Info</th>
                 <th className="py-3 px-4">PEN & APAAR ID</th>
                 <th className="py-3 px-4">Class & Sec</th>
+                <th className="py-3 px-4">House & Club</th>
+                <th className="py-3 px-4">Activities (Indoor / Outdoor)</th>
                 <th className="py-3 px-4">Parent Details</th>
-                <th className="py-3 px-4">Services</th>
                 <th className="py-3 px-4">Status</th>
                 <th className="py-3 px-4 text-right">Actions</th>
               </tr>
@@ -176,7 +180,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="text-center py-8 text-slate-500 dark:text-slate-400">
                     No students match your criteria.
                   </td>
                 </tr>
@@ -203,9 +207,29 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                     </td>
 
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
                         {student.currentClass} - {student.section} (Roll: {student.rollNo})
                       </span>
+                    </td>
+
+                    <td className="py-3 px-4 text-xs space-y-1">
+                      <div className="flex items-center gap-1 font-bold text-slate-800 dark:text-slate-200">
+                        <Shield className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>House: {student.house || 'Agni (Red)'}</span>
+                      </div>
+                      <div className="flex items-center gap-1 text-slate-600 dark:text-slate-400 font-medium">
+                        <Award className="w-3.5 h-3.5 text-amber-500" />
+                        <span>Club: {student.clubName || 'Eco & Green Club'}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3 px-4 text-xs space-y-1">
+                      <p className="text-slate-700 dark:text-slate-300 font-medium">
+                        <span className="font-bold text-indigo-600 dark:text-indigo-400">Indoor:</span> {student.groupAActivity || 'Chess'}
+                      </p>
+                      <p className="text-slate-700 dark:text-slate-300 font-medium">
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">Outdoor:</span> {student.groupBActivity || 'Cricket'}
+                      </p>
                     </td>
 
                     <td className="py-3 px-4 text-xs">

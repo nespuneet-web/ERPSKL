@@ -37,6 +37,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   'Parent': ['sis', 'attendance', 'timetable', 'examination', 'fees', 'transport', 'communication', 'library'],
 
   'Examination Incharge': ['examination', 'sis', 'timetable', 'lesson_plans', 'certificates', 'communication'],
+  'Timetable Incharge': ['timetable', 'sis', 'staff', 'attendance', 'lesson_plans', 'communication'],
   'Admission Team': ['admission', 'sis', 'fees', 'communication'],
   'Account Department': ['fees', 'reports', 'sis', 'communication', 'certificates'],
   'Accountant': ['fees', 'reports', 'sis', 'communication', 'certificates'],

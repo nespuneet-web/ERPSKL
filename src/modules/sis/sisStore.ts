@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Student } from '../../types/sis';
-import { INITIAL_STUDENTS } from '../../data/mockData';
+import { Student, SchoolHouse, SchoolClub } from '../../types/sis';
+import { INITIAL_STUDENTS, DEFAULT_SCHOOL_HOUSES, DEFAULT_SCHOOL_CLUBS } from '../../data/mockData';
 import { syncStudentToSupabase, fetchStudentsFromSupabase } from '../../lib/supabaseSync';
 
 const SIS_STORAGE_KEY = 'schoolerp_sis_students_v1';
+const SIS_HOUSES_KEY = 'schoolerp_sis_houses_v1';
+const SIS_CLUBS_KEY = 'schoolerp_sis_clubs_v1';
 
 export function useSisStore() {
   const [students, setStudents] = useState<Student[]>(() => {
@@ -11,11 +13,29 @@ export function useSisStore() {
     return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
   });
 
+  const [houses, setHouses] = useState<SchoolHouse[]>(() => {
+    const saved = localStorage.getItem(SIS_HOUSES_KEY);
+    return saved ? JSON.parse(saved) : DEFAULT_SCHOOL_HOUSES;
+  });
+
+  const [clubs, setClubs] = useState<SchoolClub[]>(() => {
+    const saved = localStorage.getItem(SIS_CLUBS_KEY);
+    return saved ? JSON.parse(saved) : DEFAULT_SCHOOL_CLUBS;
+  });
+
   const [syncStatus, setSyncStatus] = useState<string | null>(null);
 
   useEffect(() => {
     localStorage.setItem(SIS_STORAGE_KEY, JSON.stringify(students));
   }, [students]);
+
+  useEffect(() => {
+    localStorage.setItem(SIS_HOUSES_KEY, JSON.stringify(houses));
+  }, [houses]);
+
+  useEffect(() => {
+    localStorage.setItem(SIS_CLUBS_KEY, JSON.stringify(clubs));
+  }, [clubs]);
 
   // Fetch remote students on mount
   useEffect(() => {
@@ -74,6 +94,16 @@ export function useSisStore() {
     setStudents((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const addHouse = (house: Omit<SchoolHouse, 'id'>) => {
+    const newHouse: SchoolHouse = { ...house, id: `house-${Date.now()}` };
+    setHouses((prev) => [...prev, newHouse]);
+  };
+
+  const addClub = (club: Omit<SchoolClub, 'id'>) => {
+    const newClub: SchoolClub = { ...club, id: `club-${Date.now()}` };
+    setClubs((prev) => [...prev, newClub]);
+  };
+
   const addDocumentToStudent = (studentId: string, doc: { title: string; type: any; fileName: string; url: string }) => {
     setStudents((prev) =>
       prev.map((s) => {
@@ -93,10 +123,15 @@ export function useSisStore() {
 
   return {
     students,
+    houses,
+    clubs,
     syncStatus,
     addStudent,
     updateStudent,
     deleteStudent,
+    addHouse,
+    addClub,
     addDocumentToStudent
   };
 }
+

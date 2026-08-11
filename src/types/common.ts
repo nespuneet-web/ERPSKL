@@ -4,6 +4,7 @@ export type UserRole =
   | 'Principal'
   | 'Vice Principal'
   | 'Examination Incharge'
+  | 'Timetable Incharge'
   | 'Admission Team'
   | 'Account Department'
   | 'Accountant'

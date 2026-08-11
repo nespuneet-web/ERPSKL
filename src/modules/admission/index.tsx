@@ -4,12 +4,13 @@ import { useAcademicPermissions } from './academicPermissionStore';
 import { useSisStore } from '../sis/sisStore';
 import { AdmissionLetterModal } from './AdmissionLetterModal';
 import { AdmissionApplication } from '../../types/admission';
-import { UserPlus, Search, CheckCircle, Clock, FileText, Award, Layers, ShieldCheck, Lock, Unlock, CheckCircle2, AlertCircle, UserCheck } from 'lucide-react';
+import { ALL_SCHOOL_CLASSES, GROUP_A_INDOOR_ACTIVITIES, GROUP_B_OUTDOOR_ACTIVITIES } from '../../data/mockData';
+import { UserPlus, Search, CheckCircle, Clock, FileText, Award, Layers, ShieldCheck, Lock, Unlock, CheckCircle2, AlertCircle, UserCheck, Shield, Award as ClubIcon } from 'lucide-react';
 
 export const AdmissionModule: React.FC = () => {
   const { applications, seats, syncStatus, addApplication, updateApplicationStatus } = useAdmissionStore();
   const { permissions, globalReportCardActive, setGlobalReportCardActive, toggleStudentPermission, grantAllPermissions, revokeAllPermissions } = useAcademicPermissions();
-  const { students, addStudent } = useSisStore();
+  const { students, houses, clubs, addStudent } = useSisStore();
 
   const [activeSection, setActiveSection] = useState<'applications' | 'exam_permissions'>('applications');
   const [searchTerm, setSearchTerm] = useState('');
@@ -21,10 +22,16 @@ export const AdmissionModule: React.FC = () => {
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [studentName, setStudentName] = useState('');
   const [applyingClass, setApplyingClass] = useState('Class 10');
+  const [selectedSection, setSelectedSection] = useState('A');
+  const [selectedHouse, setSelectedHouse] = useState('Agni (Red)');
+  const [selectedClub, setSelectedClub] = useState('Eco & Green Club');
+  const [selectedIndoor, setSelectedIndoor] = useState('Chess');
+  const [selectedOutdoor, setSelectedOutdoor] = useState('Cricket');
   const [parentName, setParentName] = useState('');
   const [contactNumber, setContactNumber] = useState('');
   const [email, setEmail] = useState('');
   const [previousSchool, setPreviousSchool] = useState('');
+
 
   // Auto-populate when selecting a registered student
   const handleSelectRegisteredStudent = (stdId: string) => {
@@ -110,9 +117,12 @@ export const AdmissionModule: React.FC = () => {
         admissionDate: new Date().toISOString().split('T')[0],
         admissionClass: applyingClass,
         currentClass: applyingClass,
-        section: 'A',
+        section: selectedSection,
         rollNo: students.length + 1,
-        house: 'Blue',
+        house: selectedHouse,
+        clubName: selectedClub,
+        groupAActivity: selectedIndoor,
+        groupBActivity: selectedOutdoor,
         transportRequired: true,
         busRouteNo: 'Route 1 - Civil Lines Metro',
         hostelRequired: false,
@@ -493,19 +503,105 @@ export const AdmissionModule: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Applying Class</label>
-                <select
-                  value={applyingClass}
-                  onChange={(e) => setApplyingClass(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
-                >
-                  <option value="Nursery">Nursery</option>
-                  <option value="Class 1">Class 1</option>
-                  <option value="Class 6">Class 6</option>
-                  <option value="Class 10">Class 10</option>
-                  <option value="Class 11 Science">Class 11 Science</option>
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Applying Class *</label>
+                  <select
+                    value={applyingClass}
+                    onChange={(e) => setApplyingClass(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
+                  >
+                    {ALL_SCHOOL_CLASSES.map((cls) => (
+                      <option key={cls} value={cls}>
+                        {cls}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Section Assignment *</label>
+                  <select
+                    value={selectedSection}
+                    onChange={(e) => setSelectedSection(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
+                  >
+                    <option value="A">Section A</option>
+                    <option value="B">Section B</option>
+                    <option value="C">Section C</option>
+                    <option value="D">Section D</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* House & Club Selection */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Assign House *</label>
+                  <select
+                    value={selectedHouse}
+                    onChange={(e) => setSelectedHouse(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium"
+                  >
+                    {houses.map((h) => (
+                      <option key={h.id} value={h.name}>
+                        {h.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Assign Club (Mandatory 1) *</label>
+                  <select
+                    value={selectedClub}
+                    onChange={(e) => setSelectedClub(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-medium"
+                  >
+                    {clubs.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Co-Curricular Activities (Group A Indoor & Group B Outdoor) */}
+              <div className="p-3 bg-indigo-50/50 dark:bg-indigo-950/30 rounded-xl border border-indigo-100 dark:border-indigo-900/50 space-y-2">
+                <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                  <ClubIcon className="w-3.5 h-3.5" />
+                  Co-Curricular Activity Selection Rule (Max 1 Indoor, Max 1 Outdoor)
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Group A (Indoor Activity)</label>
+                    <select
+                      value={selectedIndoor}
+                      onChange={(e) => setSelectedIndoor(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                    >
+                      <option value="">-- None --</option>
+                      {GROUP_A_INDOOR_ACTIVITIES.map((act) => (
+                        <option key={act} value={act}>{act}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">Group B (Outdoor Activity)</label>
+                    <select
+                      value={selectedOutdoor}
+                      onChange={(e) => setSelectedOutdoor(e.target.value)}
+                      className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                    >
+                      <option value="">-- None --</option>
+                      {GROUP_B_OUTDOOR_ACTIVITIES.map((act) => (
+                        <option key={act} value={act}>{act}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
               <div>

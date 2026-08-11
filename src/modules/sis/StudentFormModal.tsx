@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
-import { X, Save, User, FileText, Bus, Home, Heart } from 'lucide-react';
+import { useSisStore } from './sisStore';
+import { ALL_SCHOOL_CLASSES, GROUP_A_INDOOR_ACTIVITIES, GROUP_B_OUTDOOR_ACTIVITIES } from '../../data/mockData';
+import { X, Save, User, FileText, Bus, Home, Heart, Shield, Award } from 'lucide-react';
 
 interface StudentFormModalProps {
   student?: Student | null;
@@ -9,6 +11,8 @@ interface StudentFormModalProps {
 }
 
 export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onClose, onSave }) => {
+  const { houses, clubs } = useSisStore();
+
   const [fullName, setFullName] = useState(student?.fullName || '');
   const [admissionNo, setAdmissionNo] = useState(student?.admissionNo || `ADM-2026-${Math.floor(100 + Math.random() * 900)}`);
   const [registrationNo, setRegistrationNo] = useState(student?.registrationNo || `REG-${Math.floor(10000 + Math.random() * 90000)}`);
@@ -27,12 +31,15 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
   const [currentClass, setCurrentClass] = useState(student?.currentClass || 'Class 10');
   const [section, setSection] = useState(student?.section || 'A');
   const [rollNo, setRollNo] = useState(student?.rollNo || 1);
-  const [house, setHouse] = useState<Student['house']>(student?.house || 'Red');
+  const [house, setHouse] = useState<string>(student?.house || houses[0]?.name || 'Agni (Red)');
+  const [clubName, setClubName] = useState<string>(student?.clubName || clubs[0]?.name || 'Eco & Green Club');
+  const [groupAActivity, setGroupAActivity] = useState<string>(student?.groupAActivity || 'Chess');
+  const [groupBActivity, setGroupBActivity] = useState<string>(student?.groupBActivity || 'Cricket');
 
-  const [fatherName, setFatherName] = useState(student?.parents.fatherName || '');
-  const [fatherMobile, setFatherMobile] = useState(student?.parents.fatherMobile || '');
-  const [motherName, setMotherName] = useState(student?.parents.motherName || '');
-  const [address, setAddress] = useState(student?.parents.address || '');
+  const [fatherName, setFatherName] = useState(student?.parents?.fatherName || '');
+  const [fatherMobile, setFatherMobile] = useState(student?.parents?.fatherMobile || '');
+  const [motherName, setMotherName] = useState(student?.parents?.motherName || '');
+  const [address, setAddress] = useState(student?.parents?.address || '');
 
   const [transportRequired, setTransportRequired] = useState(student?.transportRequired || false);
   const [hostelRequired, setHostelRequired] = useState(student?.hostelRequired || false);
@@ -61,6 +68,9 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
       section,
       rollNo: Number(rollNo),
       house,
+      clubName,
+      groupAActivity,
+      groupBActivity,
       transportRequired,
       busRouteNo: transportRequired ? 'Route 1 - Model Town' : undefined,
       hostelRequired,
@@ -88,6 +98,7 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
 
     onSave(data);
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 overflow-y-auto">
@@ -238,16 +249,17 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Class</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Class *</label>
                 <select
                   value={currentClass}
                   onChange={(e) => setCurrentClass(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
                 >
-                  <option value="Class 9">Class 9</option>
-                  <option value="Class 10">Class 10</option>
-                  <option value="Class 11 Science">Class 11 Science</option>
-                  <option value="Class 12 Science">Class 12 Science</option>
+                  {ALL_SCHOOL_CLASSES.map((cls) => (
+                    <option key={cls} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -256,11 +268,12 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
                 <select
                   value={section}
                   onChange={(e) => setSection(e.target.value)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
                 >
                   <option value="A">Section A</option>
                   <option value="B">Section B</option>
                   <option value="C">Section C</option>
+                  <option value="D">Section D</option>
                 </select>
               </div>
 
@@ -271,23 +284,91 @@ export const StudentFormModal: React.FC<StudentFormModalProps> = ({ student, onC
                   min={1}
                   value={rollNo}
                   onChange={(e) => setRollNo(Number(e.target.value))}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">House</label>
+                <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">Customizable House</label>
                 <select
                   value={house}
-                  onChange={(e) => setHouse(e.target.value as any)}
-                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                  onChange={(e) => setHouse(e.target.value)}
+                  className="w-full px-3 py-2 text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white font-bold text-indigo-600 dark:text-indigo-300"
                 >
-                  <option value="Red">Red House</option>
-                  <option value="Blue">Blue House</option>
-                  <option value="Green">Green House</option>
-                  <option value="Yellow">Yellow House</option>
+                  {houses.map((h) => (
+                    <option key={h.id} value={h.name}>
+                      {h.name}
+                    </option>
+                  ))}
                 </select>
               </div>
+            </div>
+          </div>
+
+          {/* Club & Co-Curricular Activities */}
+          <div>
+            <h3 className="text-xs font-semibold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider mb-3 flex items-center gap-1.5">
+              <Award className="w-4 h-4 text-amber-500" />
+              4. Club Membership & Co-Curricular Activities (Rules Enforced)
+            </h3>
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Assigned Club (Mandatory Exactly 1) *
+                  </label>
+                  <select
+                    value={clubName}
+                    onChange={(e) => setClubName(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-bold"
+                  >
+                    {clubs.map((c) => (
+                      <option key={c.id} value={c.name}>
+                        {c.name} ({c.category})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Group A: Indoor Activity (Max 1)
+                  </label>
+                  <select
+                    value={groupAActivity}
+                    onChange={(e) => setGroupAActivity(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-semibold"
+                  >
+                    <option value="">-- None Selected --</option>
+                    {GROUP_A_INDOOR_ACTIVITIES.map((act) => (
+                      <option key={act} value={act}>
+                        {act}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Group B: Outdoor Activity (Max 1)
+                  </label>
+                  <select
+                    value={groupBActivity}
+                    onChange={(e) => setGroupBActivity(e.target.value)}
+                    className="w-full px-3 py-2 text-sm bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-semibold"
+                  >
+                    <option value="">-- None Selected --</option>
+                    {GROUP_B_OUTDOOR_ACTIVITIES.map((act) => (
+                      <option key={act} value={act}>
+                        {act}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium italic">
+                * Note: Every child is automatically placed in 1 official club and up to 2 activities (max 1 indoor and max 1 outdoor).
+              </p>
             </div>
           </div>
 

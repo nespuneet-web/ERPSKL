@@ -670,7 +670,14 @@ export const INITIAL_STAFF: StaffMember[] = [
   { id: 'stf-12', employeeCode: 'EMP-012', fullName: 'Priya Verma', designation: 'PGT Biology', department: 'Biology Dept', email: 'priya.v@school.edu', phone: '+91 98100 11234', joiningDate: '2020-05-12', qualification: 'M.Sc. Zoology, B.Ed.', monthlySalary: 66000, status: 'Active' },
   { id: 'stf-13', employeeCode: 'EMP-013', fullName: 'Sunita Agarwal', designation: 'PGT Economics', department: 'Economics Dept', email: 'sunita.a@school.edu', phone: '+91 98100 11235', joiningDate: '2019-11-01', qualification: 'M.A. Economics, B.Ed.', monthlySalary: 67000, status: 'Active' },
   { id: 'stf-14', employeeCode: 'EMP-014', fullName: 'Harsh Vardhan', designation: 'PGT Accountancy', department: 'Commerce Dept', email: 'harsh.v@school.edu', phone: '+91 98100 11236', joiningDate: '2022-02-15', qualification: 'M.Com, CA-Inter, B.Ed.', monthlySalary: 69000, status: 'Active' },
-  { id: 'stf-15', employeeCode: 'EMP-015', fullName: 'Deepak Joshi', designation: 'TGT Fine Arts', department: 'Arts & Music', email: 'deepak.j@school.edu', phone: '+91 98100 11237', joiningDate: '2023-04-01', qualification: 'M.F.A. Fine Arts', monthlySalary: 51000, status: 'Active' }
+  { id: 'stf-15', employeeCode: 'EMP-015', fullName: 'Deepak Joshi', designation: 'TGT Fine Arts', department: 'Arts & Music', email: 'deepak.j@school.edu', phone: '+91 98100 11237', joiningDate: '2023-04-01', qualification: 'M.F.A. Fine Arts', monthlySalary: 51000, status: 'Active' },
+  { id: 'stf-16', employeeCode: 'EMP-016', fullName: 'Abhishek Mukharji', designation: 'TGT Social Science', department: 'Social Science', email: 'abhishek.m@school.edu', phone: '+91 98100 11238', joiningDate: '2021-05-10', qualification: 'M.A. History, B.Ed.', monthlySalary: 57000, status: 'Active' },
+  { id: 'stf-17', employeeCode: 'EMP-017', fullName: 'Avneet Kaur', designation: 'Primary Teacher (PRT)', department: 'Primary Block', email: 'avneet.k@school.edu', phone: '+91 98100 11239', joiningDate: '2020-07-01', qualification: 'B.El.Ed, CTET Qualified', monthlySalary: 50000, status: 'Active' },
+  { id: 'stf-18', employeeCode: 'EMP-018', fullName: 'Shruti Chahar', designation: 'TGT English', department: 'English Dept', email: 'shruti.c@school.edu', phone: '+91 98100 11240', joiningDate: '2022-03-15', qualification: 'M.A. English Literature', monthlySalary: 55000, status: 'Active' },
+  { id: 'stf-19', employeeCode: 'EMP-019', fullName: 'Nand Kishore Sharma', designation: 'PGT Sanskrit & Hindi', department: 'Sanskrit & Hindi', email: 'nand.sharma@school.edu', phone: '+91 98100 11241', joiningDate: '2017-08-01', qualification: 'M.A. Sanskrit Acharya, B.Ed.', monthlySalary: 65000, status: 'Active' },
+  { id: 'stf-20', employeeCode: 'EMP-020', fullName: 'Ekta Mukherjee', designation: 'TGT General Science', department: 'Science Dept', email: 'ekta.m@school.edu', phone: '+91 98100 11242', joiningDate: '2021-09-01', qualification: 'M.Sc. Physics, B.Ed.', monthlySalary: 58000, status: 'Active' },
+  { id: 'stf-21', employeeCode: 'EMP-021', fullName: 'Dharmesh Tiwari', designation: 'PGT Mathematics', department: 'Mathematics Dept', email: 'dharmesh.t@school.edu', phone: '+91 98100 11243', joiningDate: '2019-04-12', qualification: 'M.Sc. Mathematics, B.Ed.', monthlySalary: 67000, status: 'Active' },
+  { id: 'stf-22', employeeCode: 'EMP-022', fullName: 'Santosh Sharma', designation: 'Activity & PE Instructor', department: 'Physical Education / Activity', email: 'santosh.s@school.edu', phone: '+91 98100 11244', joiningDate: '2023-02-01', qualification: 'B.P.Ed, NIS Coach', monthlySalary: 48000, status: 'Active' }
 ];
 
 export const INITIAL_ROUTES: TransportRoute[] = [
@@ -678,7 +685,74 @@ export const INITIAL_ROUTES: TransportRoute[] = [
   { id: 'tr-2', routeNumber: 'Route 2', routeName: 'MG Road - Vasant Kunj', vehicleNumber: 'DL 01 PC 4411', driverName: 'Sunil Kumar', driverPhone: '+91 98999 33344', stops: [{ stopName: 'Stop 1 - MG Road Metro', pickupTime: '07:10 AM', fee: 1600 }, { stopName: 'Stop 2 - Vasant Kunj Mall', pickupTime: '07:25 AM', fee: 1800 }], totalCapacity: 50, allocatedStudents: 42 }
 ];
 
+export const ALL_SCHOOL_CLASSES = [
+  'Playgroup (PG)',
+  'Nursery',
+  'LKG',
+  'UKG',
+  'Class 1',
+  'Class 2',
+  'Class 3',
+  'Class 4',
+  'Class 5',
+  'Class 6',
+  'Class 7',
+  'Class 8',
+  'Class 9',
+  'Class 10',
+  'Class 11 Science',
+  'Class 11 Commerce',
+  'Class 11 Arts',
+  'Class 12 Science',
+  'Class 12 Commerce',
+  'Class 12 Arts'
+];
+
+export const GROUP_A_INDOOR_ACTIVITIES = [
+  'Chess',
+  'Table Tennis',
+  'Carrom',
+  'Drama & Theatre',
+  'Indian & Western Music',
+  'Fine Arts & Painting',
+  'Debate & Public Speaking',
+  'Robotics & Coding',
+  'Yoga & Meditation'
+];
+
+export const GROUP_B_OUTDOOR_ACTIVITIES = [
+  'Cricket',
+  'Football',
+  'Basketball',
+  'Athletics',
+  'Badminton',
+  'Swimming',
+  'Lawn Tennis',
+  'Volleyball',
+  'Taekwondo & Martial Arts',
+  'Horse Riding'
+];
+
+export const DEFAULT_SCHOOL_HOUSES = [
+  { id: 'house-red', name: 'Agni (Red)', color: '#ef4444', motto: 'Courage and Passion', masterTeacher: 'Dr. V. K. Sharma' },
+  { id: 'house-blue', name: 'Vayu (Blue)', color: '#3b82f6', motto: 'Truth and Knowledge', masterTeacher: 'Mrs. S. Roy' },
+  { id: 'house-green', name: 'Prithvi (Green)', color: '#10b981', motto: 'Harmony and Growth', masterTeacher: 'Anil Kumar Singh' },
+  { id: 'house-yellow', name: 'Jal (Yellow)', color: '#f59e0b', motto: 'Wisdom and Radiance', masterTeacher: 'Poonam Singh' },
+  { id: 'house-gold', name: 'Surya (Gold)', color: '#eab308', motto: 'Excellence and Glory', masterTeacher: 'Rakesh Sharma' }
+];
+
+export const DEFAULT_SCHOOL_CLUBS = [
+  { id: 'club-1', name: 'Eco & Green Club', category: 'Social Service' as const, description: 'Environmental awareness, tree plantation, and sustainability initiatives.', inchargeTeacher: 'Poonam Singh' },
+  { id: 'club-2', name: 'Science & Innovation Club', category: 'Technical' as const, description: 'Stem projects, scientific models, and robotics competitions.', inchargeTeacher: 'Anil Kumar Singh' },
+  { id: 'club-3', name: 'Literary & Debating Club', category: 'Academic' as const, description: 'Elocution, creative writing, debates, and newsletter publishing.', inchargeTeacher: 'Anita Deshmukh' },
+  { id: 'club-4', name: 'Cultural & Heritage Club', category: 'Cultural' as const, description: 'Traditional arts, classical music, drama, and festival celebrations.', inchargeTeacher: 'Deepak Joshi' },
+  { id: 'club-5', name: 'IT & AI Club', category: 'Technical' as const, description: 'Web development, AI prompt engineering, and coding hackathons.', inchargeTeacher: 'Mrs. S. Roy' },
+  { id: 'club-6', name: 'Sports & Fitness Club', category: 'Sports' as const, description: 'Inter-house tournaments, physical conditioning, and athletics.', inchargeTeacher: 'Rakesh Sharma' },
+  { id: 'club-7', name: 'Astronomy & Space Club', category: 'Academic' as const, description: 'Stargazing, space science workshops, and rocket modeling.', inchargeTeacher: 'Prateek Bansal' }
+];
+
 export const INITIAL_NOTICES: NoticeItem[] = [
+
   { id: 'not-1', title: 'Schedule for Term 1 Final Examinations 2026', date: '2026-03-15', targetAudience: 'All', content: 'The Term 1 examinations for Classes 6 to 12 will commence on September 15th. Please download the detailed date sheet from the Examination module.', postedBy: 'Examination Incharge', isUrgent: true },
   { id: 'not-2', title: 'Parent-Teacher Meeting (PTM) Invitation', date: '2026-03-10', targetAudience: 'Parents', content: 'Dear Parents, PTM for Class 10 and Class 12 will be conducted on Saturday from 9:00 AM to 1:00 PM.', postedBy: 'Principal', isUrgent: false }
 ];

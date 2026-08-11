@@ -68,9 +68,18 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ student,
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="px-3 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 rounded-lg">
+              House: <strong>{student.house || 'Agni (Red)'}</strong>
+            </span>
+            <span className="px-3 py-1.5 text-xs font-bold bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg">
+              Club: <strong>{student.clubName || 'Eco & Green Club'}</strong>
+            </span>
             <span className="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
-              House: <strong className="text-indigo-600 dark:text-indigo-400">{student.house}</strong>
+              Indoor: <strong className="text-indigo-600 dark:text-indigo-400">{student.groupAActivity || 'Chess'}</strong>
+            </span>
+            <span className="px-3 py-1.5 text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg">
+              Outdoor: <strong className="text-emerald-600 dark:text-emerald-400">{student.groupBActivity || 'Cricket'}</strong>
             </span>
           </div>
         </div>

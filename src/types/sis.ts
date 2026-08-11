@@ -82,10 +82,16 @@ export interface Student {
   currentClass: string;
   section: string;
   rollNo: number;
-  house: 'Red' | 'Blue' | 'Green' | 'Yellow';
+  house: string; // Customizable House Name
   previousSchool?: string;
   tcNumber?: string;
   
+  // Co-curricular Activities & Clubs
+  groupAActivity?: string; // Group A: Indoor Activity (Max 1)
+  groupBActivity?: string; // Group B: Outdoor Activity (Max 1)
+  clubId?: string;
+  clubName?: string; // Mandatory Club Assignment (Exactly 1)
+
   // Custom Services
   transportRequired: boolean;
   busRouteNo?: string;
@@ -101,3 +107,20 @@ export interface Student {
 
   status: 'Active' | 'Alumni' | 'Transferred' | 'Suspended';
 }
+
+export interface SchoolHouse {
+  id: string;
+  name: string;
+  color: string;
+  motto?: string;
+  masterTeacher?: string;
+}
+
+export interface SchoolClub {
+  id: string;
+  name: string;
+  category: 'Academic' | 'Cultural' | 'Sports' | 'Technical' | 'Social Service' | 'Arts';
+  description: string;
+  inchargeTeacher?: string;
+}
+

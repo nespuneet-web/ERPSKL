@@ -5,9 +5,10 @@ import { StudentProfileView } from './StudentProfileView';
 import { StudentFormModal } from './StudentFormModal';
 import { StudentPortalView } from './StudentPortalView';
 import { ParentPortalView } from './ParentPortalView';
+import { HouseAndClubManager } from './HouseAndClubManager';
 import { Student } from '../../types/sis';
 import { useAuth } from '../../context/AuthContext';
-import { UserCheck, Eye, Plus, ShieldAlert } from 'lucide-react';
+import { UserCheck, Eye, Plus, ShieldAlert, Shield, Award } from 'lucide-react';
 
 export const SisModule: React.FC = () => {
   const { students, syncStatus, addStudent, updateStudent, deleteStudent, addDocumentToStudent } = useSisStore();
@@ -16,7 +17,8 @@ export const SisModule: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [subView, setSubView] = useState<'directory' | 'student-portal' | 'parent-portal'>('directory');
+  const [subView, setSubView] = useState<'directory' | 'houses-clubs' | 'student-portal' | 'parent-portal'>('directory');
+
 
   const handleSaveStudent = (data: any) => {
     if (editingStudent) {
@@ -81,6 +83,18 @@ export const SisModule: React.FC = () => {
         </button>
 
         <button
+          onClick={() => { setSubView('houses-clubs'); setSelectedStudent(null); }}
+          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+            subView === 'houses-clubs'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }`}
+        >
+          <Shield className="w-4 h-4 text-amber-400" />
+          Houses, Clubs & Activities
+        </button>
+
+        <button
           onClick={() => { setSubView('student-portal'); setSelectedStudent(null); }}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
             subView === 'student-portal'
@@ -103,6 +117,7 @@ export const SisModule: React.FC = () => {
         </button>
       </div>
 
+      {subView === 'houses-clubs' && <HouseAndClubManager />}
       {subView === 'student-portal' && <StudentPortalView student={selectedStudent || students[0]} />}
       {subView === 'parent-portal' && <ParentPortalView students={students} />}
 
