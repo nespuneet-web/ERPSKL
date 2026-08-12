@@ -43,7 +43,8 @@ import {
   Lock,
   Unlock,
   Radio,
-  Database
+  Database,
+  ArrowLeft
 } from 'lucide-react';
 import {
   syncTeacherAndTimetableToSupabase,
@@ -1863,6 +1864,15 @@ export const TimetableModule: React.FC = () => {
 
               {/* ACTION BUTTONS */}
               <div className="flex items-center gap-2 flex-wrap shrink-0">
+                <button
+                  onClick={() => setActiveTab('teacher_editor')}
+                  className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
+                  title="Close Round Duty and Return to Main Timetable"
+                >
+                  <ArrowLeft className="w-5 h-5 text-indigo-400" />
+                  <span>← Close / Back to Timetable</span>
+                </button>
+
                 <button
                   onClick={() => {
                     const count = runAutoRoundDutyForDay(selectedDay, arrangements);

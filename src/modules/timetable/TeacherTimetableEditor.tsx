@@ -50,6 +50,11 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   // Selected teacher
   const currentTeacher = teachers.find((t) => t.id === selectedTeacherId) || filteredTeachers[0] || teachers[0];
 
+  // Editable local state for the active teacher's schedule
+  const [localSchedule, setLocalSchedule] = useState<Record<string, string>>(
+    currentTeacher ? { ...currentTeacher.schedule } : {}
+  );
+
   // Sync local schedule when active teacher changes
   React.useEffect(() => {
     if (currentTeacher) {

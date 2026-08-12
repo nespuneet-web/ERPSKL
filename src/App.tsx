@@ -26,6 +26,7 @@ import { UserLoginModal } from './components/UserLoginModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
 import { RolePermissionsModal } from './components/RolePermissionsModal';
 import { initializeSupabaseSchema } from './lib/supabaseSync';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { RefreshCw, ShieldCheck, Lock } from 'lucide-react';
 
 import {
@@ -60,8 +61,7 @@ import {
 } from 'lucide-react';
 
 const MODULE_LIST = [
-  { id: 'sis', name: 'Student Info (SIS)', icon: Users, category: 'Core Academic' },
-  { id: 'admission', name: 'Admission & Leads', icon: UserPlus, category: 'Core Academic' },
+  { id: 'sis', name: 'Student Info & Admission', icon: Users, category: 'Core Academic' },
   { id: 'examination', name: 'Examination & Reports', icon: Award, category: 'Core Academic' },
   { id: 'attendance', name: 'Daily Attendance', icon: Calendar, category: 'Core Academic' },
   { id: 'timetable', name: 'Timetable Engine', icon: Clock, category: 'Core Academic' },
@@ -124,50 +124,71 @@ function ErpLayout() {
   };
 
   const renderActiveModule = () => {
+    let content;
     switch (activeModule) {
       case 'sis':
-        return <SisModule />;
       case 'admission':
-        return <AdmissionModule />;
+        content = <SisModule />;
+        break;
       case 'examination':
-        return <ExaminationModule />;
+        content = <ExaminationModule />;
+        break;
       case 'fees':
-        return <FeesModule />;
+        content = <FeesModule />;
+        break;
       case 'attendance':
-        return <AttendanceModule />;
+        content = <AttendanceModule />;
+        break;
       case 'timetable':
-        return <TimetableModule />;
+        content = <TimetableModule />;
+        break;
       case 'lesson_plans':
-        return <LessonPlansModule />;
+        content = <LessonPlansModule />;
+        break;
       case 'transport':
-        return <TransportModule />;
+        content = <TransportModule />;
+        break;
       case 'library':
-        return <LibraryModule />;
+        content = <LibraryModule />;
+        break;
       case 'staff':
-        return <StaffModule />;
+        content = <StaffModule />;
+        break;
       case 'interview':
-        return <InterviewModule />;
+        content = <InterviewModule />;
+        break;
       case 'communication':
-        return <CommunicationModule />;
+        content = <CommunicationModule />;
+        break;
       case 'reports':
-        return <ReportsModule />;
+        content = <ReportsModule />;
+        break;
       case 'certificates':
-        return <CertificatesModule />;
+        content = <CertificatesModule />;
+        break;
       case 'idcards':
-        return <IDCardsModule />;
+        content = <IDCardsModule />;
+        break;
       case 'inventory':
-        return <InventoryModule />;
+        content = <InventoryModule />;
+        break;
       case 'hostel':
-        return <HostelModule />;
+        content = <HostelModule />;
+        break;
       case 'visitor':
-        return <VisitorModule />;
+        content = <VisitorModule />;
+        break;
       case 'supabase_cloud':
-        return <SupabaseCloudHub />;
+        content = <SupabaseCloudHub />;
+        break;
       case 'settings':
-        return <SettingsModule />;
+        content = <SettingsModule />;
+        break;
       default:
-        return <SisModule />;
+        content = <SisModule />;
+        break;
     }
+    return <ErrorBoundary>{content}</ErrorBoundary>;
   };
 
 

@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useAdmissionStore } from './admissionStore';
 import { useAcademicPermissions } from './academicPermissionStore';
 import { useSisStore } from '../sis/sisStore';
+import { getClassFeeStructure } from '../fees/feeStructureStore';
 import { AdmissionLetterModal } from './AdmissionLetterModal';
 import { ParentIdCardModal } from './ParentIdCardModal';
+import { AllocationModal } from './AllocationModal';
 import { AdmissionApplication, PARENT_OCCUPATION_CATEGORIES, AdmissionStage } from '../../types/admission';
 import { ALL_SCHOOL_CLASSES, GROUP_A_INDOOR_ACTIVITIES, GROUP_B_OUTDOOR_ACTIVITIES } from '../../data/mockData';
 import {
@@ -32,13 +34,44 @@ import {
   Sparkles,
   HelpCircle,
   CreditCard,
-  User
+  User,
+  X
 } from 'lucide-react';
 
 export const AdmissionModule: React.FC = () => {
-  const { applications, seats, syncStatus, addApplication, updateApplicationStatus } = useAdmissionStore();
-  const { permissions, globalReportCardActive, setGlobalReportCardActive, toggleStudentPermission, grantAllPermissions, revokeAllPermissions } = useAcademicPermissions();
-  const { students, houses, clubs, addStudent } = useSisStore();
+  const {
+    applications,
+    seats,
+    syncStatus,
+    addInquiry,
+    promoteInquiryToRegistration,
+    promoteRegistrationToAdmission,
+    updateApplicationStatus
+  } = useAdmissionStore();
+  
+  const {
+    permissions,
+    globalReportCardActive,
+    setGlobalReportCardActive,
+    toggleStudentPermission,
+    grantAllPermissions,
+    revokeAllPermissions
+  } = useAcademicPermissions();
+  const { students, addStudent } = useSisStore();
+
+  const mergedPermissions = students.map((std) => {
+    const perm = permissions.find((p) => p.studentId === std.id || p.studentId === std.admissionNo);
+    return {
+      studentId: std.id,
+      studentName: std.fullName,
+      className: std.currentClass,
+      halfYearlyGranted: perm ? perm.halfYearlyGranted : true,
+      annualGranted: perm ? perm.annualGranted : true,
+      reportCardActive: perm ? perm.reportCardActive : true,
+      grantedBy: perm?.grantedBy || 'Admission Panel',
+      updatedAt: perm?.updatedAt || new Date().toISOString().split('T')[0]
+    };
+  });
 
   const [activeSection, setActiveSection] = useState<'applications' | 'exam_permissions'>('applications');
   const [pipelineStep, setPipelineStep] = useState<'ALL' | 'Inquiry' | 'Registration' | 'Admission Process'>('ALL');
@@ -48,59 +81,84 @@ export const AdmissionModule: React.FC = () => {
   
   const [showOfferModal, setShowOfferModal] = useState<AdmissionApplication | null>(null);
   const [showParentIdModal, setShowParentIdModal] = useState<AdmissionApplication | null>(null);
-  const [showNewLeadModal, setShowNewLeadModal] = useState(false);
+  const [showAllocationModal, setShowAllocationModal] = useState<AdmissionApplication | null>(null);
+  
+  // 3-Step Process Modal States
+  const [showInquiryModal, setShowInquiryModal] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [showAdmissionStepModal, setShowAdmissionStepModal] = useState(false);
 
-  // New lead form state
-  const [selectedStudentId, setSelectedStudentId] = useState('');
-  const [studentName, setStudentName] = useState('');
-  const [applyingClass, setApplyingClass] = useState('Class 10');
-  const [selectedSection, setSelectedSection] = useState('A');
-  const [selectedHouse, setSelectedHouse] = useState('Agni (Red)');
-  const [selectedClub, setSelectedClub] = useState('Eco & Green Club');
-  const [selectedIndoor, setSelectedIndoor] = useState('Chess');
-  const [selectedOutdoor, setSelectedOutdoor] = useState('Cricket');
-  const [parentName, setParentName] = useState('');
-  const [parentOccupation, setParentOccupation] = useState<string>('Doctor / Surgeon / Medical Specialist');
-  const [motherOccupation, setMotherOccupation] = useState<string>('Teacher / Professor / Educator');
-  const [contactNumber, setContactNumber] = useState('');
-  const [email, setEmail] = useState('');
-  const [previousSchool, setPreviousSchool] = useState('');
-  const [inquirySource, setInquirySource] = useState<'Walk-in' | 'Website' | 'Referral' | 'Social Media' | 'Newspaper Ad'>('Website');
+  // Inquiry form fields
+  const [inqStudentName, setInqStudentName] = useState('');
+  const [inqApplyingClass, setInqApplyingClass] = useState('Class 1');
+  const [inqGender, setInqGender] = useState<'Male' | 'Female' | 'Other'>('Male');
+  const [inqDob, setInqDob] = useState('2019-05-10');
+  const [inqParentName, setInqParentName] = useState('');
+  const [inqParentOccupation, setInqParentOccupation] = useState<string>('Doctor / Surgeon / Medical Specialist');
+  const [inqMotherOccupation, setInqMotherOccupation] = useState<string>('Teacher / Professor / Educator');
+  const [inqContactNumber, setInqContactNumber] = useState('');
+  const [inqEmail, setInqEmail] = useState('');
+  const [inqPreviousSchool, setInqPreviousSchool] = useState('');
+  const [inqSource, setInqSource] = useState<'Walk-in' | 'Website' | 'Referral' | 'Social Media' | 'Newspaper Ad'>('Walk-in');
 
-  // Auto-populate when selecting a registered student
-  const handleSelectRegisteredStudent = (stdId: string) => {
-    setSelectedStudentId(stdId);
-    if (!stdId) return;
-    const std = students.find((s) => s.id === stdId);
-    if (std) {
-      setStudentName(std.fullName);
-      setApplyingClass(std.currentClass || 'Class 10');
-      setParentName(std.parents?.fatherName || '');
-      setParentOccupation(std.parents?.fatherOccupation || 'Doctor / Surgeon / Medical Specialist');
-      setMotherOccupation(std.parents?.motherOccupation || 'Teacher / Professor / Educator');
-      setContactNumber(std.parents?.fatherMobile || '');
-      setEmail(std.parents?.fatherEmail || '');
-      setPreviousSchool('G D Goenka Public School');
-    }
+  // Registration step form field
+  const [selectedInquiryId, setSelectedInquiryId] = useState('');
+  const [regClass, setRegClass] = useState('Class 1');
+  const [regFeeAmount, setRegFeeAmount] = useState(1500);
+
+  // Admission step form field
+  const [selectedRegistrationId, setSelectedRegistrationId] = useState('');
+
+  // Lists filtered by stage
+  const inquiryCandidates = applications.filter((app) => app.status === 'Inquiry' || app.status === 'Received');
+  const registeredCandidates = applications.filter((app) => app.status === 'Registration' || app.status === 'Test Scheduled' || app.status === 'Interview Scheduled');
+
+  const handleCreateInquiry = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inqStudentName || !inqParentName || !inqContactNumber) return;
+
+    addInquiry({
+      studentName: inqStudentName,
+      applyingClass: inqApplyingClass,
+      gender: inqGender,
+      dob: inqDob,
+      parentName: inqParentName,
+      parentOccupation: inqParentOccupation,
+      motherOccupation: inqMotherOccupation,
+      contactNumber: inqContactNumber,
+      email: inqEmail,
+      previousSchool: inqPreviousSchool || 'None',
+      inquirySource: inqSource,
+      documentsUploaded: []
+    });
+
+    setInqStudentName('');
+    setInqParentName('');
+    setInqContactNumber('');
+    setInqEmail('');
+    setShowInquiryModal(false);
   };
 
-  // Merge permissions with all registered students
-  const mergedPermissions = [...permissions];
-  students.forEach((s) => {
-    if (!mergedPermissions.some((p) => p.studentId === s.id)) {
-      mergedPermissions.push({
-        studentId: s.id,
-        studentName: s.fullName,
-        className: `${s.currentClass}-${s.section}`,
-        halfYearlyGranted: true,
-        annualGranted: true,
-        unitTestGranted: true,
-        reportCardActive: true,
-        updatedAt: new Date().toISOString().split('T')[0],
-        grantedBy: 'System Auto-Register'
-      });
+  const handleProcessRegistration = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedInquiryId) return;
+    promoteInquiryToRegistration(selectedInquiryId, regFeeAmount);
+    setSelectedInquiryId('');
+    setShowRegistrationModal(false);
+  };
+
+  const handleProcessAdmission = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRegistrationId) return;
+    promoteRegistrationToAdmission(selectedRegistrationId);
+    
+    const app = applications.find((a) => a.id === selectedRegistrationId);
+    if (app) {
+      setShowOfferModal(app);
     }
-  });
+    setSelectedRegistrationId('');
+    setShowAdmissionStepModal(false);
+  };
 
   const filteredApps = applications.filter((app) => {
     const term = searchTerm.toLowerCase();
@@ -123,98 +181,6 @@ export const AdmissionModule: React.FC = () => {
 
     return matchesSearch && matchesStatus && matchesOccupation && matchesPipeline;
   });
-
-  const handleCreateLead = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentName || !parentName || !contactNumber) return;
-
-    // Create admission lead
-    addApplication({
-      studentName,
-      applyingClass,
-      gender: 'Male',
-      dob: '2014-05-10',
-      parentName,
-      parentOccupation,
-      motherOccupation,
-      contactNumber,
-      email,
-      previousSchool: previousSchool || 'G D Goenka Public School',
-      inquirySource,
-      feePaid: true,
-      registrationFee: 1500,
-      feeBreakdown: {
-        registrationFee: 1500,
-        admissionFee: 25000,
-        tuitionFee: 18000,
-        transportFee: 4500,
-        commitmentFee: 5000,
-        labFee: 3000,
-        totalFee: 57000
-      },
-      documentsUploaded: ['10th Marksheet', 'Transfer Certificate', 'Aadhaar']
-    });
-
-    // Check if student exists in SIS, otherwise create student record for inter-module integration
-    const exists = students.some((s) => s.fullName.toLowerCase() === studentName.toLowerCase());
-    if (!exists) {
-      addStudent({
-        admissionNo: `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
-        registrationNo: `REG-${Math.floor(10000 + Math.random() * 90000)}`,
-        scholarNo: `SCH-${Math.floor(1000 + Math.random() * 9000)}`,
-        penNo: `PEN-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-        apaarId: `APAAR-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-        aadhaarNo: '7812 9012 3456',
-        fullName: studentName,
-        gender: 'Male',
-        dob: '2010-05-10',
-        bloodGroup: 'O+',
-        religion: 'Hinduism',
-        category: 'General',
-        nationality: 'Indian',
-        motherTongue: 'Hindi',
-        photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        admissionDate: new Date().toISOString().split('T')[0],
-        admissionClass: applyingClass,
-        currentClass: applyingClass,
-        section: selectedSection,
-        rollNo: students.length + 1,
-        house: selectedHouse,
-        clubName: selectedClub,
-        groupAActivity: selectedIndoor,
-        groupBActivity: selectedOutdoor,
-        transportRequired: true,
-        busRouteNo: 'Route 1 - Civil Lines Metro',
-        hostelRequired: false,
-        parents: {
-          fatherName: parentName,
-          fatherMobile: contactNumber,
-          fatherEmail: email || 'parent@example.com',
-          fatherOccupation: parentOccupation,
-          fatherIncome: '18,00,000 PA',
-          fatherQualification: 'Graduate',
-          motherName: 'Mother',
-          motherOccupation: motherOccupation,
-          motherMobile: contactNumber,
-          motherEmail: email || 'mother@example.com',
-          address: 'Main Town, Delhi NCR',
-          emergencyContact: contactNumber
-        },
-        medical: { bloodGroup: 'O+', disability: false },
-        documents: [],
-        siblings: [],
-        promotions: [],
-        status: 'Active'
-      });
-    }
-
-    setStudentName('');
-    setParentName('');
-    setContactNumber('');
-    setEmail('');
-    setSelectedStudentId('');
-    setShowNewLeadModal(false);
-  };
 
   const handleSavedOfferLetterFromModal = (updatedApp: AdmissionApplication) => {
     updateApplicationStatus(updatedApp.id, 'Offered', updatedApp.interviewRemarks);
@@ -274,12 +240,28 @@ export const AdmissionModule: React.FC = () => {
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowNewLeadModal(true)}
-                className="flex items-center gap-2 px-5 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all shrink-0"
-              >
-                <UserPlus className="w-4 h-4" /> Register New Inquiry Lead
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowInquiryModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all shrink-0"
+                >
+                  <UserPlus className="w-3.5 h-3.5" /> + Step 1: New Inquiry (Free)
+                </button>
+
+                <button
+                  onClick={() => setShowRegistrationModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow cursor-pointer transition-all shrink-0"
+                >
+                  <CreditCard className="w-3.5 h-3.5" /> + Step 2: Register (₹1,500)
+                </button>
+
+                <button
+                  onClick={() => setShowAdmissionStepModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow cursor-pointer transition-all shrink-0"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" /> + Step 3: Final Admission
+                </button>
+              </div>
             </div>
 
             {/* 3-STEP PIPELINE STEPPER NAV BAR */}
@@ -481,6 +463,14 @@ export const AdmissionModule: React.FC = () => {
 
                         <td className="py-3 px-4 text-right space-x-1.5">
                           <button
+                            onClick={() => setShowAllocationModal(app)}
+                            className="px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1 border border-amber-200 dark:border-amber-800"
+                            title="Allocate Section, House, Club & Activities"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Allocate
+                          </button>
+
+                          <button
                             onClick={() => setShowOfferModal(app)}
                             className="px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
                             title="Generate & Save Provisional Offer Letter"
@@ -644,6 +634,18 @@ export const AdmissionModule: React.FC = () => {
         </div>
       )}
 
+      {/* POST-ADMISSION ALLOCATION MODAL */}
+      {showAllocationModal && (
+        <AllocationModal
+          application={showAllocationModal}
+          onClose={() => setShowAllocationModal(null)}
+          onAllocationComplete={(updated) => {
+            updateApplicationStatus(updated.id, 'Confirmed');
+            setShowAllocationModal(null);
+          }}
+        />
+      )}
+
       {/* OFFER LETTER MODAL */}
       {showOfferModal && (
         <AdmissionLetterModal
@@ -661,47 +663,33 @@ export const AdmissionModule: React.FC = () => {
         />
       )}
 
-      {/* REGISTER NEW APPLICATION / INQUIRY LEAD MODAL */}
-      {showNewLeadModal && (
+      {/* STEP 1: INQUIRY MODAL (FREE OF CHARGE) */}
+      {showInquiryModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <UserPlus className="w-5 h-5 text-indigo-600" /> Register New 3-Step Admission Inquiry Lead
-              </h3>
-              <button onClick={() => setShowNewLeadModal(false)} className="text-slate-400 hover:text-slate-600">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-indigo-600" /> Step 1: Record New Student Inquiry
+                </h3>
+                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
+                  ✓ Free of charge • No registration or admission fee collected at inquiry
+                </p>
+              </div>
+              <button onClick={() => setShowInquiryModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateLead} className="space-y-3.5">
-              {/* Registered Student Select Dropdown */}
-              <div>
-                <label className="block text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-                  Select Registered Student (Master SIS Database)
-                </label>
-                <select
-                  value={selectedStudentId}
-                  onChange={(e) => handleSelectRegisteredStudent(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                >
-                  <option value="">-- Create New / Select Registered Student --</option>
-                  {students.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.fullName} ({s.currentClass || s.admissionClass} - {s.admissionNo})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
+            <form onSubmit={handleCreateInquiry} className="space-y-3.5">
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Student Candidate Name *</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Rahul Sharma"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="e.g. Ananya Sharma"
+                  value={inqStudentName}
+                  onChange={(e) => setInqStudentName(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                 />
               </div>
@@ -710,14 +698,12 @@ export const AdmissionModule: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Applying Class *</label>
                   <select
-                    value={applyingClass}
-                    onChange={(e) => setApplyingClass(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
+                    value={inqApplyingClass}
+                    onChange={(e) => setInqApplyingClass(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
                   >
                     {ALL_SCHOOL_CLASSES.map((cls) => (
-                      <option key={cls} value={cls}>
-                        {cls}
-                      </option>
+                      <option key={cls} value={cls}>{cls}</option>
                     ))}
                   </select>
                 </div>
@@ -725,9 +711,9 @@ export const AdmissionModule: React.FC = () => {
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Inquiry Source *</label>
                   <select
-                    value={inquirySource}
-                    onChange={(e) => setInquirySource(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
+                    value={inqSource}
+                    onChange={(e) => setInqSource(e.target.value as any)}
+                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
                   >
                     <option value="Walk-in">Walk-in Visit</option>
                     <option value="Website">School Website</option>
@@ -738,31 +724,28 @@ export const AdmissionModule: React.FC = () => {
                 </div>
               </div>
 
-              {/* PARENTAL OCCUPATION FIELD */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father / Primary Parent Name *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father / Guardian Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Dr. Rajesh Sharma"
-                    value={parentName}
-                    onChange={(e) => setParentName(e.target.value)}
+                    value={inqParentName}
+                    onChange={(e) => setInqParentName(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Parent Occupation Category *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father Occupation *</label>
                   <select
-                    value={parentOccupation}
-                    onChange={(e) => setParentOccupation(e.target.value)}
+                    value={inqParentOccupation}
+                    onChange={(e) => setInqParentOccupation(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
                   >
                     {PARENT_OCCUPATION_CATEGORIES.map((occ) => (
-                      <option key={occ} value={occ}>
-                        {occ}
-                      </option>
+                      <option key={occ} value={occ}>{occ}</option>
                     ))}
                   </select>
                 </div>
@@ -770,13 +753,13 @@ export const AdmissionModule: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Phone *</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Mobile Number *</label>
                   <input
                     type="text"
                     required
                     placeholder="+91 98765 43210"
-                    value={contactNumber}
-                    onChange={(e) => setContactNumber(e.target.value)}
+                    value={inqContactNumber}
+                    onChange={(e) => setInqContactNumber(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -786,8 +769,8 @@ export const AdmissionModule: React.FC = () => {
                   <input
                     type="email"
                     placeholder="parent@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={inqEmail}
+                    onChange={(e) => setInqEmail(e.target.value)}
                     className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                   />
                 </div>
@@ -796,7 +779,7 @@ export const AdmissionModule: React.FC = () => {
               <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
                 <button
                   type="button"
-                  onClick={() => setShowNewLeadModal(false)}
+                  onClick={() => setShowInquiryModal(false)}
                   className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
                 >
                   Cancel
@@ -805,7 +788,171 @@ export const AdmissionModule: React.FC = () => {
                   type="submit"
                   className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer"
                 >
-                  Create Inquiry Lead & Advance Pipeline
+                  Save Inquiry (Free)
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: REGISTRATION MODAL (CHARGEABLE, RESTRICTED TO INQUIRIES) */}
+      {showRegistrationModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-emerald-600" /> Step 2: Register Student (Chargeable Stage)
+                </h3>
+                <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                  Select candidate from visited inquiries • Standard Registration Fee: ₹1,500
+                </p>
+              </div>
+              <button onClick={() => setShowRegistrationModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProcessRegistration} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
+                  Select Inquiry Candidate * (Strict Rule: Only Inquiry Visited Students Allowed)
+                </label>
+                {inquiryCandidates.length === 0 ? (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-bold">
+                    ⚠️ No pending Inquiry candidates available. Please add an Inquiry first in Step 1.
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={selectedInquiryId}
+                    onChange={(e) => {
+                      setSelectedInquiryId(e.target.value);
+                      const selected = inquiryCandidates.find((c) => c.id === e.target.value);
+                      if (selected) {
+                        setRegClass(selected.applyingClass);
+                        const customFee = getClassFeeStructure(selected.applyingClass);
+                        setRegFeeAmount(customFee.registrationFee);
+                      }
+                    }}
+                    className="w-full px-3 py-2 text-xs bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+                  >
+                    <option value="">-- Choose Candidate From Inquiry List ({inquiryCandidates.length} Pending) --</option>
+                    {inquiryCandidates.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.studentName} ({c.applyingClass}) — Parent: {c.parentName} ({c.contactNumber})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {selectedInquiryId && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500 font-bold">Registration Fee Amount:</span>
+                    <span className="font-extrabold text-emerald-600">₹{regFeeAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-slate-500 font-bold">Target Applying Class:</span>
+                    <span className="font-bold text-slate-800 dark:text-slate-200">{regClass}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowRegistrationModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!selectedInquiryId}
+                  className="px-5 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow cursor-pointer"
+                >
+                  Collect ₹1,500 Fee & Register
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: ADMISSION MODAL (CHARGEABLE, RESTRICTED TO REGISTERED STUDENTS) */}
+      {showAdmissionStepModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-purple-600" /> Step 3: Process Final Admission
+                </h3>
+                <p className="text-[11px] text-slate-500 font-bold mt-0.5">
+                  Select candidate from Registered list • Generate Offer Letter & Dues
+                </p>
+              </div>
+              <button onClick={() => setShowAdmissionStepModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleProcessAdmission} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-purple-600 dark:text-purple-400 mb-1">
+                  Select Registered Candidate * (Strict Rule: Only Registered Students Allowed)
+                </label>
+                {registeredCandidates.length === 0 ? (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-bold">
+                    ⚠️ No registered candidates available. Please register an Inquiry candidate in Step 2 first.
+                  </div>
+                ) : (
+                  <select
+                    required
+                    value={selectedRegistrationId}
+                    onChange={(e) => setSelectedRegistrationId(e.target.value)}
+                    className="w-full px-3 py-2 text-xs bg-purple-50/60 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+                  >
+                    <option value="">-- Choose Candidate From Registration List ({registeredCandidates.length} Registered) --</option>
+                    {registeredCandidates.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.studentName} ({c.applyingClass}) — Parent: {c.parentName}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {selectedRegistrationId && (
+                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
+                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Admission Dues Breakdown:</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <span className="text-slate-500">Admission Fee:</span> <span className="font-bold text-right">₹25,000</span>
+                    <span className="text-slate-500">Tuition Fee:</span> <span className="font-bold text-right">₹18,000</span>
+                    <span className="text-slate-500">Transport & Lab:</span> <span className="font-bold text-right">₹7,500</span>
+                    <span className="text-slate-700 font-extrabold border-t pt-1">Total Fee Dues:</span>
+                    <span className="font-black text-purple-600 border-t pt-1 text-right">₹50,500</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAdmissionStepModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!selectedRegistrationId}
+                  className="px-5 py-2 text-xs font-extrabold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl shadow cursor-pointer"
+                >
+                  Advance to Final Admission
                 </button>
               </div>
             </form>

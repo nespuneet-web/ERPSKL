@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AdmissionApplication, SeatAvailability } from '../../types/admission';
 import { INITIAL_APPLICATIONS } from '../../data/mockData';
 import { syncAdmissionLeadToSupabase, fetchAdmissionLeadsFromSupabase } from '../../lib/supabaseSync';
+import { getClassFeeStructure } from '../fees/feeStructureStore';
 
 const ADMISSION_STORAGE_KEY = 'schoolerp_admission_apps_v1';
 
@@ -53,7 +54,7 @@ export function useAdmissionStore() {
       id: `app-${Date.now()}`,
       applicationNo: `APP-2026-${Math.floor(100 + Math.random() * 900)}`,
       applicationDate: new Date().toISOString().split('T')[0],
-      status: 'Received'
+      status: 'Inquiry'
     };
     setApplications((prev) => [newApp, ...prev]);
 
@@ -90,11 +91,117 @@ export function useAdmissionStore() {
     }
   };
 
+  const addInquiry = async (
+    app: Omit<AdmissionApplication, 'id' | 'applicationNo' | 'applicationDate' | 'status' | 'feePaid' | 'registrationFee'>,
+    userContext?: { username?: string; role?: string }
+  ) => {
+    const newApp: AdmissionApplication = {
+      ...app,
+      id: `inq-${Date.now()}`,
+      applicationNo: `INQ-2026-${Math.floor(100 + Math.random() * 900)}`,
+      applicationDate: new Date().toISOString().split('T')[0],
+      status: 'Inquiry',
+      feePaid: false,
+      registrationFee: 0,
+      documentsUploaded: []
+    };
+    setApplications((prev) => [newApp, ...prev]);
+
+    setSyncStatus(`Created free inquiry for "${newApp.studentName}"...`);
+    const res = await syncAdmissionLeadToSupabase(newApp, userContext);
+    setSyncStatus(res.message);
+    setTimeout(() => setSyncStatus(null), 5000);
+
+    return newApp;
+  };
+
+  const promoteInquiryToRegistration = async (
+    inquiryId: string,
+    overrideRegistrationFee?: number,
+    userContext?: { username?: string; role?: string }
+  ) => {
+    let updatedApp: AdmissionApplication | null = null;
+    setApplications((prev) =>
+      prev.map((a) => {
+        if (a.id === inquiryId) {
+          const classFees = getClassFeeStructure(a.applyingClass);
+          const regFee = overrideRegistrationFee ?? classFees.registrationFee;
+          updatedApp = {
+            ...a,
+            status: 'Registration',
+            feePaid: true,
+            registrationFee: regFee,
+            applicationNo: a.applicationNo.replace('INQ', 'REG'),
+            applicationDate: new Date().toISOString().split('T')[0]
+          };
+          return updatedApp;
+        }
+        return a;
+      })
+    );
+
+    if (updatedApp) {
+      setSyncStatus(`Registered "${(updatedApp as AdmissionApplication).studentName}" with ₹${(updatedApp as AdmissionApplication).registrationFee} fee...`);
+      const res = await syncAdmissionLeadToSupabase(updatedApp, userContext);
+      setSyncStatus(res.message);
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
+  };
+
+  const promoteRegistrationToAdmission = async (
+    registrationId: string,
+    userContext?: { username?: string; role?: string }
+  ) => {
+    let updatedApp: AdmissionApplication | null = null;
+    setApplications((prev) =>
+      prev.map((a) => {
+        if (a.id === registrationId) {
+          const classFees = getClassFeeStructure(a.applyingClass);
+          const feeBreakdown = a.feeBreakdown || {
+            registrationFee: a.registrationFee || classFees.registrationFee,
+            admissionFee: classFees.admissionFee,
+            tuitionFee: classFees.tuitionFeeQuarterly,
+            transportFee: classFees.transportFee,
+            commitmentFee: classFees.commitmentFee,
+            labFee: classFees.labFee,
+            totalFee:
+              (a.registrationFee || classFees.registrationFee) +
+              classFees.admissionFee +
+              classFees.tuitionFeeQuarterly +
+              classFees.transportFee +
+              classFees.commitmentFee +
+              classFees.labFee
+          };
+
+          updatedApp = {
+            ...a,
+            status: 'Admission Process',
+            applicationNo: a.applicationNo.replace('REG', 'ADM'),
+            applicationDate: new Date().toISOString().split('T')[0],
+            feeBreakdown
+          };
+          return updatedApp;
+        }
+        return a;
+      })
+    );
+
+    if (updatedApp) {
+      setSyncStatus(`Initiated final admission process for "${(updatedApp as AdmissionApplication).studentName}"...`);
+      const res = await syncAdmissionLeadToSupabase(updatedApp, userContext);
+      setSyncStatus(res.message);
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
+  };
+
   return {
     applications,
     seats,
     syncStatus,
     addApplication,
+    addInquiry,
+    promoteInquiryToRegistration,
+    promoteRegistrationToAdmission,
     updateApplicationStatus
   };
 }

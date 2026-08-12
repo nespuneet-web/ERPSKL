@@ -1,12 +1,39 @@
 import React, { useState } from 'react';
 import { useOtherModulesStore } from '../otherModules/otherStore';
-import { Users, UserPlus, Search, CheckCircle, AlertCircle, Trash2, Mail, Phone, ShieldCheck } from 'lucide-react';
+import { Users, UserPlus, Search, CheckCircle, AlertCircle, Trash2, Mail, Phone, ShieldCheck, Building2, BookOpen, Clock, CheckSquare } from 'lucide-react';
+import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
+
+const DEPARTMENTS = [
+  'Mathematics',
+  'Sciences (Physics, Chem, Bio)',
+  'Languages (English, Hindi, Sanskrit)',
+  'Social Sciences & Humanities',
+  'Computer Science & IT',
+  'Commerce & Economics',
+  'Physical Education & Sports',
+  'Fine Arts & Performing Arts',
+  'Administration & Accounts'
+];
 
 export const StaffModule: React.FC = () => {
   const { staff, addStaffMember, deleteStaffMember, updateStaffStatus } = useOtherModulesStore();
+  const [activeTab, setActiveTab] = useState<'directory' | 'departments' | 'class_allocation'>('directory');
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Class allocation state mapping teacherId -> { classTeacherOf: string, subjects: { class: string, subject: string }[] }
+  const [classAllocations, setClassAllocations] = useState<Record<string, { classTeacherOf: string; subjects: string[] }>>({
+    'stf-1': { classTeacherOf: 'Class 10-A', subjects: ['Class 10 Mathematics', 'Class 9 Mathematics'] },
+    'stf-2': { classTeacherOf: 'Class 12-A', subjects: ['Class 11 Physics', 'Class 12 Physics'] },
+    'stf-3': { classTeacherOf: 'Class 8-B', subjects: ['Class 8 English', 'Class 7 English'] }
+  });
+
+  // Selected teacher for editing allocation
+  const [selectedAllocationTeacher, setSelectedAllocationTeacher] = useState<string>(staff[0]?.id || 'stf-1');
+  const [tempClassTeacher, setTempClassTeacher] = useState('Class 10-A');
+  const [tempSubjects, setTempSubjects] = useState('Class 10 Mathematics, Class 9 Mathematics');
 
   // New staff form state
   const [fullName, setFullName] = useState('');
@@ -45,10 +72,9 @@ export const StaffModule: React.FC = () => {
       status: 'Active'
     });
 
-    setSuccessMsg(`🟢 Teacher "${newStaff.fullName}" added & synced across Timetable, Attendance & Database!`);
+    setSuccessMsg(`🟢 Teacher "${newStaff.fullName}" added & registered in Central Directory!`);
     setTimeout(() => setSuccessMsg(null), 5000);
 
-    // Reset form
     setFullName('');
     setEmployeeCode('');
     setEmail('');
@@ -56,37 +82,50 @@ export const StaffModule: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const handleSaveAllocation = (teacherId: string) => {
+    const subjectArray = tempSubjects.split(',').map((s) => s.trim()).filter(Boolean);
+    setClassAllocations((prev) => ({
+      ...prev,
+      [teacherId]: {
+        classTeacherOf: tempClassTeacher,
+        subjects: subjectArray
+      }
+    }));
+    setSuccessMsg(`🟢 Class & Subject Allocations updated successfully!`);
+    setTimeout(() => setSuccessMsg(null), 4000);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm gap-4">
         <div>
           <div className="flex items-center gap-2">
             <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-              Staff & Faculty Central Directory
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">
+              Staff Management & Class Allocations
             </h2>
             <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
-              {staff.length} Active Staff
+              {staff.length} Faculty Members
             </span>
           </div>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Centralized Database: Teachers added here automatically reflect in Timetable, Lesson Plans, Substitutions & Class Teacher sections.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Register staff members, organize academic departments, and assign Class Teachers & Subject allocations.
           </p>
         </div>
 
         <button
           onClick={() => setIsAddModalOpen(true)}
-          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow cursor-pointer flex items-center gap-2 transition-all shrink-0"
+          className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow cursor-pointer flex items-center gap-2 transition-all shrink-0"
         >
           <UserPlus className="w-4 h-4" />
-          Add New Teacher / Staff Member
+          Staff Registration
         </button>
       </div>
 
-      {/* Success Notification */}
+      {/* SUCCESS BANNER */}
       {successMsg && (
-        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-sm font-bold flex items-center justify-between shadow-xs">
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-300 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-200 text-xs font-bold flex items-center justify-between shadow-xs">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0" />
             <span>{successMsg}</span>
@@ -97,107 +136,307 @@ export const StaffModule: React.FC = () => {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <Search className="w-5 h-5 text-slate-400" />
-        <input
-          type="text"
-          placeholder="Search staff member by name, employee code, designation or department..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full bg-transparent text-sm font-medium text-slate-900 dark:text-white outline-none"
-        />
-        {searchTerm && (
-          <button onClick={() => setSearchTerm('')} className="text-xs font-bold text-slate-400 hover:text-slate-600">
-            Clear
-          </button>
-        )}
+      {/* NAVIGATION TABS */}
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <button
+          onClick={() => setActiveTab('directory')}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'directory'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          1. Staff Registration & Central Directory
+        </button>
+
+        <button
+          onClick={() => setActiveTab('departments')}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'departments'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          2. Staff Departments
+        </button>
+
+        <button
+          onClick={() => setActiveTab('class_allocation')}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer ${
+            activeTab === 'class_allocation'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <BookOpen className="w-4 h-4" />
+          3. Allocation of Classes & Subjects
+        </button>
       </div>
 
-      {/* Table Section */}
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-              <th className="py-3 px-4">Code</th>
-              <th className="py-3 px-4">Staff Member & Contacts</th>
-              <th className="py-3 px-4">Designation & Dept</th>
-              <th className="py-3 px-4">Qualification</th>
-              <th className="py-3 px-4">Monthly Salary</th>
-              <th className="py-3 px-4">Attendance & Timetable Status</th>
-              <th className="py-3 px-4 text-center">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
-            {filteredStaff.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-8 text-slate-400 font-medium">
-                  No staff members found matching "{searchTerm}".
-                </td>
-              </tr>
-            ) : (
-              filteredStaff.map((stf) => (
-                <tr key={stf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
-                  <td className="py-3 px-4 font-mono font-bold text-indigo-600">{stf.employeeCode}</td>
-                  <td className="py-3 px-4">
-                    <p className="font-semibold text-slate-900 dark:text-white">{stf.fullName}</p>
-                    <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
-                      <span><Mail className="w-3 h-3 inline mr-0.5 text-slate-400" />{stf.email}</span>
-                      <span>•</span>
-                      <span><Phone className="w-3 h-3 inline mr-0.5 text-slate-400" />{stf.phone}</span>
-                    </p>
-                  </td>
-                  <td className="py-3 px-4">
-                    <p className="font-medium text-slate-800 dark:text-slate-200">{stf.designation}</p>
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                      {stf.department}
-                    </span>
-                  </td>
-                  <td className="py-3 px-4 text-xs font-medium text-slate-600 dark:text-slate-300">{stf.qualification}</td>
-                  <td className="py-3 px-4 font-bold text-slate-900 dark:text-white">
-                    ₹{stf.monthlySalary ? stf.monthlySalary.toLocaleString() : '50,000'}
-                  </td>
-                  <td className="py-3 px-4">
-                    <select
-                      value={stf.status}
-                      onChange={(e) => updateStaffStatus(stf.id, e.target.value as any)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border cursor-pointer transition-all ${
-                        stf.status === 'Active'
-                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
-                          : stf.status === 'Absent'
-                          ? 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950 dark:text-rose-300'
-                          : stf.status === 'Half Day'
-                          ? 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
-                          : 'bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-950 dark:text-purple-300'
-                      }`}
-                    >
-                      <option value="Active">🟢 Active / Present</option>
-                      <option value="Absent">🔴 Absent</option>
-                      <option value="Half Day">🟡 Half Day Leave</option>
-                      <option value="On Leave">🟣 On Leave</option>
-                    </select>
-                  </td>
-                  <td className="py-3 px-4 text-center">
-                    <button
-                      onClick={() => {
-                        if (confirm(`Remove staff member "${stf.fullName}" from central directory?`)) {
-                          deleteStaffMember(stf.id);
-                        }
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-all"
-                      title="Delete Staff Member"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
+      {/* TAB 1: DIRECTORY & REGISTRATION */}
+      {activeTab === 'directory' && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search staff member by name, code, designation, department..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-transparent text-xs font-medium text-slate-900 dark:text-white outline-none"
+            />
+          </div>
+
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                  <th className="py-3 px-4">Code</th>
+                  <th className="py-3 px-4">Staff Member & Contacts</th>
+                  <th className="py-3 px-4">Designation & Department</th>
+                  <th className="py-3 px-4">Qualification</th>
+                  <th className="py-3 px-4">Class Allocation</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-center">Action</th>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                {filteredStaff.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-8 text-slate-400 font-medium">
+                      No staff members found matching "{searchTerm}".
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStaff.map((stf) => {
+                    const alloc = classAllocations[stf.id];
+                    return (
+                      <tr key={stf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                        <td className="py-3 px-4 font-mono font-bold text-indigo-600">{stf.employeeCode}</td>
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-slate-900 dark:text-white">{stf.fullName}</p>
+                          <p className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
+                            <span><Mail className="w-3 h-3 inline mr-1 text-slate-400" />{stf.email}</span>
+                            <span>•</span>
+                            <span><Phone className="w-3 h-3 inline mr-1 text-slate-400" />{stf.phone}</span>
+                          </p>
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-semibold text-slate-800 dark:text-slate-200">{stf.designation}</p>
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {stf.department}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-slate-600 dark:text-slate-300">{stf.qualification}</td>
+                        <td className="py-3 px-4">
+                          {alloc ? (
+                            <div className="space-y-0.5">
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 block">
+                                Teacher of {alloc.classTeacherOf}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">Unassigned</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <select
+                            value={stf.status}
+                            onChange={(e) => updateStaffStatus(stf.id, e.target.value as any)}
+                            className="px-2 py-1 rounded-lg text-xs font-bold border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 cursor-pointer"
+                          >
+                            <option value="Active">🟢 Active</option>
+                            <option value="Absent">🔴 Absent</option>
+                            <option value="Half Day">🟡 Half Day</option>
+                            <option value="On Leave">🟣 On Leave</option>
+                          </select>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <button
+                            onClick={() => {
+                              if (confirm(`Remove staff member "${stf.fullName}"?`)) {
+                                deleteStaffMember(stf.id);
+                              }
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg cursor-pointer transition-all"
+                            title="Delete Staff Member"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      {/* Add New Staff Modal */}
+      {/* TAB 2: STAFF DEPARTMENTS */}
+      {activeTab === 'departments' && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {DEPARTMENTS.map((dept) => {
+            const members = staff.filter((s) => s.department.toLowerCase().includes(dept.toLowerCase().split(' ')[0]));
+            return (
+              <div key={dept} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-indigo-600" />
+                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">{dept}</h3>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                    {members.length} Staff
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  {members.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">No faculty assigned to this department yet.</p>
+                  ) : (
+                    members.map((m) => (
+                      <div key={m.id} className="p-2.5 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-center justify-between text-xs">
+                        <div>
+                          <p className="font-bold text-slate-800 dark:text-slate-200">{m.fullName}</p>
+                          <p className="text-[10px] text-slate-500">{m.designation}</p>
+                        </div>
+                        <span className="font-mono text-[10px] text-indigo-600 font-bold">{m.employeeCode}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* TAB 3: ALLOCATION OF CLASSES */}
+      {activeTab === 'class_allocation' && (
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+              <BookOpen className="w-5 h-5 text-indigo-600" />
+              Class Teacher & Subject Allocation Engine
+            </h3>
+            <p className="text-xs text-slate-500">
+              Assign Class Teacher responsibility and teaching subject allocations to faculty members.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* SELECT TEACHER & ALLOCATE */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
+                  Select Faculty Member
+                </label>
+                <select
+                  value={selectedAllocationTeacher}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedAllocationTeacher(id);
+                    const existing = classAllocations[id];
+                    if (existing) {
+                      setTempClassTeacher(existing.classTeacherOf);
+                      setTempSubjects(existing.subjects.join(', '));
+                    } else {
+                      setTempClassTeacher('Class 10-A');
+                      setTempSubjects('Class 10 Mathematics');
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                >
+                  {staff.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.fullName} ({s.employeeCode}) - {s.department}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
+                  Assigned Class Teacher Duty
+                </label>
+                <select
+                  value={tempClassTeacher}
+                  onChange={(e) => setTempClassTeacher(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                >
+                  {ALL_SCHOOL_CLASSES.map((cls) => (
+                    <React.Fragment key={cls}>
+                      <option value={`${cls}-A`}>{cls} - Section A</option>
+                      <option value={`${cls}-B`}>{cls} - Section B</option>
+                      <option value={`${cls}-C`}>{cls} - Section C</option>
+                    </React.Fragment>
+                  ))}
+                  <option value="None">None (Subject Specialist Only)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
+                  Allocated Teaching Subjects & Classes (Comma Separated)
+                </label>
+                <textarea
+                  rows={3}
+                  value={tempSubjects}
+                  onChange={(e) => setTempSubjects(e.target.value)}
+                  placeholder="e.g. Class 10 Mathematics, Class 9 Mathematics, Class 11 Advanced Physics"
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <button
+                onClick={() => handleSaveAllocation(selectedAllocationTeacher)}
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer flex items-center gap-2"
+              >
+                <CheckSquare className="w-4 h-4" /> Save Class Allocation
+              </button>
+            </div>
+
+            {/* CURRENT ALLOCATION MATRIX */}
+            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+              <h4 className="text-xs font-extrabold uppercase text-slate-600 dark:text-slate-300">
+                Active Faculty Allocation Matrix
+              </h4>
+
+              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+                {staff.map((stf) => {
+                  const alloc = classAllocations[stf.id];
+                  return (
+                    <div key={stf.id} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="text-slate-900 dark:text-white">{stf.fullName}</span>
+                        <span className="font-mono text-[10px] text-indigo-600">{stf.employeeCode}</span>
+                      </div>
+                      <p className="text-slate-500 text-[11px]">Dept: {stf.department}</p>
+                      {alloc ? (
+                        <div className="pt-1 space-y-1">
+                          <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
+                            Class Teacher: <span className="bg-indigo-100 dark:bg-indigo-950 px-1.5 py-0.5 rounded">{alloc.classTeacherOf}</span>
+                          </p>
+                          <p className="text-[10px] text-slate-600 dark:text-slate-400">
+                            Subjects: {alloc.subjects.join(' • ')}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-[11px] text-slate-400 italic">No classes allocated yet.</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADD STAFF MODAL */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl max-w-xl w-full p-6 space-y-5">
@@ -205,12 +444,12 @@ export const StaffModule: React.FC = () => {
               <div className="flex items-center gap-2">
                 <UserPlus className="w-5 h-5 text-indigo-600" />
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                  Add New Faculty / Staff Member
+                  Faculty & Staff Registration
                 </h3>
               </div>
               <button
                 onClick={() => setIsAddModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+                className="text-slate-400 hover:text-slate-600 font-bold text-sm cursor-pointer"
               >
                 ✕
               </button>
@@ -227,7 +466,7 @@ export const StaffModule: React.FC = () => {
                     placeholder={`EMP-${String(staff.length + 1).padStart(3, '0')}`}
                     value={employeeCode}
                     onChange={(e) => setEmployeeCode(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold outline-none"
                   />
                 </div>
 
@@ -241,7 +480,7 @@ export const StaffModule: React.FC = () => {
                     placeholder="e.g. SUNIL KUMAR SHARMA"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold outline-none"
                   />
                 </div>
               </div>
@@ -249,71 +488,33 @@ export const StaffModule: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                    Designation
-                  </label>
-                  <select
-                    value={designation}
-                    onChange={(e) => setDesignation(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
-                  >
-                    <option value="PGT Physics">PGT Physics</option>
-                    <option value="PGT Chemistry">PGT Chemistry</option>
-                    <option value="PGT Mathematics">PGT Mathematics</option>
-                    <option value="PGT Biology">PGT Biology</option>
-                    <option value="PGT Commerce">PGT Commerce</option>
-                    <option value="PGT Economics">PGT Economics</option>
-                    <option value="PGT English">PGT English</option>
-                    <option value="TGT Mathematics">TGT Mathematics</option>
-                    <option value="TGT Science">TGT Science</option>
-                    <option value="TGT Social Studies">TGT Social Studies</option>
-                    <option value="TGT English">TGT English</option>
-                    <option value="TGT Hindi">TGT Hindi</option>
-                    <option value="TGT Sanskrit">TGT Sanskrit</option>
-                    <option value="PRT Primary Teacher">PRT Primary Teacher</option>
-                    <option value="Physical Education Teacher">Physical Education Teacher</option>
-                    <option value="Art & Music Teacher">Art & Music Teacher</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                    Department
+                    Department *
                   </label>
                   <select
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
                   >
-                    <option value="Mathematics">Mathematics</option>
-                    <option value="Science">Science</option>
-                    <option value="Physics">Physics</option>
-                    <option value="Chemistry">Chemistry</option>
-                    <option value="Biology">Biology</option>
-                    <option value="English">English</option>
-                    <option value="Hindi">Hindi</option>
-                    <option value="Social Science">Social Science</option>
-                    <option value="Commerce & Economics">Commerce & Economics</option>
-                    <option value="Primary Block">Primary Block</option>
-                    <option value="Sports & PE">Sports & PE</option>
-                    <option value="Arts & Crafts">Arts & Crafts</option>
+                    {DEPARTMENTS.map((d) => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
+                    Designation *
+                  </label>
+                  <input
+                    type="text"
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold outline-none"
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="teacher@school.edu"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-
                 <div>
                   <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
                     Phone Number
@@ -323,51 +524,37 @@ export const StaffModule: React.FC = () => {
                     placeholder="+91 98100 00000"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                    Qualification
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="M.Sc., B.Ed."
-                    value={qualification}
-                    onChange={(e) => setQualification(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold outline-none"
                   />
                 </div>
 
                 <div>
                   <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                    Monthly Salary (₹)
+                    Email
                   </label>
                   <input
-                    type="number"
-                    value={monthlySalary}
-                    onChange={(e) => setMonthlySalary(Number(e.target.value))}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold outline-none focus:ring-2 focus:ring-indigo-500"
+                    type="email"
+                    placeholder="email@school.edu"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold outline-none"
                   />
                 </div>
               </div>
 
-              <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-3">
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
                 <button
                   type="button"
                   onClick={() => setIsAddModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:bg-slate-100 font-bold text-sm rounded-xl"
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow cursor-pointer"
+                  className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
                 >
-                  Save & Sync Central Staff
+                  <UserPlus className="w-4 h-4" /> Save & Register Staff
                 </button>
               </div>
             </form>
@@ -377,4 +564,3 @@ export const StaffModule: React.FC = () => {
     </div>
   );
 };
-

@@ -139,11 +139,14 @@ export async function fetchAdmissionLeadsFromSupabase(): Promise<AdmissionApplic
     gender: 'Male' as const,
     dob: '2015-01-01',
     parentName: row.parent_name || '',
+    parentOccupation: row.parent_occupation || 'Doctor / Surgeon / Medical Specialist',
+    motherOccupation: row.mother_occupation || 'Teacher / Professor / Educator',
     contactNumber: row.phone || '',
     email: '',
     previousSchool: '',
     applicationDate: row.created_at ? new Date(row.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-    status: (row.status as AdmissionApplication['status']) || 'Received',
+    inquirySource: 'Website' as const,
+    status: (row.status as AdmissionApplication['status']) || 'Inquiry',
     interviewRemarks: row.remarks || '',
     feePaid: false,
     registrationFee: 1000,
@@ -226,8 +229,60 @@ export async function fetchTeachersAndTimetablesFromSupabase(): Promise<TeacherT
 }
 
 /**
- * 4. FEE COLLECTION SYNC
+ * 4. FEE COLLECTION & CUSTOM FEE STRUCTURE SYNC
  */
+export async function syncClassFeeStructureToSupabase(
+  feeStructure: {
+    className: string;
+    registrationFee: number;
+    admissionFee: number;
+    tuitionFeeAnnual: number;
+    tuitionFeeMonthly: number;
+    tuitionFeeQuarterly: number;
+    transportFee: number;
+    labFee: number;
+    commitmentFee: number;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    class_name: feeStructure.className,
+    registration_fee: feeStructure.registrationFee,
+    admission_fee: feeStructure.admissionFee,
+    tuition_fee_annual: feeStructure.tuitionFeeAnnual,
+    tuition_fee_monthly: feeStructure.tuitionFeeMonthly,
+    tuition_fee_quarterly: feeStructure.tuitionFeeQuarterly,
+    transport_fee: feeStructure.transportFee,
+    lab_fee: feeStructure.labFee,
+    commitment_fee: feeStructure.commitmentFee,
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await upsertRecord('fee_structures', payload, 'class_name', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Fee Structure for "${feeStructure.className}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchClassFeeStructuresFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('fee_structures', { orderBy: { column: 'class_name', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    className: row.class_name,
+    registrationFee: row.registration_fee,
+    admissionFee: row.admission_fee,
+    tuitionFeeAnnual: row.tuition_fee_annual,
+    tuitionFeeMonthly: row.tuition_fee_monthly,
+    tuitionFeeQuarterly: row.tuition_fee_quarterly,
+    transportFee: row.transport_fee,
+    labFee: row.lab_fee,
+    commitmentFee: row.commitment_fee
+  }));
+}
+
 export async function syncFeeCollectionToSupabase(
   fee: {
     receiptNo: string;

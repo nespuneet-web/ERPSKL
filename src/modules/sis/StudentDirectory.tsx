@@ -73,29 +73,33 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <UserCheck className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            Student Directory (SIS)
+            Student Information Directory (Search Only)
           </h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Total Enrolled: <span className="font-semibold text-slate-900 dark:text-white">{students.length}</span> | Displaying: <span className="font-semibold text-indigo-600">{filteredStudents.length}</span>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Total Enrolled: <span className="font-semibold text-slate-900 dark:text-white">{students.length}</span> | Filtered: <span className="font-semibold text-indigo-600">{filteredStudents.length}</span>
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={exportCSV}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
+          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold rounded-lg">
+            <span>🔒 Read/Search Only Roster</span>
+          </div>
 
           <button
-            onClick={onAddNew}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-sm transition-colors"
+            onClick={exportCSV}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors cursor-pointer"
           >
-            <Plus className="w-4 h-4" />
-            New Registration
+            <Download className="w-4 h-4" />
+            Export Directory CSV
           </button>
+        </div>
+      </div>
+
+      {/* Info Notice Banner for Onboarding Rule */}
+      <div className="p-4 bg-blue-50 dark:bg-blue-950/70 border border-blue-200 dark:border-blue-800 rounded-xl text-blue-900 dark:text-blue-200 text-xs flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-blue-600 dark:text-blue-400 text-sm">ℹ️ ERP Rule:</span>
+          <span>Student information is strictly search-only. New students enter this directory exclusively through the <strong>3-Step Process (Inquiry ➔ Registration ➔ Admission ➔ Allocation)</strong>.</span>
         </div>
       </div>
 

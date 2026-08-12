@@ -6,9 +6,10 @@ import { StudentFormModal } from './StudentFormModal';
 import { StudentPortalView } from './StudentPortalView';
 import { ParentPortalView } from './ParentPortalView';
 import { HouseAndClubManager } from './HouseAndClubManager';
+import { AdmissionModule } from '../admission';
 import { Student } from '../../types/sis';
 import { useAuth } from '../../context/AuthContext';
-import { UserCheck, Eye, Plus, ShieldAlert, Shield, Award } from 'lucide-react';
+import { UserCheck, Eye, Plus, ShieldAlert, Shield, Award, UserPlus, Users } from 'lucide-react';
 
 export const SisModule: React.FC = () => {
   const { students, syncStatus, addStudent, updateStudent, deleteStudent, addDocumentToStudent } = useSisStore();
@@ -17,8 +18,7 @@ export const SisModule: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [subView, setSubView] = useState<'directory' | 'houses-clubs' | 'student-portal' | 'parent-portal'>('directory');
-
+  const [subView, setSubView] = useState<'directory' | 'admission' | 'houses-clubs' | 'student-portal' | 'parent-portal'>('directory');
 
   const handleSaveStudent = (data: any) => {
     if (editingStudent) {
@@ -51,7 +51,6 @@ export const SisModule: React.FC = () => {
     }
   };
 
-  // If role is Student or Parent, show their target portal directly with quick toggle
   if (activeRole === 'Student') {
     return <StudentPortalView student={students[0]} />;
   }
@@ -69,37 +68,50 @@ export const SisModule: React.FC = () => {
         </div>
       )}
 
-      {/* SIS Mode Switcher Bar */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+      {/* Unified SIS & Admission Mode Switcher Bar */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         <button
           onClick={() => { setSubView('directory'); setSelectedStudent(null); }}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
             subView === 'directory' && !selectedStudent
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          Student Directory (Admin View)
+          <Users className="w-4 h-4" />
+          1. Student Information Directory
+        </button>
+
+        <button
+          onClick={() => { setSubView('admission'); setSelectedStudent(null); }}
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+            subView === 'admission'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+          }`}
+        >
+          <UserPlus className="w-4 h-4 text-emerald-500" />
+          2. Admission & Inquiry Pipeline (3 Steps)
         </button>
 
         <button
           onClick={() => { setSubView('houses-clubs'); setSelectedStudent(null); }}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
             subView === 'houses-clubs'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
-          <Shield className="w-4 h-4 text-amber-400" />
-          Houses, Clubs & Activities
+          <Shield className="w-4 h-4 text-amber-500" />
+          3. Houses, Clubs & Activities
         </button>
 
         <button
           onClick={() => { setSubView('student-portal'); setSelectedStudent(null); }}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
             subView === 'student-portal'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
           Preview Student Portal
@@ -107,16 +119,17 @@ export const SisModule: React.FC = () => {
 
         <button
           onClick={() => { setSubView('parent-portal'); setSelectedStudent(null); }}
-          className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
             subView === 'parent-portal'
               ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
           }`}
         >
           Preview Parent Portal
         </button>
       </div>
 
+      {subView === 'admission' && <AdmissionModule />}
       {subView === 'houses-clubs' && <HouseAndClubManager />}
       {subView === 'student-portal' && <StudentPortalView student={selectedStudent || students[0]} />}
       {subView === 'parent-portal' && <ParentPortalView students={students} />}
@@ -138,15 +151,19 @@ export const SisModule: React.FC = () => {
               onSelectStudent={(s) => setSelectedStudent(s)}
               onEditStudent={(s) => setEditingStudent(s)}
               onDeleteStudent={handleDeleteStudent}
-              onAddNew={() => setShowAddModal(true)}
+              onAddNew={() => {
+                setEditingStudent(null);
+                setShowAddModal(true);
+              }}
             />
           )}
         </>
       )}
 
-      {/* Add / Edit Student Modal */}
+      {/* Student Form Modal for Adding/Editing */}
       {(showAddModal || editingStudent) && (
         <StudentFormModal
+          isOpen={true}
           student={editingStudent}
           onClose={() => {
             setShowAddModal(false);
