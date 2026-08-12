@@ -411,43 +411,55 @@ export const LessonPlansModule: React.FC = () => {
                     onClick={() => setExpandedTileId(isExpanded ? null : plan.id)}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between group ${
                       isExpanded
-                        ? 'col-span-2 sm:col-span-3 md:col-span-2 ring-2 ring-indigo-500 bg-white dark:bg-slate-900 shadow-xl'
+                        ? 'col-span-2 sm:col-span-3 md:col-span-2 ring-2 ring-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xl'
                         : isGreen
-                        ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-800 hover:shadow-md hover:border-emerald-500'
+                        ? 'bg-gradient-to-br from-emerald-800 to-emerald-950 text-white border-2 border-emerald-600 shadow-md hover:shadow-xl hover:scale-[1.02]'
                         : isRed
-                        ? 'bg-red-50/80 dark:bg-red-950/40 border-red-400 dark:border-red-700 shadow-sm hover:shadow-lg hover:border-red-600 animate-pulse'
-                        : 'bg-amber-50/70 dark:bg-amber-950/30 border-amber-300 dark:border-amber-800 hover:shadow-md'
+                        ? 'bg-gradient-to-br from-red-900 to-rose-950 text-white border-2 border-red-600 shadow-md hover:shadow-xl hover:scale-[1.02]'
+                        : 'bg-gradient-to-br from-amber-800 to-amber-950 text-white border-2 border-amber-600 hover:shadow-md'
                     }`}
                   >
                     {/* Compact Tile View */}
                     {!isExpanded ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="font-black text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-slate-200 dark:border-slate-700 shadow-xs">
+                          <span className={`font-black text-sm px-2 py-0.5 rounded-lg border shadow-xs ${
+                            isGreen
+                              ? 'bg-emerald-950/90 text-emerald-100 border-emerald-600'
+                              : isRed
+                              ? 'bg-red-950/90 text-red-100 border-red-600'
+                              : 'bg-amber-950/90 text-amber-100 border-amber-600'
+                          }`}>
                             {plan.className}
                           </span>
-                          {isGreen && <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />}
-                          {isRed && <XCircle className="w-4 h-4 text-red-600 shrink-0 animate-bounce" />}
-                          {!isGreen && !isRed && <Clock className="w-4 h-4 text-amber-500 shrink-0" />}
+                          {isGreen && <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />}
+                          {isRed && <XCircle className="w-5 h-5 text-red-300 shrink-0 animate-bounce" />}
+                          {!isGreen && !isRed && <Clock className="w-5 h-5 text-amber-300 shrink-0" />}
                         </div>
 
                         <div>
-                          <p className="text-[10px] font-extrabold uppercase text-indigo-600 dark:text-indigo-400">
+                          <p className={`text-[10px] font-black uppercase tracking-wide ${
+                            isGreen ? 'text-emerald-300' : isRed ? 'text-red-300' : 'text-amber-300'
+                          }`}>
                             {plan.subject}
                           </p>
-                          <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate mt-0.5">
+                          <p className="text-xs font-black text-white truncate mt-0.5">
                             {plan.teacherName}
                           </p>
                         </div>
 
-                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-slate-500">
+                        <div className="pt-2 border-t border-white/20 flex items-center justify-between text-[10px]">
+                          <span className="font-bold text-white/80">
                             {plan.periodsCompleted}/{plan.periodsRequired} Pds
                           </span>
-                          <span className={`font-black uppercase px-1.5 py-0.5 rounded ${
-                            isGreen ? 'bg-emerald-200 text-emerald-900' : isRed ? 'bg-red-200 text-red-900 font-extrabold' : 'bg-amber-200 text-amber-900'
+                          <span className={`font-black uppercase px-2 py-0.5 rounded shadow-xs ${
+                            isGreen
+                              ? 'bg-emerald-500 text-white'
+                              : isRed
+                              ? 'bg-red-600 text-white font-extrabold'
+                              : 'bg-amber-500 text-white'
                           }`}>
-                            {isGreen ? 'Green' : isRed ? 'Red' : 'In Prog'}
+                            {isGreen ? 'GREEN (COMPLETED)' : isRed ? 'RED (DELAYED)' : 'IN PROGRESS'}
                           </span>
                         </div>
                       </div>

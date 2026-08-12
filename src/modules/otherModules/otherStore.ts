@@ -75,25 +75,77 @@ export function useOtherModulesStore() {
           const map: Record<string, StaffMember> = {};
           prev.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
           remote.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
-          return Object.values(map);
+          const merged = Object.values(map);
+          try {
+            localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(merged));
+          } catch (e) {
+            console.error(e);
+          }
+          return merged;
         });
       }
     }
     loadRemoteStaff();
-    return () => { active = false; };
+
+    const handleStaffEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<StaffMember[]>;
+      if (customEvent.detail) {
+        setStaff(customEvent.detail);
+      }
+    };
+    window.addEventListener('schoolerp_staff_updated', handleStaffEvent);
+
+    return () => {
+      active = false;
+      window.removeEventListener('schoolerp_staff_updated', handleStaffEvent);
+    };
   }, []);
+
+  const notifyStaffUpdated = (newList: StaffMember[]) => {
+    try {
+      localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(newList));
+    } catch (e) {
+      console.error(e);
+    }
+    window.dispatchEvent(new CustomEvent('schoolerp_staff_updated', { detail: newList }));
+  };
+
+  const addStaffMember = async (newStaff: Omit<StaffMember, 'id'>) => {
+    const empCode = newStaff.employeeCode || `EMP-${String(staff.length + 1).padStart(3, '0')}`;
+    const staffObj: StaffMember = {
+      ...newStaff,
+      id: `stf-${Date.now()}`,
+      employeeCode: empCode,
+      fullName: newStaff.fullName.trim().toUpperCase(),
+      status: newStaff.status || 'Active'
+    };
+    
+    const updatedList = [staffObj, ...staff];
+    setStaff(updatedList);
+    notifyStaffUpdated(updatedList);
+
+    await syncStaffToSupabase(staffObj);
+    return staffObj;
+  };
+
+  const deleteStaffMember = (staffId: string) => {
+    const updatedList = staff.filter((s) => s.id !== staffId);
+    setStaff(updatedList);
+    notifyStaffUpdated(updatedList);
+  };
 
   const updateStaffStatus = async (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {
     let updatedStaffMember: StaffMember | null = null;
-    setStaff((prev) =>
-      prev.map((s) => {
-        if (s.id === staffId) {
-          updatedStaffMember = { ...s, status };
-          return updatedStaffMember;
-        }
-        return s;
-      })
-    );
+    const updatedList = staff.map((s) => {
+      if (s.id === staffId) {
+        updatedStaffMember = { ...s, status };
+        return updatedStaffMember;
+      }
+      return s;
+    });
+
+    setStaff(updatedList);
+    notifyStaffUpdated(updatedList);
 
     if (updatedStaffMember) {
       await syncStaffToSupabase(updatedStaffMember);
@@ -179,6 +231,8 @@ export function useOtherModulesStore() {
     checkOutVisitor,
     inventory,
     staff,
+    addStaffMember,
+    deleteStaffMember,
     updateStaffStatus,
     routes
   };

@@ -97,7 +97,7 @@ const ROUND_DUTIES_KEY = 'schoolerp_round_duties_v1';
 const ROUND_LOCATIONS_KEY = 'schoolerp_round_locations_v1';
 
 export const TimetableModule: React.FC = () => {
-  const { staff } = useOtherModulesStore();
+  const { staff, addStaffMember } = useOtherModulesStore();
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<
@@ -145,6 +145,38 @@ export const TimetableModule: React.FC = () => {
       console.error('Failed to save timetables:', e);
     }
   }, [teacherTimetables]);
+
+  // Auto Sync: Ensure every member in central staff directory is present in teacherTimetables
+  useEffect(() => {
+    if (staff && staff.length > 0) {
+      setTeacherTimetables((prev) => {
+        const existingNames = new Set(prev.map((t) => t.teacherName.trim().toUpperCase()));
+        const newRecords: TeacherTimetableRecord[] = [];
+
+        staff.forEach((stf) => {
+          const upperName = stf.fullName.trim().toUpperCase();
+          if (upperName && !existingNames.has(upperName)) {
+            newRecords.push({
+              id: `tt-stf-${stf.id}`,
+              teacherName: upperName,
+              department: stf.department || 'Senior Secondary',
+              lastUpdated: new Date().toLocaleString(),
+              schedule: {}
+            });
+            existingNames.add(upperName);
+          }
+        });
+
+        if (newRecords.length > 0) {
+          newRecords.forEach((rec) => {
+            syncTeacherAndTimetableToSupabase(rec);
+          });
+          return [...prev, ...newRecords];
+        }
+        return prev;
+      });
+    }
+  }, [staff]);
 
   // Initial mount & periodic poll: Auto sync teachers, substitutions & round duties to Supabase
   useEffect(() => {
@@ -577,7 +609,21 @@ export const TimetableModule: React.FC = () => {
     };
     setTeacherTimetables((prev) => [newRecord, ...prev]);
 
-    setDbSyncBanner({ type: 'info', message: `Adding "${cleanName}" to live Supabase DB...` });
+    // Add to central staff directory as well
+    await addStaffMember({
+      employeeCode: `EMP-${cleanName.replace(/[^A-Z0-9]/g, '').slice(0, 6)}`,
+      fullName: cleanName,
+      designation: 'Faculty Member',
+      department: 'Senior Secondary',
+      email: `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '')}@school.edu`,
+      phone: '+91 98100 00000',
+      joiningDate: new Date().toISOString().split('T')[0],
+      qualification: 'M.Sc. / B.Ed.',
+      monthlySalary: 60000,
+      status: 'Active'
+    });
+
+    setDbSyncBanner({ type: 'info', message: `Adding "${cleanName}" to live Supabase DB & Staff Directory...` });
     const res = await syncTeacherAndTimetableToSupabase(newRecord);
     setDbSyncBanner({
       type: res.success ? 'success' : 'error',
