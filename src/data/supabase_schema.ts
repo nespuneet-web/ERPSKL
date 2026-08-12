@@ -148,6 +148,23 @@ CREATE TABLE IF NOT EXISTS public.admission_leads (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- 9B. ADMISSION FEE SCHEDULES TABLE
+CREATE TABLE IF NOT EXISTS public.admission_fee_schedules (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    application_no VARCHAR(50) UNIQUE NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    registration_fee DECIMAL(10, 2) DEFAULT 1500.00,
+    admission_fee DECIMAL(10, 2) DEFAULT 25000.00,
+    tuition_fee DECIMAL(10, 2) DEFAULT 18000.00,
+    transport_fee DECIMAL(10, 2) DEFAULT 4500.00,
+    commitment_fee DECIMAL(10, 2) DEFAULT 5000.00,
+    lab_fee DECIMAL(10, 2) DEFAULT 3000.00,
+    total_fee DECIMAL(10, 2) DEFAULT 57000.00,
+    fee_paid BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- 10. TRANSPORT & BUS ROUTES TABLE
 CREATE TABLE IF NOT EXISTS public.transport_routes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -363,84 +380,191 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App
-ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.timetables ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.examinations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.student_marks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.daily_attendance ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.fee_structures ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.fee_collections ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.admission_leads ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.library_books ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.leave_applications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.exit_interviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.hostel_rooms ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.visitor_passes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.exam_timetables ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.subject_configs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.student_academic_permissions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.lesson_alerts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.teacher_substitutions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.round_duties ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+-- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App safely
+DO $$ 
+BEGIN
+    -- Classes
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'classes') THEN
+        ALTER TABLE public.classes ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to classes" ON public.classes;
+        CREATE POLICY "Allow public full access to classes" ON public.classes FOR ALL USING (true) WITH CHECK (true);
+    END IF;
 
-DROP POLICY IF EXISTS "Allow public full access to classes" ON public.classes;
-DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
-DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
-DROP POLICY IF EXISTS "Allow public full access to timetables" ON public.timetables;
-DROP POLICY IF EXISTS "Allow public full access to examinations" ON public.examinations;
-DROP POLICY IF EXISTS "Allow public full access to student_marks" ON public.student_marks;
-DROP POLICY IF EXISTS "Allow public full access to daily_attendance" ON public.daily_attendance;
-DROP POLICY IF EXISTS "Allow public full access to fee_structures" ON public.fee_structures;
-DROP POLICY IF EXISTS "Allow public full access to fee_collections" ON public.fee_collections;
-DROP POLICY IF EXISTS "Allow public full access to admission_leads" ON public.admission_leads;
-DROP POLICY IF EXISTS "Allow public full access to transport_routes" ON public.transport_routes;
-DROP POLICY IF EXISTS "Allow public full access to library_books" ON public.library_books;
-DROP POLICY IF EXISTS "Allow public full access to leave_applications" ON public.leave_applications;
-DROP POLICY IF EXISTS "Allow public full access to exit_interviews" ON public.exit_interviews;
-DROP POLICY IF EXISTS "Allow public full access to inventory_items" ON public.inventory_items;
-DROP POLICY IF EXISTS "Allow public full access to hostel_rooms" ON public.hostel_rooms;
-DROP POLICY IF EXISTS "Allow public full access to visitor_passes" ON public.visitor_passes;
-DROP POLICY IF EXISTS "Allow public full access to exam_timetables" ON public.exam_timetables;
-DROP POLICY IF EXISTS "Allow public full access to subject_configs" ON public.subject_configs;
-DROP POLICY IF EXISTS "Allow public full access to student_academic_permissions" ON public.student_academic_permissions;
-DROP POLICY IF EXISTS "Allow public full access to lesson_plans" ON public.lesson_plans;
-DROP POLICY IF EXISTS "Allow public full access to lesson_alerts" ON public.lesson_alerts;
-DROP POLICY IF EXISTS "Allow public full access to teacher_substitutions" ON public.teacher_substitutions;
-DROP POLICY IF EXISTS "Allow public full access to round_duties" ON public.round_duties;
-DROP POLICY IF EXISTS "Allow public full access to audit_logs" ON public.audit_logs;
+    -- Students
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'students') THEN
+        ALTER TABLE public.students ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to students" ON public.students;
+        CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
+    END IF;
 
-CREATE POLICY "Allow public full access to classes" ON public.classes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to students" ON public.students FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to timetables" ON public.timetables FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to examinations" ON public.examinations FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to student_marks" ON public.student_marks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to daily_attendance" ON public.daily_attendance FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to fee_structures" ON public.fee_structures FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collections FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to library_books" ON public.library_books FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to leave_applications" ON public.leave_applications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to exit_interviews" ON public.exit_interviews FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to inventory_items" ON public.inventory_items FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to hostel_rooms" ON public.hostel_rooms FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to visitor_passes" ON public.visitor_passes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to exam_timetables" ON public.exam_timetables FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to subject_configs" ON public.subject_configs FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to student_academic_permissions" ON public.student_academic_permissions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to lesson_plans" ON public.lesson_plans FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to lesson_alerts" ON public.lesson_alerts FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to teacher_substitutions" ON public.teacher_substitutions FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to round_duties" ON public.round_duties FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow public full access to audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+    -- Staff
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'staff') THEN
+        ALTER TABLE public.staff ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to staff" ON public.staff;
+        CREATE POLICY "Allow public full access to staff" ON public.staff FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Timetables
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'timetables') THEN
+        ALTER TABLE public.timetables ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to timetables" ON public.timetables;
+        CREATE POLICY "Allow public full access to timetables" ON public.timetables FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Examinations
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'examinations') THEN
+        ALTER TABLE public.examinations ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to examinations" ON public.examinations;
+        CREATE POLICY "Allow public full access to examinations" ON public.examinations FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Student Marks
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_marks') THEN
+        ALTER TABLE public.student_marks ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to student_marks" ON public.student_marks;
+        CREATE POLICY "Allow public full access to student_marks" ON public.student_marks FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Daily Attendance
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'daily_attendance') THEN
+        ALTER TABLE public.daily_attendance ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to daily_attendance" ON public.daily_attendance;
+        CREATE POLICY "Allow public full access to daily_attendance" ON public.daily_attendance FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Fee Structures
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'fee_structures') THEN
+        ALTER TABLE public.fee_structures ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to fee_structures" ON public.fee_structures;
+        CREATE POLICY "Allow public full access to fee_structures" ON public.fee_structures FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Fee Collections
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'fee_collections') THEN
+        ALTER TABLE public.fee_collections ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to fee_collections" ON public.fee_collections;
+        CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collections FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Admission Leads
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'admission_leads') THEN
+        ALTER TABLE public.admission_leads ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to admission_leads" ON public.admission_leads;
+        CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Admission Fee Schedules
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'admission_fee_schedules') THEN
+        ALTER TABLE public.admission_fee_schedules ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to admission_fee_schedules" ON public.admission_fee_schedules;
+        CREATE POLICY "Allow public full access to admission_fee_schedules" ON public.admission_fee_schedules FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Transport Routes
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'transport_routes') THEN
+        ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to transport_routes" ON public.transport_routes;
+        CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Library Books
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'library_books') THEN
+        ALTER TABLE public.library_books ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to library_books" ON public.library_books;
+        CREATE POLICY "Allow public full access to library_books" ON public.library_books FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Leave Applications
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'leave_applications') THEN
+        ALTER TABLE public.leave_applications ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to leave_applications" ON public.leave_applications;
+        CREATE POLICY "Allow public full access to leave_applications" ON public.leave_applications FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Exit Interviews
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'exit_interviews') THEN
+        ALTER TABLE public.exit_interviews ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to exit_interviews" ON public.exit_interviews;
+        CREATE POLICY "Allow public full access to exit_interviews" ON public.exit_interviews FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Inventory Items
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'inventory_items') THEN
+        ALTER TABLE public.inventory_items ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to inventory_items" ON public.inventory_items;
+        CREATE POLICY "Allow public full access to inventory_items" ON public.inventory_items FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Hostel Rooms
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'hostel_rooms') THEN
+        ALTER TABLE public.hostel_rooms ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to hostel_rooms" ON public.hostel_rooms;
+        CREATE POLICY "Allow public full access to hostel_rooms" ON public.hostel_rooms FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Visitor Passes
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'visitor_passes') THEN
+        ALTER TABLE public.visitor_passes ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to visitor_passes" ON public.visitor_passes;
+        CREATE POLICY "Allow public full access to visitor_passes" ON public.visitor_passes FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Exam Timetables
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'exam_timetables') THEN
+        ALTER TABLE public.exam_timetables ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to exam_timetables" ON public.exam_timetables;
+        CREATE POLICY "Allow public full access to exam_timetables" ON public.exam_timetables FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Subject Configs
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'subject_configs') THEN
+        ALTER TABLE public.subject_configs ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to subject_configs" ON public.subject_configs;
+        CREATE POLICY "Allow public full access to subject_configs" ON public.subject_configs FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Student Academic Permissions
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_academic_permissions') THEN
+        ALTER TABLE public.student_academic_permissions ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to student_academic_permissions" ON public.student_academic_permissions;
+        CREATE POLICY "Allow public full access to student_academic_permissions" ON public.student_academic_permissions FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Lesson Plans
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'lesson_plans') THEN
+        ALTER TABLE public.lesson_plans ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to lesson_plans" ON public.lesson_plans;
+        CREATE POLICY "Allow public full access to lesson_plans" ON public.lesson_plans FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Lesson Alerts
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'lesson_alerts') THEN
+        ALTER TABLE public.lesson_alerts ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to lesson_alerts" ON public.lesson_alerts;
+        CREATE POLICY "Allow public full access to lesson_alerts" ON public.lesson_alerts FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Teacher Substitutions
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'teacher_substitutions') THEN
+        ALTER TABLE public.teacher_substitutions ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to teacher_substitutions" ON public.teacher_substitutions;
+        CREATE POLICY "Allow public full access to teacher_substitutions" ON public.teacher_substitutions FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Round Duties
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'round_duties') THEN
+        ALTER TABLE public.round_duties ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to round_duties" ON public.round_duties;
+        CREATE POLICY "Allow public full access to round_duties" ON public.round_duties FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Audit Logs
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'audit_logs') THEN
+        ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to audit_logs" ON public.audit_logs;
+        CREATE POLICY "Allow public full access to audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
 
 -- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS
@@ -453,6 +577,30 @@ VALUES
 ('Class 11', 'A', '102', 'RAJAT JAIN'),
 ('Class 12', 'A', '103', 'SHRUTI CHAHAR')
 ON CONFLICT (class_name) DO NOTHING;
+
+-- Seed Fee Structures
+INSERT INTO public.fee_structures (class_name, registration_fee, admission_fee, tuition_fee_annual, tuition_fee_monthly, tuition_fee_quarterly, transport_fee, lab_fee, commitment_fee)
+VALUES
+('Class 10', 1500.00, 25000.00, 72000.00, 6000.00, 18000.00, 4500.00, 3000.00, 5000.00),
+('Class 11', 1800.00, 30000.00, 84000.00, 7000.00, 21000.00, 5000.00, 4000.00, 6000.00),
+('Class 12', 2000.00, 35000.00, 96000.00, 8000.00, 24000.00, 5000.00, 5000.00, 6000.00)
+ON CONFLICT (class_name) DO NOTHING;
+
+-- Seed Admission Leads
+INSERT INTO public.admission_leads (lead_no, applicant_name, parent_name, phone, class_seeking, lead_source, status)
+VALUES
+('APP-2026-101', 'VIKRAM SHARMA', 'Rajesh Sharma', '9876543210', 'Class 10', 'Website Inquiry', 'Offered'),
+('APP-2026-102', 'PRIYA PATEL', 'Suresh Patel', '9876543211', 'Class 11', 'Walk-in', 'Interview Scheduled'),
+('APP-2026-103', 'KABIR MEHTA', 'Alok Mehta', '9876543212', 'Class 12', 'Referral', 'Registration Fee Paid')
+ON CONFLICT (lead_no) DO NOTHING;
+
+-- Seed Admission Fee Schedules
+INSERT INTO public.admission_fee_schedules (application_no, student_name, class_name, registration_fee, admission_fee, tuition_fee, transport_fee, commitment_fee, lab_fee, total_fee, fee_paid)
+VALUES
+('APP-2026-101', 'VIKRAM SHARMA', 'Class 10', 1500.00, 25000.00, 18000.00, 4500.00, 5000.00, 3000.00, 57000.00, true),
+('APP-2026-102', 'PRIYA PATEL', 'Class 11', 1800.00, 30000.00, 21000.00, 5000.00, 6000.00, 4000.00, 67800.00, false),
+('APP-2026-103', 'KABIR MEHTA', 'Class 12', 2000.00, 35000.00, 24000.00, 5000.00, 6000.00, 5000.00, 77000.00, true)
+ON CONFLICT (application_no) DO NOTHING;
 
 -- Seed Students
 INSERT INTO public.students (admission_no, full_name, class_name, section, roll_no, father_name, contact_phone)
@@ -471,6 +619,13 @@ VALUES
 ('EMP-104', 'NAND KISHORE SHARMA', 'Sanskrit & Hindi', 'PGT Hindi', '9988776658'),
 ('EMP-105', 'DHARMESH TIWARI', 'Mathematics Dept', 'PGT Maths', '9988776659')
 ON CONFLICT (employee_code) DO NOTHING;
+
+-- Seed Fee Collections
+INSERT INTO public.fee_collections (receipt_no, student_admission_no, student_name, class_name, fee_head, amount_paid, payment_mode, transaction_ref)
+VALUES
+('REC-2026-001', 'ADM-2026-001', 'AARAV SHARMA', 'Class 10', 'Tuition Fee Q1', 18000.00, 'UPI', 'TXN9081231'),
+('REC-2026-002', 'ADM-2026-002', 'ANANYA VERMA', 'Class 10', 'Admission & Reg Fee', 26500.00, 'Cash', 'CASH-REF-101')
+ON CONFLICT (receipt_no) DO NOTHING;
 
 -- Seed Transport
 INSERT INTO public.transport_routes (route_name, bus_number, driver_name, driver_phone, monthly_fee)

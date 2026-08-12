@@ -118,10 +118,26 @@ export async function syncAdmissionLeadToSupabase(
   };
 
   const res = await upsertRecord('admission_leads', payload, 'lead_no', userContext);
+
+  // Sync to admission_fee_schedules table
+  await upsertRecord('admission_fee_schedules', {
+    application_no: app.applicationNo || `APP-${Date.now()}`,
+    student_name: (app.studentName || '').toUpperCase(),
+    class_name: app.applyingClass || 'Class 1',
+    registration_fee: app.registrationFee || 1500,
+    admission_fee: 25000,
+    tuition_fee: 18000,
+    transport_fee: 4500,
+    commitment_fee: 5000,
+    lab_fee: 3000,
+    total_fee: (app.registrationFee || 1500) + 55500,
+    fee_paid: Boolean(app.feePaid)
+  }, 'application_no', userContext);
+
   return {
     success: res.success,
     message: res.success
-      ? `🟢 Live DB Updated: Admission lead "${app.studentName}" saved to Supabase!`
+      ? `🟢 Live DB Updated: Admission lead & fee schedule for "${app.studentName}" saved to Supabase!`
       : (res.error || res.message),
     data: res.data
   };
@@ -909,6 +925,22 @@ export async function runFullDatabaseSynchronization(): Promise<{
       { code: 'SCI-201', name: 'Science & Technology', theory_max_marks: 80, internal_max_marks: 20 }
     ], { onConflict: 'code' });
     summary.push('✓ Synced Subject Configurations & Evaluation parameters');
+
+    // 9. Sync Fee Structures
+    await supabase.from('fee_structures').upsert([
+      { class_name: 'Class 10', registration_fee: 1500, admission_fee: 25000, tuition_fee_annual: 72000, tuition_fee_monthly: 6000, tuition_fee_quarterly: 18000, transport_fee: 4500, lab_fee: 3000, commitment_fee: 5000 },
+      { class_name: 'Class 11', registration_fee: 1800, admission_fee: 30000, tuition_fee_annual: 84000, tuition_fee_monthly: 7000, tuition_fee_quarterly: 21000, transport_fee: 5000, lab_fee: 4000, commitment_fee: 6000 },
+      { class_name: 'Class 12', registration_fee: 2000, admission_fee: 35000, tuition_fee_annual: 96000, tuition_fee_monthly: 8000, tuition_fee_quarterly: 24000, transport_fee: 5000, lab_fee: 5000, commitment_fee: 6000 }
+    ], { onConflict: 'class_name' });
+    summary.push('✓ Synced Class Fee Structures (Class 10, 11, 12 rate card active)');
+
+    // 10. Sync Admission Fee Schedules
+    await supabase.from('admission_fee_schedules').upsert([
+      { application_no: 'APP-2026-101', student_name: 'VIKRAM SHARMA', class_name: 'Class 10', registration_fee: 1500, admission_fee: 25000, tuition_fee: 18000, transport_fee: 4500, commitment_fee: 5000, lab_fee: 3000, total_fee: 57000, fee_paid: true },
+      { application_no: 'APP-2026-102', student_name: 'PRIYA PATEL', class_name: 'Class 11', registration_fee: 1800, admission_fee: 30000, tuition_fee: 21000, transport_fee: 5000, commitment_fee: 6000, lab_fee: 4000, total_fee: 67800, fee_paid: false },
+      { application_no: 'APP-2026-103', student_name: 'KABIR MEHTA', class_name: 'Class 12', registration_fee: 2000, admission_fee: 35000, tuition_fee: 24000, transport_fee: 5000, commitment_fee: 6000, lab_fee: 5000, total_fee: 77000, fee_paid: true }
+    ], { onConflict: 'application_no' });
+    summary.push('✓ Synced Admission Fee Schedules (Application APP-2026-101, 102, 103 saved to DB)');
 
     return {
       success: true,
