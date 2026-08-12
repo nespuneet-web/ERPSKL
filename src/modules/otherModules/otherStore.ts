@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
 import { syncFeeCollectionToSupabase, fetchStaffFromSupabase, syncStaffToSupabase } from '../../lib/supabaseSync';
+import { deleteRecord } from '../../lib/dbUtility';
 
 const OTHER_STORAGE_KEY = 'schoolerp_other_modules_v1';
 
@@ -128,10 +129,15 @@ export function useOtherModulesStore() {
     return staffObj;
   };
 
-  const deleteStaffMember = (staffId: string) => {
-    const updatedList = staff.filter((s) => s.id !== staffId);
+  const deleteStaffMember = async (staffId: string) => {
+    const target = staff.find((s) => s.id === staffId || s.employeeCode === staffId);
+    const updatedList = staff.filter((s) => s.id !== staffId && s.employeeCode !== staffId);
     setStaff(updatedList);
     notifyStaffUpdated(updatedList);
+
+    if (target && target.employeeCode) {
+      await deleteRecord('staff', target.employeeCode, undefined, 'employee_code');
+    }
   };
 
   const updateStaffStatus = async (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {

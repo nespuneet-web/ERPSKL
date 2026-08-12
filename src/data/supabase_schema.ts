@@ -107,6 +107,20 @@ CREATE TABLE IF NOT EXISTS public.daily_attendance (
 );
 
 -- 8. FEES & COLLECTIONS TABLE
+CREATE TABLE IF NOT EXISTS public.fee_structures (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    class_name VARCHAR(50) UNIQUE NOT NULL,
+    registration_fee DECIMAL(10, 2) DEFAULT 1500.00,
+    admission_fee DECIMAL(10, 2) DEFAULT 25000.00,
+    tuition_fee_annual DECIMAL(10, 2) DEFAULT 72000.00,
+    tuition_fee_monthly DECIMAL(10, 2) DEFAULT 6000.00,
+    tuition_fee_quarterly DECIMAL(10, 2) DEFAULT 18000.00,
+    transport_fee DECIMAL(10, 2) DEFAULT 4500.00,
+    lab_fee DECIMAL(10, 2) DEFAULT 3000.00,
+    commitment_fee DECIMAL(10, 2) DEFAULT 5000.00,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS public.fee_collections (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     receipt_no VARCHAR(50) UNIQUE NOT NULL,
@@ -357,6 +371,7 @@ ALTER TABLE public.timetables ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.examinations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.student_marks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_attendance ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.fee_structures ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.fee_collections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.admission_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.transport_routes ENABLE ROW LEVEL SECURITY;
@@ -382,6 +397,7 @@ DROP POLICY IF EXISTS "Allow public full access to timetables" ON public.timetab
 DROP POLICY IF EXISTS "Allow public full access to examinations" ON public.examinations;
 DROP POLICY IF EXISTS "Allow public full access to student_marks" ON public.student_marks;
 DROP POLICY IF EXISTS "Allow public full access to daily_attendance" ON public.daily_attendance;
+DROP POLICY IF EXISTS "Allow public full access to fee_structures" ON public.fee_structures;
 DROP POLICY IF EXISTS "Allow public full access to fee_collections" ON public.fee_collections;
 DROP POLICY IF EXISTS "Allow public full access to admission_leads" ON public.admission_leads;
 DROP POLICY IF EXISTS "Allow public full access to transport_routes" ON public.transport_routes;
@@ -407,6 +423,7 @@ CREATE POLICY "Allow public full access to timetables" ON public.timetables FOR 
 CREATE POLICY "Allow public full access to examinations" ON public.examinations FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to student_marks" ON public.student_marks FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to daily_attendance" ON public.daily_attendance FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow public full access to fee_structures" ON public.fee_structures FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to fee_collections" ON public.fee_collections FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to admission_leads" ON public.admission_leads FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow public full access to transport_routes" ON public.transport_routes FOR ALL USING (true) WITH CHECK (true);

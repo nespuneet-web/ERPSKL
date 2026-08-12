@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Student, SchoolHouse, SchoolClub } from '../../types/sis';
 import { INITIAL_STUDENTS, DEFAULT_SCHOOL_HOUSES, DEFAULT_SCHOOL_CLUBS } from '../../data/mockData';
 import { syncStudentToSupabase, fetchStudentsFromSupabase } from '../../lib/supabaseSync';
+import { deleteRecord } from '../../lib/dbUtility';
 
 const SIS_STORAGE_KEY = 'schoolerp_sis_students_v1';
 const SIS_HOUSES_KEY = 'schoolerp_sis_houses_v1';
@@ -90,8 +91,16 @@ export function useSisStore() {
     }
   };
 
-  const deleteStudent = (id: string) => {
-    setStudents((prev) => prev.filter((s) => s.id !== id));
+  const deleteStudent = async (id: string) => {
+    const target = students.find((s) => s.id === id || s.admissionNo === id);
+    setStudents((prev) => prev.filter((s) => s.id !== id && s.admissionNo !== id));
+
+    if (target && target.admissionNo) {
+      setSyncStatus(`Deleting "${target.fullName}" from Supabase database...`);
+      const res = await deleteRecord('students', target.admissionNo, undefined, 'admission_no');
+      setSyncStatus(res.success ? `🟢 Deleted "${target.fullName}" from Live Supabase DB!` : res.message);
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
   };
 
   const addHouse = (house: Omit<SchoolHouse, 'id'>) => {
