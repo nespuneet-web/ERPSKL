@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useOtherModulesStore } from '../otherModules/otherStore';
 import { useSisStore } from '../sis/sisStore';
-import { Calendar, CheckCircle2, XCircle, Clock, Bus, ShieldCheck, UserCheck, Save, Users, AlertCircle, RefreshCw } from 'lucide-react';
+import { Calendar, CheckCircle2, XCircle, Clock, Bus, ShieldCheck, UserCheck, Save, Users, AlertCircle, RefreshCw, CalendarDays } from 'lucide-react';
 import { BusSeatingView } from './BusSeatingView';
 import { GateScanView } from './GateScanView';
+import { StudentAttendanceCalendarView } from './StudentAttendanceCalendarView';
 
 export const AttendanceModule: React.FC = () => {
   const { attendance, markAttendance, routes } = useOtherModulesStore();
   const { students } = useSisStore();
 
-  const [activeMode, setActiveMode] = useState<'classroom' | 'bus_guardian' | 'gate_entry'>('classroom');
+  const [activeMode, setActiveMode] = useState<'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry'>('calendar');
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedRouteId, setSelectedRouteId] = useState(routes[0]?.id || 'rt-1');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -223,6 +224,17 @@ export const AttendanceModule: React.FC = () => {
       {/* View Mode Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
         <button
+          onClick={() => setActiveMode('calendar')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeMode === 'calendar'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }`}
+        >
+          <CalendarDays className="w-4 h-4 text-emerald-300" /> Student Attendance Calendar
+        </button>
+
+        <button
           onClick={() => setActiveMode('classroom')}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
             activeMode === 'classroom'
@@ -255,6 +267,9 @@ export const AttendanceModule: React.FC = () => {
           <ShieldCheck className="w-4 h-4 text-emerald-300" /> Gate Arrival Duty
         </button>
       </div>
+
+      {/* MODE 0: MONTHLY ATTENDANCE CALENDAR VIEW */}
+      {activeMode === 'calendar' && <StudentAttendanceCalendarView />}
 
       {/* MODE 1: CLASSROOM DAILY ATTENDANCE GRID */}
       {activeMode === 'classroom' && (

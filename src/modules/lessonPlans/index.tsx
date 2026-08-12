@@ -21,8 +21,10 @@ import {
   Eye,
   Check,
   Building,
-  GraduationCap
+  GraduationCap,
+  Printer
 } from 'lucide-react';
+import { PrintModal } from '../../components/PrintModal';
 
 export const LessonPlansModule: React.FC = () => {
   const { plans, alerts, updateLessonPlanStatus, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
@@ -66,6 +68,7 @@ export const LessonPlansModule: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [groupFilter, setGroupFilter] = useState<'ALL' | 'Pre-Primary' | 'Junior' | 'Middle' | 'Senior'>('ALL');
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null);
+  const [isPrintModalOpen, setIsPrintModalOpen] = useState(false);
 
   // Inspector Modal state for Red (Incomplete) Plans or direct alert
   const [inspectingPlan, setInspectingPlan] = useState<LessonPlan | null>(null);
@@ -399,10 +402,17 @@ export const LessonPlansModule: React.FC = () => {
                 className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
               >
                 <option value="ALL">All Statuses</option>
-                <option value="GREEN">🦜 Parrot Green (Completed On Time)</option>
-                <option value="RED">🌸 Light Pink (Delayed / Not Completed)</option>
+                <option value="GREEN">🟢 Green (Syllabus Completed)</option>
+                <option value="RED">🔴 Red (Syllabus Incomplete / Delayed)</option>
                 <option value="IN_PROGRESS">🟡 Yellow (In Progress)</option>
               </select>
+
+              <button
+                onClick={() => setIsPrintModalOpen(true)}
+                className="px-3 py-2 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-xl flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
+              >
+                <Printer className="w-4 h-4" /> Print Matrix Report
+              </button>
             </div>
 
             <p className="text-xs text-slate-500 font-medium">
@@ -954,6 +964,68 @@ export const LessonPlansModule: React.FC = () => {
           </div>
         </div>
       )}
+      {/* PRINT MODAL FOR LESSON PLANS SYLLABUS MATRIX */}
+      <PrintModal
+        isOpen={isPrintModalOpen}
+        onClose={() => setIsPrintModalOpen(false)}
+        title="Syllabus Completion & Lesson Plan Progress Matrix"
+        subtitle="Academic Session 2026-2027 • Principal & Coordinator Review"
+      >
+        <div className="space-y-4">
+          <div className="border-b pb-3 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-black uppercase text-slate-900">
+                School-Wide Syllabus Completion Status
+              </h2>
+              <p className="text-xs text-slate-600 font-bold">
+                Total Classes Tracked: {plans.length} • Green = Completed • Red = Incomplete / Delayed
+              </p>
+            </div>
+            <div className="text-right text-xs font-bold">
+              <span className="text-emerald-700">Completed: {plans.filter(p => p.status === 'COMPLETED_ON_TIME').length}</span> •{' '}
+              <span className="text-rose-700">Incomplete: {plans.filter(p => p.status === 'NOT_COMPLETED_ON_TIME').length}</span>
+            </div>
+          </div>
+
+          <table className="w-full text-left border-collapse border border-slate-300 text-xs">
+            <thead>
+              <tr className="bg-slate-100 font-black">
+                <th className="p-2 border border-slate-300">Class & Section</th>
+                <th className="p-2 border border-slate-300">Subject</th>
+                <th className="p-2 border border-slate-300">Assigned Teacher</th>
+                <th className="p-2 border border-slate-300">Plan & Target Date</th>
+                <th className="p-2 border border-slate-300">Periods (Done/Req)</th>
+                <th className="p-2 border border-slate-300">Syllabus Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plans.map((p) => {
+                const isGreen = p.status === 'COMPLETED_ON_TIME';
+                const isRed = p.status === 'NOT_COMPLETED_ON_TIME';
+                return (
+                  <tr key={p.id} className="border-b border-slate-200">
+                    <td className="p-2 border border-slate-300 font-black">{p.className}</td>
+                    <td className="p-2 border border-slate-300 font-bold">{p.subject}</td>
+                    <td className="p-2 border border-slate-300">{p.teacherName}</td>
+                    <td className="p-2 border border-slate-300 font-mono text-[11px]">{p.planStartDate || '01 Apr'} - {p.targetCompletionDate || '15 Apr'}</td>
+                    <td className="p-2 border border-slate-300 text-center font-bold">{p.periodsCompleted} / {p.periodsRequired}</td>
+                    <td className="p-2 border border-slate-300 text-center font-black uppercase">
+                      {isGreen ? (
+                        <span className="text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">GREEN (COMPLETED)</span>
+                      ) : isRed ? (
+                        <span className="text-rose-700 bg-rose-100 px-2 py-0.5 rounded font-bold">RED (INCOMPLETE)</span>
+                      ) : (
+                        <span className="text-amber-700 bg-amber-100 px-2 py-0.5 rounded font-bold">IN PROGRESS</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </PrintModal>
+
     </div>
   );
 };
