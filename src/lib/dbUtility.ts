@@ -356,10 +356,67 @@ export async function upsertRecord<T = any>(
   const recId = String(recordData[conflictColumn] || recordData.id || 'unknown');
 
   try {
-    const { data, error } = await supabase
+    let data: any = null;
+    let error: any = null;
+
+    // Try standard upsert with onConflict
+    const primaryRes = await supabase
       .from(tableName)
       .upsert([recordData], { onConflict: conflictColumn })
       .select();
+
+    data = primaryRes.data;
+    error = primaryRes.error;
+
+    // Fallback if ON CONFLICT constraint error or missing target constraint
+    if (error && (
+      error.message?.includes('ON CONFLICT') ||
+      error.message?.includes('unique or exclusion constraint') ||
+      error.code === '42P10' ||
+      error.code === '23505'
+    )) {
+      console.warn(`Upsert constraint fallback triggered for table "${tableName}" on column "${conflictColumn}":`, error.message);
+      const conflictVal = recordData[conflictColumn];
+
+      if (conflictVal !== undefined && conflictVal !== null) {
+        // 1. Check if record exists by conflictColumn
+        const { data: existingRows } = await supabase
+          .from(tableName)
+          .select('*')
+          .eq(conflictColumn, conflictVal)
+          .limit(1);
+
+        if (existingRows && existingRows.length > 0) {
+          // 2. Perform UPDATE
+          const updateRes = await supabase
+            .from(tableName)
+            .update(recordData)
+            .eq(conflictColumn, conflictVal)
+            .select();
+          data = updateRes.data;
+          error = updateErrHandling(updateRes.error);
+        } else {
+          // 3. Perform INSERT
+          const insertRes = await supabase
+            .from(tableName)
+            .insert([recordData])
+            .select();
+          data = insertRes.data;
+          error = insertRes.error;
+        }
+      } else {
+        const insertRes = await supabase
+          .from(tableName)
+          .insert([recordData])
+          .select();
+        data = insertRes.data;
+        error = insertRes.error;
+      }
+    }
+
+    function updateErrHandling(e: any) {
+      return e;
+    }
 
     if (error) {
       await logDatabaseActivity({

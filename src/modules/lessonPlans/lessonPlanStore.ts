@@ -8,14 +8,15 @@ import {
 
 export interface LessonPlan {
   id: string;
-  className: string;      // e.g. "Class 10-A", "Class 6-B", "Class 3-A"
+  className: string;      // e.g. "Class 10-A", "Class 6-B", "Class 3-A", "PG-A"
   subject: string;        // e.g. "Mathematics"
   teacherName: string;    // e.g. "POONAM SINGH"
   teacherRole: string;    // e.g. "PGT Physics"
-  teacherGroup: 'Junior' | 'Middle' | 'Senior'; // Group categorization
+  teacherGroup: 'Pre-Primary' | 'Junior' | 'Middle' | 'Senior'; // Group categorization
   topic: string;          // e.g. "Quadratic Equations & Complex Numbers"
+  planStartDate?: string; // Planning Start Date (Left Side)
   targetWeek: string;     // e.g. "Week 12 (April Term 1)"
-  targetCompletionDate: string; // e.g. "2026-04-18"
+  targetCompletionDate: string; // Target Completion Date (Right Side)
   status: 'COMPLETED_ON_TIME' | 'NOT_COMPLETED_ON_TIME' | 'IN_PROGRESS';
   periodsRequired: number; // e.g. 8 periods
   periodsCompleted: number; // e.g. 6 periods
@@ -40,6 +41,80 @@ const LESSON_PLANS_KEY = 'schoolerp_lesson_plans_v2';
 const LESSON_ALERTS_KEY = 'schoolerp_lesson_alerts_v1';
 
 const INITIAL_LESSON_PLANS: LessonPlan[] = [
+  // --- PRE-PRIMARY TEACHERS (PG to UKG) ---
+  {
+    id: 'lp-pp1',
+    className: 'PG-A',
+    subject: 'Play & Sensory Development',
+    teacherName: 'KAVITA PATEL',
+    teacherRole: 'Nursery Coordinator',
+    teacherGroup: 'Pre-Primary',
+    topic: 'Color Identification, Shapes & Motor Skills',
+    planStartDate: '2026-04-01',
+    targetWeek: 'Week 10 (Mid April)',
+    targetCompletionDate: '2026-04-15',
+    status: 'COMPLETED_ON_TIME',
+    periodsRequired: 10,
+    periodsCompleted: 10,
+    lastUpdatedBy: 'KAVITA PATEL',
+    lastUpdatedAt: new Date().toISOString(),
+    remarks: 'Sensory sandbox activity completed.'
+  },
+  {
+    id: 'lp-pp2',
+    className: 'Nursery-A',
+    subject: 'Early Rhymes & Alphabets',
+    teacherName: 'ANITA AGARWAL',
+    teacherRole: 'Pre-Primary Teacher',
+    teacherGroup: 'Pre-Primary',
+    topic: 'Alphabet A to M Tracing & Picture Cards',
+    planStartDate: '2026-04-05',
+    targetWeek: 'Week 11 (Late April)',
+    targetCompletionDate: '2026-04-20',
+    status: 'NOT_COMPLETED_ON_TIME',
+    periodsRequired: 8,
+    periodsCompleted: 4,
+    lastUpdatedBy: 'ANITA AGARWAL',
+    lastUpdatedAt: new Date().toISOString(),
+    remarks: 'Extra practice needed for letter curves.'
+  },
+  {
+    id: 'lp-pp3',
+    className: 'LKG-B',
+    subject: 'Numbers & Counting 1-50',
+    teacherName: 'NEETU SAXENA',
+    teacherRole: 'LKG Educator',
+    teacherGroup: 'Pre-Primary',
+    topic: 'Number Matching & Abacus Beads',
+    planStartDate: '2026-04-01',
+    targetWeek: 'Week 12 (May Week 1)',
+    targetCompletionDate: '2026-05-02',
+    status: 'COMPLETED_ON_TIME',
+    periodsRequired: 8,
+    periodsCompleted: 8,
+    lastUpdatedBy: 'NEETU SAXENA',
+    lastUpdatedAt: new Date().toISOString(),
+    remarks: 'All students recognized numbers 1 to 50.'
+  },
+  {
+    id: 'lp-pp4',
+    className: 'UKG-A',
+    subject: 'Sight Words & CVC Words',
+    teacherName: 'SUNITA CHOUDHARY',
+    teacherRole: 'UKG Educator',
+    teacherGroup: 'Pre-Primary',
+    topic: 'Three-letter CVC Words (cat, mat, pin)',
+    planStartDate: '2026-04-10',
+    targetWeek: 'Week 12 (May Week 1)',
+    targetCompletionDate: '2026-05-05',
+    status: 'NOT_COMPLETED_ON_TIME',
+    periodsRequired: 9,
+    periodsCompleted: 5,
+    lastUpdatedBy: 'SUNITA CHOUDHARY',
+    lastUpdatedAt: new Date().toISOString(),
+    remarks: 'Needs 2 extra periods for blending sounds.'
+  },
+
   // --- JUNIOR TEACHERS (Classes 1 to 5) ---
   {
     id: 'lp-j1',
@@ -49,6 +124,7 @@ const INITIAL_LESSON_PLANS: LessonPlan[] = [
     teacherRole: 'PRT English',
     teacherGroup: 'Junior',
     topic: 'Vowels, Consonants & Story Recitation',
+    planStartDate: '2026-04-01',
     targetWeek: 'Week 10 (Mid April)',
     targetCompletionDate: '2026-04-15',
     status: 'COMPLETED_ON_TIME',

@@ -598,14 +598,19 @@ export const TimetableModule: React.FC = () => {
   };
 
   // Handler: Add brand new teacher
-  const handleAddNewTeacher = async (teacherName: string) => {
-    const cleanName = teacherName.trim().toUpperCase();
+  const handleAddNewTeacher = async (data: { teacherName: string; subject?: string; department?: string; grade?: string } | string) => {
+    const nameInput = typeof data === 'string' ? data : data.teacherName;
+    const subject = typeof data === 'string' ? 'General' : (data.subject || 'General');
+    const department = typeof data === 'string' ? 'Senior Secondary' : (data.department || 'Senior Secondary');
+    const grade = typeof data === 'string' ? 'Class 10' : (data.grade || 'Class 10');
+
+    const cleanName = nameInput.trim().toUpperCase();
     const newRecord: TeacherTimetableRecord = {
       id: `tt-new-${Date.now()}`,
       teacherName: cleanName,
-      department: 'Senior Secondary',
+      department: department,
       lastUpdated: new Date().toLocaleString(),
-      schedule: {}
+      schedule: {} // blank / free timetable initially
     };
     setTeacherTimetables((prev) => [newRecord, ...prev]);
 
@@ -613,8 +618,8 @@ export const TimetableModule: React.FC = () => {
     await addStaffMember({
       employeeCode: `EMP-${cleanName.replace(/[^A-Z0-9]/g, '').slice(0, 6)}`,
       fullName: cleanName,
-      designation: 'Faculty Member',
-      department: 'Senior Secondary',
+      designation: `Teacher (${subject} - ${grade})`,
+      department: department,
       email: `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '')}@school.edu`,
       phone: '+91 98100 00000',
       joiningDate: new Date().toISOString().split('T')[0],
@@ -623,7 +628,7 @@ export const TimetableModule: React.FC = () => {
       status: 'Active'
     });
 
-    setDbSyncBanner({ type: 'info', message: `Adding "${cleanName}" to live Supabase DB & Staff Directory...` });
+    setDbSyncBanner({ type: 'info', message: `Adding "${cleanName}" (${subject}, ${grade}) to live Supabase DB & Staff Directory...` });
     const res = await syncTeacherAndTimetableToSupabase(newRecord);
     setDbSyncBanner({
       type: res.success ? 'success' : 'error',

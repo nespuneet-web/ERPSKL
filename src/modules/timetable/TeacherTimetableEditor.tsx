@@ -19,7 +19,7 @@ import {
 interface TeacherTimetableEditorProps {
   teachers: TeacherTimetableRecord[];
   onSaveTeacher: (updatedTeacher: TeacherTimetableRecord) => void;
-  onAddNewTeacher: (teacherName: string) => void;
+  onAddNewTeacher: (data: { teacherName: string; subject?: string; department?: string; grade?: string }) => void;
 }
 
 export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
@@ -44,6 +44,9 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   // Quick Add New Teacher Modal state
   const [showAddModal, setShowAddModal] = useState(false);
   const [newTeacherNameInput, setNewTeacherNameInput] = useState('');
+  const [newTeacherSubjectInput, setNewTeacherSubjectInput] = useState('Mathematics');
+  const [newTeacherDeptInput, setNewTeacherDeptInput] = useState('Senior Secondary');
+  const [newTeacherGradeInput, setNewTeacherGradeInput] = useState('Class 10');
 
   // Switch active teacher
   const handleSelectTeacher = (tId: string) => {
@@ -109,7 +112,12 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   const handleAddTeacherSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTeacherNameInput.trim()) return;
-    onAddNewTeacher(newTeacherNameInput.trim().toUpperCase());
+    onAddNewTeacher({
+      teacherName: newTeacherNameInput.trim().toUpperCase(),
+      subject: newTeacherSubjectInput.trim(),
+      department: newTeacherDeptInput.trim(),
+      grade: newTeacherGradeInput.trim()
+    });
     setNewTeacherNameInput('');
     setShowAddModal(false);
   };
@@ -408,19 +416,84 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleAddTeacherSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleAddTeacherSubmit} className="space-y-3 text-xs">
               <div>
                 <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Full Teacher Name (e.g. RAJESH KUMAR, SUNITA DEVI):
+                  Full Teacher Name *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder="Enter teacher full name..."
+                  placeholder="e.g. RAJESH KUMAR, SUNITA DEVI"
                   value={newTeacherNameInput}
                   onChange={(e) => setNewTeacherNameInput(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Subject *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mathematics, Physics, English, Science"
+                  value={newTeacherSubjectInput}
+                  onChange={(e) => setNewTeacherSubjectInput(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Department *
+                  </label>
+                  <select
+                    value={newTeacherDeptInput}
+                    onChange={(e) => setNewTeacherDeptInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="Pre-Primary (PG-UKG)">Pre-Primary (PG-UKG)</option>
+                    <option value="Primary (1-5)">Primary (1-5)</option>
+                    <option value="Middle (6-8)">Middle (6-8)</option>
+                    <option value="Senior Secondary">Senior Secondary (9-12)</option>
+                    <option value="Sports & PE">Sports & PE</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Assigned Grade / Class *
+                  </label>
+                  <select
+                    value={newTeacherGradeInput}
+                    onChange={(e) => setNewTeacherGradeInput(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                  >
+                    <option value="PG">PG</option>
+                    <option value="Nursery">Nursery</option>
+                    <option value="LKG">LKG</option>
+                    <option value="UKG">UKG</option>
+                    <option value="Class 1">Class 1</option>
+                    <option value="Class 2">Class 2</option>
+                    <option value="Class 3">Class 3</option>
+                    <option value="Class 4">Class 4</option>
+                    <option value="Class 5">Class 5</option>
+                    <option value="Class 6">Class 6</option>
+                    <option value="Class 7">Class 7</option>
+                    <option value="Class 8">Class 8</option>
+                    <option value="Class 9">Class 9</option>
+                    <option value="Class 10">Class 10</option>
+                    <option value="Class 11">Class 11</option>
+                    <option value="Class 12">Class 12</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 text-[11px] text-indigo-900 dark:text-indigo-300">
+                ✨ <strong>Note:</strong> Initial timetable will be created <strong>completely free/blank</strong>. You can then assign periods according to master class & section schedules.
               </div>
 
               <div className="flex justify-end gap-2 pt-2">
@@ -435,7 +508,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                   type="submit"
                   className="px-4 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer"
                 >
-                  Create Teacher Profile
+                  Create & Show Free Timetable
                 </button>
               </div>
             </form>

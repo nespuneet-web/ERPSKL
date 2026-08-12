@@ -64,7 +64,7 @@ export const LessonPlansModule: React.FC = () => {
   // Search & Filter state for Principal View
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [groupFilter, setGroupFilter] = useState<'ALL' | 'Junior' | 'Middle' | 'Senior'>('ALL');
+  const [groupFilter, setGroupFilter] = useState<'ALL' | 'Pre-Primary' | 'Junior' | 'Middle' | 'Senior'>('ALL');
   const [expandedTileId, setExpandedTileId] = useState<string | null>(null);
 
   // Inspector Modal state for Red (Incomplete) Plans or direct alert
@@ -88,8 +88,10 @@ export const LessonPlansModule: React.FC = () => {
     }
 
     // Determine group based on selected class
-    let teacherGroup: 'Junior' | 'Middle' | 'Senior' = 'Senior';
-    if (selectedClass.includes('1-') || selectedClass.includes('2-') || selectedClass.includes('3-') || selectedClass.includes('4-') || selectedClass.includes('5-')) {
+    let teacherGroup: 'Pre-Primary' | 'Junior' | 'Middle' | 'Senior' = 'Senior';
+    if (selectedClass.startsWith('PG') || selectedClass.startsWith('Nursery') || selectedClass.startsWith('LKG') || selectedClass.startsWith('UKG')) {
+      teacherGroup = 'Pre-Primary';
+    } else if (selectedClass.includes('1-') || selectedClass.includes('2-') || selectedClass.includes('3-') || selectedClass.includes('4-') || selectedClass.includes('5-')) {
       teacherGroup = 'Junior';
     } else if (selectedClass.includes('6-') || selectedClass.includes('7-') || selectedClass.includes('8-')) {
       teacherGroup = 'Middle';
@@ -328,7 +330,18 @@ export const LessonPlansModule: React.FC = () => {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>🌟 All Teachers ({plans.length})</span>
+                <span>🌟 All Classes (PG to 12th) ({plans.length})</span>
+              </button>
+
+              <button
+                onClick={() => setGroupFilter('Pre-Primary')}
+                className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                  groupFilter === 'Pre-Primary'
+                    ? 'bg-purple-600 text-white shadow-lg ring-2 ring-purple-400'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`}
+              >
+                <span>🧸 Pre-Primary (PG - UKG)</span>
               </button>
 
               <button
@@ -339,7 +352,7 @@ export const LessonPlansModule: React.FC = () => {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>🐣 Junior Teachers (Classes 1 - 5)</span>
+                <span>🐣 Junior (Classes 1 - 5)</span>
               </button>
 
               <button
@@ -350,7 +363,7 @@ export const LessonPlansModule: React.FC = () => {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>🎒 Middle Teachers (Classes 6 - 8)</span>
+                <span>🎒 Middle (Classes 6 - 8)</span>
               </button>
 
               <button
@@ -361,7 +374,7 @@ export const LessonPlansModule: React.FC = () => {
                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
                 }`}
               >
-                <span>🎓 Senior Teachers (Classes 9 - 12)</span>
+                <span>🎓 Senior (Classes 9 - 12)</span>
               </button>
             </div>
           </div>
@@ -386,9 +399,9 @@ export const LessonPlansModule: React.FC = () => {
                 className="px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
               >
                 <option value="ALL">All Statuses</option>
-                <option value="GREEN">🟢 Completed On Time (Green)</option>
-                <option value="RED">🔴 Not Completed On Time (Red)</option>
-                <option value="IN_PROGRESS">🟡 In Progress</option>
+                <option value="GREEN">🦜 Parrot Green (Completed On Time)</option>
+                <option value="RED">🌸 Light Pink (Delayed / Not Completed)</option>
+                <option value="IN_PROGRESS">🟡 Yellow (In Progress)</option>
               </select>
             </div>
 
@@ -413,53 +426,67 @@ export const LessonPlansModule: React.FC = () => {
                       isExpanded
                         ? 'col-span-2 sm:col-span-3 md:col-span-2 ring-2 ring-indigo-500 bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-xl'
                         : isGreen
-                        ? 'bg-gradient-to-br from-emerald-800 to-emerald-950 text-white border-2 border-emerald-600 shadow-md hover:shadow-xl hover:scale-[1.02]'
+                        ? 'bg-[#d4f15d] text-slate-950 border-2 border-[#82cc00] shadow-md hover:shadow-xl hover:scale-[1.02]'
                         : isRed
-                        ? 'bg-gradient-to-br from-red-900 to-rose-950 text-white border-2 border-red-600 shadow-md hover:shadow-xl hover:scale-[1.02]'
-                        : 'bg-gradient-to-br from-amber-800 to-amber-950 text-white border-2 border-amber-600 hover:shadow-md'
+                        ? 'bg-[#ffe6e8] text-rose-950 border-2 border-pink-300 dark:bg-rose-950/90 dark:text-rose-100 dark:border-rose-800 shadow-md hover:shadow-xl hover:scale-[1.02]'
+                        : 'bg-amber-100 text-amber-950 border-2 border-amber-300 dark:bg-amber-950/80 dark:text-amber-100 dark:border-amber-700 hover:shadow-md'
                     }`}
                   >
                     {/* Compact Tile View */}
                     {!isExpanded ? (
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className={`font-black text-sm px-2 py-0.5 rounded-lg border shadow-xs ${
+                          <span className={`font-black text-xs px-2 py-0.5 rounded-lg border shadow-xs ${
                             isGreen
-                              ? 'bg-emerald-950/90 text-emerald-100 border-emerald-600'
+                              ? 'bg-slate-900 text-[#d4f15d] border-slate-800'
                               : isRed
-                              ? 'bg-red-950/90 text-red-100 border-red-600'
-                              : 'bg-amber-950/90 text-amber-100 border-amber-600'
+                              ? 'bg-rose-900 text-pink-100 border-rose-700'
+                              : 'bg-amber-900 text-amber-100 border-amber-700'
                           }`}>
                             {plan.className}
                           </span>
-                          {isGreen && <CheckCircle2 className="w-5 h-5 text-emerald-300 shrink-0" />}
-                          {isRed && <XCircle className="w-5 h-5 text-red-300 shrink-0 animate-bounce" />}
-                          {!isGreen && !isRed && <Clock className="w-5 h-5 text-amber-300 shrink-0" />}
+                          {isGreen && <CheckCircle2 className="w-5 h-5 text-emerald-700 shrink-0" />}
+                          {isRed && <XCircle className="w-5 h-5 text-rose-600 shrink-0 animate-bounce" />}
+                          {!isGreen && !isRed && <Clock className="w-5 h-5 text-amber-700 shrink-0" />}
                         </div>
 
                         <div>
                           <p className={`text-[10px] font-black uppercase tracking-wide ${
-                            isGreen ? 'text-emerald-300' : isRed ? 'text-red-300' : 'text-amber-300'
+                            isGreen ? 'text-emerald-900' : isRed ? 'text-rose-900 dark:text-pink-300' : 'text-amber-900'
                           }`}>
                             {plan.subject}
                           </p>
-                          <p className="text-xs font-black text-white truncate mt-0.5">
+                          <p className="text-xs font-black truncate mt-0.5">
                             {plan.teacherName}
                           </p>
                         </div>
 
-                        <div className="pt-2 border-t border-white/20 flex items-center justify-between text-[10px]">
-                          <span className="font-bold text-white/80">
+                        {/* Planning Date (Left) & Target Date (Right) Matching Layout */}
+                        <div className="py-1 px-1.5 rounded-lg bg-black/5 dark:bg-black/30 border border-black/10 text-[10px]">
+                          <div className="flex items-center justify-between font-bold">
+                            <span className="flex items-center gap-1">
+                              <span className="opacity-70">Plan:</span>
+                              <strong className="underline decoration-dotted">{plan.planStartDate || '01 Apr'}</strong>
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <span className="opacity-70">Target:</span>
+                              <strong className="underline">{plan.targetCompletionDate || '15 Apr'}</strong>
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="pt-1.5 border-t border-black/10 flex items-center justify-between text-[10px]">
+                          <span className="font-bold opacity-80">
                             {plan.periodsCompleted}/{plan.periodsRequired} Pds
                           </span>
-                          <span className={`font-black uppercase px-2 py-0.5 rounded shadow-xs ${
+                          <span className={`font-black uppercase px-2 py-0.5 rounded shadow-xs text-[9px] ${
                             isGreen
-                              ? 'bg-emerald-500 text-white'
+                              ? 'bg-[#70e000] text-slate-950 font-black border border-[#38b000]'
                               : isRed
-                              ? 'bg-red-600 text-white font-extrabold'
-                              : 'bg-amber-500 text-white'
+                              ? 'bg-rose-300 text-rose-950 font-black border border-rose-400'
+                              : 'bg-amber-300 text-amber-950 font-black border border-amber-400'
                           }`}>
-                            {isGreen ? 'GREEN (COMPLETED)' : isRed ? 'RED (DELAYED)' : 'IN PROGRESS'}
+                            {isGreen ? 'PARROT GREEN' : isRed ? 'LIGHT PINK' : 'IN PROGRESS'}
                           </span>
                         </div>
                       </div>
@@ -581,10 +608,27 @@ export const LessonPlansModule: React.FC = () => {
                   onChange={(e) => setSelectedClass(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
                 >
-                  <option value="Class 10-A">Class 10-A</option>
+                  <option value="PG-A">PG-A</option>
+                  <option value="Nursery-A">Nursery-A</option>
+                  <option value="LKG-A">LKG-A</option>
+                  <option value="LKG-B">LKG-B</option>
+                  <option value="UKG-A">UKG-A</option>
+                  <option value="Class 1-A">Class 1-A</option>
+                  <option value="Class 2-A">Class 2-A</option>
+                  <option value="Class 3-A">Class 3-A</option>
+                  <option value="Class 4-A">Class 4-A</option>
+                  <option value="Class 5-A">Class 5-A</option>
+                  <option value="Class 6-A">Class 6-A</option>
+                  <option value="Class 7-A">Class 7-A</option>
+                  <option value="Class 8-A">Class 8-A</option>
+                  <option value="Class 9-A">Class 9-A</option>
                   <option value="Class 9-B">Class 9-B</option>
-                  <option value="Class 12-A">Class 12-A</option>
-                  <option value="Class 8-C">Class 8-C</option>
+                  <option value="Class 10-A">Class 10-A</option>
+                  <option value="Class 10-B">Class 10-B</option>
+                  <option value="Class 11-A">Class 11-A (Science)</option>
+                  <option value="Class 11-B">Class 11-B (Commerce)</option>
+                  <option value="Class 12-A">Class 12-A (Science)</option>
+                  <option value="Class 12-B">Class 12-B (Commerce)</option>
                 </select>
               </div>
 
