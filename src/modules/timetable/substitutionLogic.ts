@@ -95,7 +95,8 @@ export function rankCandidateSubstitutes(
   allTeachers: TeacherTimetableRecord[],
   constraintMode: SubstitutionConstraintMode = 'same_dept_first',
   roundDutyTeacherNamesForPeriod?: Set<string>,
-  exclusionRules?: SubstitutionExclusionRules
+  exclusionRules?: SubstitutionExclusionRules,
+  teacherAttendanceMap?: Record<string, string>
 ): CandidateTeacherScore[] {
   // Check if period is in excluded periods list
   if (exclusionRules?.excludedPeriodList && exclusionRules.excludedPeriodList.includes(periodNo)) {
@@ -105,9 +106,18 @@ export function rankCandidateSubstitutes(
   const absentDept = (absentTeacher.department || 'Senior Secondary').toLowerCase();
   const targetClassLevel = getClassGradeLevel(targetClass);
 
-  // 1. Filter teachers who are FREE in this period on this day AND NOT ON ROUND DUTY
+  // 1. Filter teachers who are FREE in this period on this day AND NOT ON ROUND DUTY AND ARE PRESENT TODAY
   const freeTeachers = allTeachers.filter((t) => {
     if (t.teacherName === absentTeacher.teacherName) return false;
+
+    // Strict constraint: Teacher MUST be PRESENT today
+    if (teacherAttendanceMap) {
+      const att = teacherAttendanceMap[t.teacherName.toUpperCase()] || teacherAttendanceMap[t.teacherName];
+      if (att && att !== 'Present') {
+        return false; // Absent / On Leave / Half Day teachers are strictly excluded!
+      }
+    }
+
     // Check if teacher is assigned to Round Duty in this period
     if (roundDutyTeacherNamesForPeriod && roundDutyTeacherNamesForPeriod.has(t.teacherName)) {
       return false; // Exclude teachers on Round Duty!
@@ -204,7 +214,8 @@ export function runAutoSubstitutionForDay(
   allTeachers: TeacherTimetableRecord[],
   constraintMode: SubstitutionConstraintMode = 'same_dept_first',
   getRoundDutyTeachersForPeriod?: (periodNo: number) => Set<string>,
-  exclusionRules?: SubstitutionExclusionRules
+  exclusionRules?: SubstitutionExclusionRules,
+  teacherAttendanceMap?: Record<string, string>
 ): { [periodNo: number]: string } {
   const result: { [periodNo: number]: string } = {};
   const assignedTeachersInSession = new Set<string>();
@@ -219,7 +230,8 @@ export function runAutoSubstitutionForDay(
       allTeachers,
       constraintMode,
       roundDutySet,
-      exclusionRules
+      exclusionRules,
+      teacherAttendanceMap
     );
 
     // Pick top candidate not already heavily loaded or assigned in adjacent slots if possible

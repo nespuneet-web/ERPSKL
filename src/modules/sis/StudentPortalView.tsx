@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
 import { AcademicProgressView } from './AcademicProgressView';
+import { StudentAttendanceCalendarView } from '../attendance/StudentAttendanceCalendarView';
 import { User, Calendar, BookOpen, FileCheck, DollarSign, Bell, Award, Download, CheckCircle2, ShieldCheck, Printer, Ticket } from 'lucide-react';
 
 export const StudentPortalView: React.FC<{ student: Student }> = ({ student }) => {
@@ -123,38 +124,9 @@ export const StudentPortalView: React.FC<{ student: Student }> = ({ student }) =
         </div>
       )}
 
-      {/* TAB 2: ATTENDANCE HISTORY */}
+      {/* TAB 2: ATTENDANCE CALENDAR */}
       {activeTab === 'attendance' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-            <div>
-              <h3 className="font-bold text-slate-900 dark:text-white text-base">Monthly Attendance Tracker</h3>
-              <p className="text-xs text-slate-500">24 / 25 Days Attended (96.4% Overall Attendance)</p>
-            </div>
-            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-xs font-bold">
-              Regular Attendance Status
-            </span>
-          </div>
-
-          <div className="space-y-2 text-xs">
-            {[
-              { date: '2026-03-15', status: 'Present', source: 'Bus Guardian', statusColor: 'Green' },
-              { date: '2026-03-14', status: 'Present', source: 'Gate Duty', statusColor: 'Green' },
-              { date: '2026-03-13', status: 'Present', source: 'Class Teacher', statusColor: 'Yellow' },
-              { date: '2026-03-12', status: 'Present', source: 'Bus Guardian', statusColor: 'Green' }
-            ].map((a, i) => (
-              <div key={i} className="p-3 rounded-lg border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <div>
-                  <p className="font-bold text-slate-900 dark:text-white">{a.date}</p>
-                  <p className="text-slate-500 text-[11px]">Verified via {a.source}</p>
-                </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                  {a.status} ({a.statusColor})
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <StudentAttendanceCalendarView initialStudentId={student.id} />
       )}
 
       {/* TAB 3: ACADEMIC PROGRESS */}

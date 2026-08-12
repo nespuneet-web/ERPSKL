@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
-import { ArrowLeft, User, Users, GraduationCap, Heart, FileText, Bus, Home, ShieldCheck, Download, CheckCircle, Upload } from 'lucide-react';
+import { ArrowLeft, User, Users, GraduationCap, Heart, FileText, Bus, Home, ShieldCheck, Download, CheckCircle, Upload, Calendar } from 'lucide-react';
+import { StudentAttendanceCalendarView } from '../attendance/StudentAttendanceCalendarView';
 
 interface StudentProfileViewProps {
   student: Student;
@@ -9,7 +10,7 @@ interface StudentProfileViewProps {
 }
 
 export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ student, onBack, onUploadDocument }) => {
-  const [activeTab, setActiveTab] = useState<'personal' | 'parents' | 'academic' | 'medical' | 'documents' | 'services'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'parents' | 'academic' | 'medical' | 'documents' | 'services' | 'attendance'>('personal');
   const [docTitle, setDocTitle] = useState('');
   const [docType, setDocType] = useState<any>('Birth Certificate');
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -90,6 +91,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ student,
             { id: 'personal', label: 'Personal & Demographics', icon: User },
             { id: 'parents', label: 'Parents & Guardian', icon: Users },
             { id: 'academic', label: 'Academic & Promotion', icon: GraduationCap },
+            { id: 'attendance', label: 'Attendance Calendar', icon: Calendar },
             { id: 'medical', label: 'Medical Info', icon: Heart },
             { id: 'documents', label: 'Documents Vault', icon: FileText },
             { id: 'services', label: 'Transport & Hostel', icon: Bus }
@@ -285,6 +287,10 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({ student,
               ))}
             </div>
           </div>
+        )}
+
+        {activeTab === 'attendance' && (
+          <StudentAttendanceCalendarView initialStudentId={student.id} />
         )}
 
         {activeTab === 'services' && (

@@ -15,11 +15,17 @@ import {
 } from 'lucide-react';
 import { PrintModal } from '../../components/PrintModal';
 
-export const StudentAttendanceCalendarView: React.FC = () => {
+export interface StudentAttendanceCalendarProps {
+  initialStudentId?: string;
+}
+
+export const StudentAttendanceCalendarView: React.FC<StudentAttendanceCalendarProps> = ({ initialStudentId }) => {
   const { students } = useSisStore();
   const { attendance, markAttendance } = useOtherModulesStore();
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string>(students[0]?.id || '');
+  const [selectedStudentId, setSelectedStudentId] = useState<string>(
+    initialStudentId || students[0]?.id || ''
+  );
   const [selectedClass, setSelectedClass] = useState<string>('Class 10-A');
   const [currentYear, setCurrentYear] = useState<number>(2026);
   const [currentMonth, setCurrentMonth] = useState<number>(7); // 0-indexed: 7 = August
@@ -330,7 +336,7 @@ export const StudentAttendanceCalendarView: React.FC = () => {
                     : isPresent
                     ? 'bg-emerald-500 text-white border-emerald-600 shadow-md hover:scale-105'
                     : isAbsent
-                    ? 'bg-rose-500 text-white border-rose-600 shadow-md hover:scale-105 animate-pulse'
+                    ? 'bg-rose-950 text-white border-rose-800 shadow-md hover:scale-105'
                     : isLate
                     ? 'bg-amber-400 text-amber-950 border-amber-500 shadow-md hover:scale-105'
                     : 'bg-emerald-500 text-white border-emerald-600'
@@ -340,7 +346,7 @@ export const StudentAttendanceCalendarView: React.FC = () => {
                   <span>{dayNum}</span>
                   {isSunday && <span className="text-[10px] font-bold uppercase opacity-60">Off</span>}
                   {isPresent && <CheckCircle2 className="w-4 h-4 text-emerald-100" />}
-                  {isAbsent && <XCircle className="w-4 h-4 text-rose-100" />}
+                  {isAbsent && <XCircle className="w-4 h-4 text-rose-300" />}
                   {isLate && <Clock className="w-4 h-4 text-amber-900" />}
                 </div>
 
@@ -352,7 +358,7 @@ export const StudentAttendanceCalendarView: React.FC = () => {
                       PRESENT
                     </span>
                   ) : isAbsent ? (
-                    <span className="px-2 py-0.5 rounded bg-rose-700/80 text-rose-100 text-[10px]">
+                    <span className="px-2 py-0.5 rounded bg-rose-900 text-rose-200 text-[10px] border border-rose-700 font-black">
                       ABSENT
                     </span>
                   ) : (

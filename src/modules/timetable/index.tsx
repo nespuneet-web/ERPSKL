@@ -875,12 +875,22 @@ export const TimetableModule: React.FC = () => {
       return;
     }
 
+    const exclusionRules = {
+      excludeCoordinators,
+      excludedDeptList,
+      excludedTeacherList,
+      excludedPeriodList
+    };
+
     const autoAssignedMap = runAutoSubstitutionForDay(
       selectedDay,
       absentTeacherRecord,
       scheduledPeriodsForAbsentTeacher,
       teacherTimetables,
-      constraintMode
+      constraintMode,
+      undefined,
+      exclusionRules,
+      teacherAttendanceMap
     );
 
     setSubstituteSelections((prev) => ({ ...prev, ...autoAssignedMap }));
@@ -1474,6 +1484,13 @@ export const TimetableModule: React.FC = () => {
               scheduledPeriodsForAbsentTeacher.map((slot) => {
                 const classGradeLevel = getClassGradeLevel(slot.classSec);
 
+                const exclusionRules = {
+                  excludeCoordinators,
+                  excludedDeptList,
+                  excludedTeacherList,
+                  excludedPeriodList
+                };
+
                 // RANK CANDIDATE TEACHERS FOR THIS SLOT USING THE SCORING ALGORITHM
                 const rankedCandidates = rankCandidateSubstitutes(
                   slot.periodNo,
@@ -1481,7 +1498,10 @@ export const TimetableModule: React.FC = () => {
                   absentTeacherRecord,
                   slot.classSec,
                   teacherTimetables,
-                  constraintMode
+                  constraintMode,
+                  undefined,
+                  exclusionRules,
+                  teacherAttendanceMap
                 );
 
                 const selectedSubName = substituteSelections[slot.periodNo] || '';
@@ -2467,6 +2487,170 @@ export const TimetableModule: React.FC = () => {
                   })}
                 </tbody>
               </table>
+            </div>
+          </div>
+
+          {/* EXCLUSION RULES & EXCEPTIONS CHECKLIST PANEL */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-rose-500" />
+                  Round Duty & Substitution Exclusion Rules & Checkboxes
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Select teachers, departments, coordinators, or periods to exclude from Round Duty patrol and Substitution assignments.
+                </p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-black bg-rose-100 text-rose-900 dark:bg-rose-950 dark:text-rose-200 border border-rose-300">
+                {excludedTeacherList.length + excludedDeptList.length + (excludeCoordinators ? 1 : 0)} Active Exclusions
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 text-xs">
+              {/* 1. Academic Coordinator & Special Role Exclusions */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <h4 className="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <UserCheck className="w-4 h-4 text-indigo-600" />
+                  1. Academic Coordinators & Admin Role Exclusions
+                </h4>
+                <label className="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 cursor-pointer hover:border-indigo-400">
+                  <input
+                    type="checkbox"
+                    checked={excludeCoordinators}
+                    onChange={(e) => setExcludeCoordinators(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold text-slate-900 dark:text-white block">
+                      Exclude Academic Coordinators & Vice Principals
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      e.g. Ankur Kabra, Senior Coordinators, Admin Leads
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              {/* 2. Excluded Departments Checkboxes */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3">
+                <h4 className="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  2. Excluded Departments Checkbox List
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {SCHOOL_DEPARTMENTS.map((dept) => {
+                    const isChecked = excludedDeptList.includes(dept);
+                    return (
+                      <label
+                        key={dept}
+                        className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-300 text-rose-900 dark:text-rose-200 font-bold'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setExcludedDeptList((prev) => [...prev, dept]);
+                            } else {
+                              setExcludedDeptList((prev) => prev.filter((d) => d !== dept));
+                            }
+                          }}
+                          className="w-3.5 h-3.5 text-rose-600 rounded cursor-pointer"
+                        />
+                        <span className="text-[11px] truncate">{dept}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. Excluded Individual Teachers Checkboxes */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3 lg:col-span-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                    <User className="w-4 h-4 text-indigo-600" />
+                    3. Excluded Individual Teachers Checklist ({excludedTeacherList.length} Excluded)
+                  </h4>
+                  <span className="text-[11px] text-slate-500 font-medium">
+                    Check teachers with special lab/sports/exam duties to bypass substitution & round duty.
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-60 overflow-y-auto p-1">
+                  {teacherTimetables.map((t) => {
+                    const isChecked = excludedTeacherList.includes(t.teacherName);
+                    return (
+                      <label
+                        key={t.id}
+                        className={`flex items-center gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                          isChecked
+                            ? 'bg-rose-50 dark:bg-rose-950/60 border-rose-300 text-rose-900 dark:text-rose-200 font-bold shadow-xs'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-slate-400'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setExcludedTeacherList((prev) => [...prev, t.teacherName]);
+                            } else {
+                              setExcludedTeacherList((prev) => prev.filter((name) => name !== t.teacherName));
+                            }
+                          }}
+                          className="w-4 h-4 text-rose-600 rounded cursor-pointer shrink-0"
+                        />
+                        <div className="truncate">
+                          <span className="font-bold block truncate text-xs">{t.teacherName}</span>
+                          <span className="text-[10px] text-slate-400 block truncate">{t.department || 'Senior Sec'}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 4. Excluded Periods Checkboxes */}
+              <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 space-y-3 lg:col-span-2">
+                <h4 className="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-indigo-600" />
+                  4. Excluded Period Numbers (Assembly / Lunch / Zero Period Exclusions)
+                </h4>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {TIMETABLE_PERIODS.map((pNo) => {
+                    const isChecked = excludedPeriodList.includes(pNo);
+                    return (
+                      <label
+                        key={pNo}
+                        className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border cursor-pointer font-bold text-xs transition-all ${
+                          isChecked
+                            ? 'bg-rose-100 dark:bg-rose-950 text-rose-900 dark:text-rose-200 border-rose-400'
+                            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setExcludedPeriodList((prev) => [...prev, pNo]);
+                            } else {
+                              setExcludedPeriodList((prev) => prev.filter((p) => p !== pNo));
+                            }
+                          }}
+                          className="w-3.5 h-3.5 text-rose-600 rounded cursor-pointer"
+                        />
+                        <span>Period #{pNo}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
