@@ -64,6 +64,20 @@ export function getTeacherGradeLevel(teacher: TeacherTimetableRecord): GradeLeve
   return 'General';
 }
 
+export function getScheduleSlotValue(schedule: Record<string, string>, day: string, periodNo: number): string {
+  if (!schedule) return '';
+  const exactKey = `${day}_${periodNo}`;
+  if (schedule[exactKey]) return schedule[exactKey];
+
+  const targetUpper = exactKey.toUpperCase();
+  for (const [k, v] of Object.entries(schedule)) {
+    if (k.toUpperCase() === targetUpper && v) return v;
+    const dayPrefix = day.substring(0, 3).toUpperCase();
+    if (k.toUpperCase() === `${dayPrefix}_${periodNo}` && v) return v;
+  }
+  return '';
+}
+
 export interface CandidateTeacherScore {
   teacher: TeacherTimetableRecord;
   score: number;
@@ -142,7 +156,7 @@ export function rankCandidateSubstitutes(
       return false;
     }
 
-    const slotVal = t.schedule[`${day}_${periodNo}`];
+    const slotVal = getScheduleSlotValue(t.schedule, day, periodNo);
     return !slotVal || slotVal.trim() === ''; // Must be vacant/free
   });
 
@@ -157,7 +171,7 @@ export function rankCandidateSubstitutes(
     const isLevelMatched = targetClassLevel !== 'General' && candLevel === targetClassLevel;
 
     // Calculate free periods count today
-    const freePeriodsCount = TIMETABLE_PERIODS.filter((p) => !t.schedule[`${day}_${p}`]).length;
+    const freePeriodsCount = TIMETABLE_PERIODS.filter((p) => !getScheduleSlotValue(t.schedule, day, p)).length;
 
     // Check constraint filter
     if (constraintMode === 'same_dept_strict' && !isSameDept) {

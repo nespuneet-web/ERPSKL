@@ -41,13 +41,34 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || '');
   const [searchFilter, setSearchFilter] = useState('');
   
-  // Selected teacher
-  const currentTeacher = teachers.find((t) => t.id === selectedTeacherId) || teachers[0];
-
-  // Editable local state for the active teacher's schedule
-  const [localSchedule, setLocalSchedule] = useState<Record<string, string>>(
-    currentTeacher ? { ...currentTeacher.schedule } : {}
+  // Filtered teachers based on search query
+  const filteredTeachers = teachers.filter((t) =>
+    t.teacherName.toLowerCase().includes(searchFilter.toLowerCase().trim()) ||
+    (t.department && t.department.toLowerCase().includes(searchFilter.toLowerCase().trim()))
   );
+
+  // Selected teacher
+  const currentTeacher = teachers.find((t) => t.id === selectedTeacherId) || filteredTeachers[0] || teachers[0];
+
+  // Sync local schedule when active teacher changes
+  React.useEffect(() => {
+    if (currentTeacher) {
+      setSelectedTeacherId(currentTeacher.id);
+      setLocalSchedule({ ...currentTeacher.schedule });
+      setIsDirty(false);
+      setEditingCell(null);
+    }
+  }, [currentTeacher?.id]);
+
+  // When typing search filter, if current teacher is no longer in filtered list, auto select first matching teacher
+  React.useEffect(() => {
+    if (searchFilter.trim() && filteredTeachers.length > 0) {
+      const existsInFiltered = filteredTeachers.some((t) => t.id === selectedTeacherId);
+      if (!existsInFiltered) {
+        setSelectedTeacherId(filteredTeachers[0].id);
+      }
+    }
+  }, [searchFilter]);
   const [isDirty, setIsDirty] = useState(false);
   const [editingCell, setEditingCell] = useState<{ day: TimetableDay; period: number } | null>(null);
   
@@ -161,10 +182,6 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
     setNewTeacherNameInput('');
     setShowAddModal(false);
   };
-
-  const filteredTeachers = teachers.filter((t) =>
-    t.teacherName.toLowerCase().includes(searchFilter.toLowerCase())
-  );
 
   // Workload Metrics
   const totalSlotsAssigned = Object.keys(localSchedule).length;

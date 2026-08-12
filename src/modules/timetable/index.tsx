@@ -69,7 +69,8 @@ import {
   runAutoSubstitutionForDay,
   SubstitutionConstraintMode,
   getClassGradeLevel,
-  getTeacherGradeLevel
+  getTeacherGradeLevel,
+  getScheduleSlotValue
 } from './substitutionLogic';
 import { TeacherTimetableEditor } from './TeacherTimetableEditor';
 import { BulkUploadSection } from './BulkUploadSection';
@@ -637,9 +638,24 @@ export const TimetableModule: React.FC = () => {
   };
 
   // Handler: Bulk Upload Success
-  const handleUploadSuccess = (importedTeachers: TeacherTimetableRecord[]) => {
+  const handleUploadSuccess = async (importedTeachers: TeacherTimetableRecord[]) => {
     setTeacherTimetables(importedTeachers);
+    if (importedTeachers.length > 0) {
+      setSelectedAbsentTeacher(importedTeachers[0].teacherName);
+    }
     setActiveTab('teacher_editor');
+    
+    // Sync all imported teacher timetables to Supabase in background
+    setDbSyncBanner({ type: 'info', message: `Syncing ${importedTeachers.length} imported teacher timetables to Cloud Database...` });
+    let successCount = 0;
+    for (const rec of importedTeachers) {
+      const res = await syncTeacherAndTimetableToSupabase(rec);
+      if (res.success) successCount++;
+    }
+    setDbSyncBanner({
+      type: 'success',
+      message: `Successfully synchronized ${successCount}/${importedTeachers.length} teacher timetables to Cloud DB!`
+    });
   };
 
   // Local state for arrangements / substitutions
@@ -717,14 +733,13 @@ export const TimetableModule: React.FC = () => {
     const newArrangementsList: TimetableArrangement[] = [];
 
     absentTeacherNames.forEach((tName) => {
-      const absentRecord = teacherTimetables.find((t) => t.teacherName === tName);
+      const absentRecord = teacherTimetables.find((t) => t.teacherName.trim().toUpperCase() === tName.trim().toUpperCase());
       if (!absentRecord) return;
 
       const dept = absentRecord.department || 'Senior Secondary';
 
       const scheduledPeriods = TIMETABLE_PERIODS.map((pNo) => {
-        const key = `${selectedDay}_${pNo}`;
-        const assignedClass = absentRecord.schedule[key];
+        const assignedClass = getScheduleSlotValue(absentRecord.schedule, selectedDay, pNo);
         if (assignedClass && assignedClass.trim() !== '') {
           return {
             periodNo: pNo,
@@ -848,14 +863,13 @@ export const TimetableModule: React.FC = () => {
   });
 
   // Calculate selected absent teacher's record and department theme
-  const absentTeacherRecord = teacherTimetables.find((t) => t.teacherName === selectedAbsentTeacher);
+  const absentTeacherRecord = teacherTimetables.find((t) => t.teacherName.trim().toUpperCase() === selectedAbsentTeacher.trim().toUpperCase()) || teacherTimetables[0];
   const absentTeacherDept = absentTeacherRecord?.department || 'Senior Secondary';
   const absentDeptTheme = getDepartmentTheme(absentTeacherDept);
 
   // Extract ACTUAL scheduled periods for absent teacher on selectedDay
   const scheduledPeriodsForAbsentTeacher = TIMETABLE_PERIODS.map((pNo) => {
-    const key = `${selectedDay}_${pNo}`;
-    const assignedClass = absentTeacherRecord?.schedule[key];
+    const assignedClass = absentTeacherRecord ? getScheduleSlotValue(absentTeacherRecord.schedule, selectedDay, pNo) : '';
     if (assignedClass && assignedClass.trim() !== '') {
       return {
         periodNo: pNo,
