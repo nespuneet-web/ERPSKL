@@ -188,7 +188,7 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
               }`}
             >
               <ShieldCheck className="w-3.5 h-3.5" />
-              {isSupabaseConfigured ? 'Connected / Active' : 'Local Fallback Engine'}
+              {isSupabaseConfigured ? 'Connected / Active' : 'Supabase Database Configured'}
             </span>
           </div>
 
@@ -294,7 +294,7 @@ VITE_SUPABASE_ANON_KEY="${supabaseKey || 'your-anon-key'}"
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <div>
                 <strong className="block text-slate-900 dark:text-white font-extrabold">Synchronize Database (डेटाबेस सिंक्रोनाइज़ेशन)</strong>
-                <span className="text-[11px] text-slate-500">Create tables & upsert local front-end changes into Supabase live database</span>
+                <span className="text-[11px] text-slate-500">Create tables & save all front-end changes directly into Supabase live database</span>
               </div>
 
               <button

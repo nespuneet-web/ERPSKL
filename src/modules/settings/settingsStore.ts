@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { SchoolProfile, ClassSectionConfig, FeeHead, PermissionMatrix } from '../../types/settings';
+import { syncClassConfigToSupabase, fetchClassConfigsFromSupabase } from '../../lib/supabaseSync';
 
 const SETTINGS_STORAGE_KEY = 'schoolerp_admin_settings_v1';
 
@@ -59,12 +60,44 @@ export function useSettingsStore() {
     localStorage.setItem(`${SETTINGS_STORAGE_KEY}_feeheads`, JSON.stringify(feeHeads));
   }, [feeHeads]);
 
+  // Load Remote Classes Config from Supabase
+  useEffect(() => {
+    let active = true;
+    async function loadRemoteClasses() {
+      const remote = await fetchClassConfigsFromSupabase();
+      if (remote && remote.length > 0 && active) {
+        setClasses((prev) => {
+          const map: Record<string, ClassSectionConfig> = {};
+          prev.forEach((c) => { map[c.className] = c; });
+          remote.forEach((rc) => {
+            map[rc.className] = {
+              id: rc.id,
+              className: rc.className,
+              sections: rc.sections || ['A'],
+              classTeacherMapping: rc.classTeacherMapping || {}
+            };
+          });
+          return Object.values(map);
+        });
+      }
+    }
+    loadRemoteClasses();
+    return () => { active = false; };
+  }, []);
+
   const updateProfile = (fields: Partial<SchoolProfile>) => {
     setProfile((prev) => ({ ...prev, ...fields }));
   };
 
   const addClassConfig = (cls: Omit<ClassSectionConfig, 'id'>) => {
-    setClasses((prev) => [...prev, { ...cls, id: `cls-${Date.now()}` }]);
+    const newConfig = { ...cls, id: `cls-${Date.now()}` };
+    setClasses((prev) => [...prev, newConfig]);
+
+    syncClassConfigToSupabase({
+      className: newConfig.className,
+      section: newConfig.sections[0] || 'A',
+      classTeacher: newConfig.classTeacherMapping[newConfig.sections[0] || 'A'] || 'Unassigned'
+    });
   };
 
   const addFeeHead = (head: Omit<FeeHead, 'id'>) => {

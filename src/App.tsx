@@ -25,6 +25,7 @@ import { SupabaseCloudHub } from './components/SupabaseCloudHub';
 import { UserLoginModal } from './components/UserLoginModal';
 import { DatabaseSyncModal } from './components/DatabaseSyncModal';
 import { RolePermissionsModal } from './components/RolePermissionsModal';
+import { DatabaseSyncNotification } from './components/DatabaseSyncNotification';
 import { initializeSupabaseSchema } from './lib/supabaseSync';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { RefreshCw, ShieldCheck, Lock } from 'lucide-react';
@@ -351,6 +352,7 @@ function ErpLayout() {
         <UserLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
         <DatabaseSyncModal isOpen={isSyncModalOpen} onClose={() => setIsSyncModalOpen(false)} />
         <RolePermissionsModal isOpen={isPermissionsModalOpen} onClose={() => setIsPermissionsModalOpen(false)} />
+        <DatabaseSyncNotification />
       </div>
     </div>
   );

@@ -530,6 +530,27 @@ export function useLessonPlanStore() {
     }
   };
 
+  const updateLessonPlan = async (id: string, fields: Partial<LessonPlan>) => {
+    let updatedPlan: LessonPlan | null = null;
+    setPlans((prev) =>
+      prev.map((p) => {
+        if (p.id === id) {
+          updatedPlan = {
+            ...p,
+            ...fields,
+            lastUpdatedAt: new Date().toISOString()
+          };
+          return updatedPlan;
+        }
+        return p;
+      })
+    );
+
+    if (updatedPlan) {
+      await syncLessonPlanToSupabase(updatedPlan);
+    }
+  };
+
   const addLessonPlan = async (newPlan: Omit<LessonPlan, 'id' | 'lastUpdatedAt'>) => {
     const created: LessonPlan = {
       ...newPlan,
@@ -567,6 +588,7 @@ export function useLessonPlanStore() {
     plans,
     alerts,
     updateLessonPlanStatus,
+    updateLessonPlan,
     addLessonPlan,
     sendAlertToTeacher
   };

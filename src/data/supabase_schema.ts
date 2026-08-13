@@ -52,6 +52,10 @@ CREATE TABLE IF NOT EXISTS public.staff (
     joining_date DATE,
     salary DECIMAL(10, 2),
     status VARCHAR(20) DEFAULT 'Active',
+    class_teacher_of VARCHAR(100),
+    assigned_classes TEXT,
+    assigned_subjects TEXT,
+    assigned_allocations TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -657,4 +661,14 @@ VALUES
 ('LIB-1001', 'Concepts of Physics Vol 1', 'H.C. Verma', 'Physics', 10, 8),
 ('LIB-1002', 'Mathematics for Class X', 'R.D. Sharma', 'Mathematics', 15, 12)
 ON CONFLICT (accession_no) DO NOTHING;
+
+-- Safe migrations for pre-existing tables
+ALTER TABLE public.fee_structures ADD COLUMN IF NOT EXISTS lab_fee DECIMAL(10, 2) DEFAULT 3000.00;
+ALTER TABLE public.fee_structures ADD COLUMN IF NOT EXISTS commitment_fee DECIMAL(10, 2) DEFAULT 5000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS lab_fee DECIMAL(10, 2) DEFAULT 3000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS commitment_fee DECIMAL(10, 2) DEFAULT 5000.00;
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS class_teacher_of VARCHAR(100);
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS assigned_classes TEXT;
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS assigned_subjects TEXT;
+ALTER TABLE public.staff ADD COLUMN IF NOT EXISTS assigned_allocations TEXT;
 `;

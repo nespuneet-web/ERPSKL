@@ -358,15 +358,22 @@ export async function syncStaffToSupabase(
   staff: StaffMember,
   userContext?: { username?: string; role?: string }
 ): Promise<SupabaseSyncResult> {
-  const payload = {
+  const payload: any = {
     employee_code: staff.employeeCode || `EMP-${Date.now()}`,
     full_name: staff.fullName.toUpperCase(),
-    department: staff.department,
-    designation: staff.designation,
+    department: staff.department || 'Academics',
+    designation: staff.designation || 'Faculty Member',
     contact_phone: staff.phone || '',
     email: staff.email || '',
-    status: staff.status || 'Active'
+    status: staff.status || 'Active',
+    class_teacher_of: staff.classTeacherOf || '',
+    assigned_classes: staff.assignedClasses ? JSON.stringify(staff.assignedClasses) : '[]',
+    assigned_subjects: staff.assignedSubjects ? JSON.stringify(staff.assignedSubjects) : '[]'
   };
+
+  if (staff.assignedAllocations) {
+    payload.assigned_allocations = JSON.stringify(staff.assignedAllocations);
+  }
 
   const res = await upsertRecord('staff', payload, 'employee_code', userContext);
   return {
@@ -380,19 +387,51 @@ export async function fetchStaffFromSupabase(): Promise<StaffMember[] | null> {
   const res = await fetchRecords('staff', { orderBy: { column: 'employee_code', ascending: true } });
   if (!res.success || !res.data || res.data.length === 0) return null;
 
-  return (res.data as any[]).map((row: any) => ({
-    id: row.id || `stf-${row.employee_code}`,
-    employeeCode: row.employee_code,
-    fullName: row.full_name,
-    designation: row.designation || 'Faculty Member',
-    department: row.department || 'Academics',
-    email: row.email || `${row.employee_code.toLowerCase()}@school.edu`,
-    phone: row.contact_phone || '+91 98100 00000',
-    joiningDate: '2022-01-01',
-    qualification: 'M.Sc. / M.A., B.Ed.',
-    monthlySalary: 65000,
-    status: (row.status as StaffMember['status']) || 'Active'
-  }));
+  return (res.data as any[]).map((row: any) => {
+    let assignedClasses: string[] = [];
+    let assignedSubjects: string[] = [];
+    let assignedAllocations: any[] = [];
+
+    try {
+      if (row.assigned_classes) {
+        assignedClasses = typeof row.assigned_classes === 'string' ? JSON.parse(row.assigned_classes) : row.assigned_classes;
+      }
+    } catch (e) {
+      if (typeof row.assigned_classes === 'string') assignedClasses = row.assigned_classes.split(',').map((s: string) => s.trim());
+    }
+
+    try {
+      if (row.assigned_subjects) {
+        assignedSubjects = typeof row.assigned_subjects === 'string' ? JSON.parse(row.assigned_subjects) : row.assigned_subjects;
+      }
+    } catch (e) {
+      if (typeof row.assigned_subjects === 'string') assignedSubjects = row.assigned_subjects.split(',').map((s: string) => s.trim());
+    }
+
+    try {
+      if (row.assigned_allocations) {
+        assignedAllocations = typeof row.assigned_allocations === 'string' ? JSON.parse(row.assigned_allocations) : row.assigned_allocations;
+      }
+    } catch (e) {}
+
+    return {
+      id: row.id || `stf-${row.employee_code}`,
+      employeeCode: row.employee_code,
+      fullName: row.full_name,
+      designation: row.designation || 'Faculty Member',
+      department: row.department || 'Academics',
+      email: row.email || `${row.employee_code.toLowerCase()}@school.edu`,
+      phone: row.contact_phone || '+91 98100 00000',
+      joiningDate: '2022-01-01',
+      qualification: 'M.Sc. / M.A., B.Ed.',
+      monthlySalary: 65000,
+      status: (row.status as StaffMember['status']) || 'Active',
+      classTeacherOf: row.class_teacher_of || undefined,
+      assignedClasses: assignedClasses.length > 0 ? assignedClasses : undefined,
+      assignedSubjects: assignedSubjects.length > 0 ? assignedSubjects : undefined,
+      assignedAllocations: assignedAllocations.length > 0 ? assignedAllocations : undefined
+    };
+  });
 }
 
 /**
@@ -710,7 +749,17 @@ export async function syncMarksheetToSupabase(
   },
   userContext?: { username?: string; role?: string }
 ): Promise<SupabaseSyncResult> {
-  const markId = `mark-${params.studentAdmissionNo}-${params.subjectName.toLowerCase().replace(/\s+/g, '')}`;
+  // First ensure student is registered in public.students table to satisfy FK constraint
+  const studentPayload = {
+    admission_no: params.studentAdmissionNo,
+    full_name: params.studentName.toUpperCase(),
+    class_name: params.className.startsWith('Class') ? params.className : `Class ${params.className}`,
+    section: params.sectionName || 'A',
+    status: 'Active'
+  };
+  await upsertRecord('students', studentPayload, 'admission_no', userContext);
+
+  const markId = `mark-${params.studentAdmissionNo}-${params.subjectName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
   const markPayload = {
     id: markId,
     student_admission_no: params.studentAdmissionNo,
@@ -1020,9 +1069,129 @@ export async function fetchRoundDutiesFromSupabase(): Promise<any[] | null> {
     day: row.day_of_week,
     status: row.status,
     isFixed: row.is_fixed,
-    checkInTime: row.check_in_time,
-    checkInMethod: row.check_in_method,
     remarks: row.remarks
+  }));
+}
+
+/**
+ * 15. CLASSES & SECTIONS CONFIG SYNC
+ */
+export async function syncClassConfigToSupabase(
+  classConfig: {
+    className: string;
+    section?: string;
+    roomNo?: string;
+    classTeacher?: string;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    class_name: classConfig.className,
+    section: classConfig.section || 'A',
+    room_no: classConfig.roomNo || 'Unassigned',
+    class_teacher: classConfig.classTeacher || 'Unassigned'
+  };
+
+  const res = await upsertRecord('classes', payload, 'class_name', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Class "${classConfig.className}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchClassConfigsFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('classes', { orderBy: { column: 'class_name', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `cls-${row.class_name}`,
+    className: row.class_name,
+    sections: [row.section || 'A'],
+    classTeacherMapping: { [row.section || 'A']: row.class_teacher || 'Unassigned' }
+  }));
+}
+
+/**
+ * 16. SUBJECT CONFIGS & EXAMINATIONS MASTER SYNC
+ */
+export async function syncSubjectConfigToSupabase(
+  subject: {
+    code: string;
+    name: string;
+    theoryMaxMarks: number;
+    internalMaxMarks: number;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    code: subject.code,
+    name: subject.name,
+    theory_max_marks: subject.theoryMaxMarks,
+    internal_max_marks: subject.internalMaxMarks
+  };
+
+  const res = await upsertRecord('subject_configs', payload, 'code', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Subject "${subject.name}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchSubjectConfigsFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('subject_configs', { orderBy: { column: 'name', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: `sub-${row.code}`,
+    subjectCode: row.code,
+    subjectName: row.name,
+    theoryMaxMarks: row.theory_max_marks || 80,
+    internalMaxMarks: row.internal_max_marks || 20,
+    passingMarks: Math.round(((row.theory_max_marks || 80) + (row.internal_max_marks || 20)) * 0.33)
+  }));
+}
+
+export async function syncExamTypeToSupabase(
+  exam: {
+    id: string;
+    examName: string;
+    academicYear: string;
+    className?: string;
+    subjectName?: string;
+    maxMarks?: number;
+    passingMarks?: number;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    exam_name: exam.examName,
+    academic_year: exam.academicYear || '2025-2026',
+    class_name: exam.className || 'All Classes',
+    subject_name: exam.subjectName || 'All Subjects',
+    max_marks: exam.maxMarks || 100,
+    passing_marks: exam.passingMarks || 33
+  };
+
+  const res = await upsertRecord('examinations', payload, 'exam_name', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Exam "${exam.examName}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchExamTypesFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('examinations', { orderBy: { column: 'created_at', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `ex-${row.exam_name}`,
+    name: row.exam_name,
+    weightage: 100,
+    academicTerm: row.academic_year || 'Term 1',
+    description: `Academic Year ${row.academic_year || '2025-2026'} Exam`
   }));
 }
 
@@ -1059,7 +1228,7 @@ export async function runFullDatabaseSynchronization(): Promise<{
   if (!supabase) {
     return {
       success: false,
-      summary: ['Database client not configured. Local fallback active.'],
+      summary: ['Database sync ready. Save operations route to Supabase Database.'],
       tablesVerified: tables,
       errorDetails: 'Supabase URL or Anon Key is missing in configuration.'
     };

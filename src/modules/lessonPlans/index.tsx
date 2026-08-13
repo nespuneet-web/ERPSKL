@@ -27,7 +27,7 @@ import {
 import { PrintModal } from '../../components/PrintModal';
 
 export const LessonPlansModule: React.FC = () => {
-  const { plans, alerts, updateLessonPlanStatus, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
+  const { plans, alerts, updateLessonPlanStatus, updateLessonPlan, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
   const { staff } = useOtherModulesStore();
   const { activeRole, currentUser, logActivity } = useAuth();
 
@@ -103,13 +103,19 @@ export const LessonPlansModule: React.FC = () => {
     // Check if plan exists for this class + subject
     const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
     if (existing) {
-      updateLessonPlanStatus(
-        existing.id,
+      updateLessonPlan(existing.id, {
+        teacherName,
+        teacherRole,
+        teacherGroup,
+        topic,
+        targetWeek,
+        targetCompletionDate: targetDate,
         status,
         periodsRequired,
-        currentUser.name || teacherName,
+        periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : Math.floor(periodsRequired / 2),
+        lastUpdatedBy: currentUser.name || teacherName,
         remarks
-      );
+      });
     } else {
       addLessonPlan({
         className: selectedClass,
@@ -134,7 +140,8 @@ export const LessonPlansModule: React.FC = () => {
       `Updated lesson plan for ${selectedClass} ${selectedSubject}: ${topic} (${status})`
     );
 
-    alert(`✅ Lesson Plan for ${selectedClass} (${selectedSubject}) saved successfully!`);
+    setAlertSuccessToast(`🟢 Lesson Plan for ${selectedClass} (${selectedSubject}) saved to Cloud Database!`);
+    setTimeout(() => setAlertSuccessToast(null), 5000);
   };
 
   const handleSendAlert = (plan: LessonPlan) => {
@@ -597,6 +604,116 @@ export const LessonPlansModule: React.FC = () => {
       {/* ==================================================================== */}
       {activeTab === 'teacher_entry' && (
         <div className="space-y-6">
+          {/* TEACHER ASSIGNED CLASSES & SUBJECTS CARD MATRIX */}
+          {(() => {
+            const currentStaff = staff.find((s) => s.fullName.toLowerCase() === teacherName.toLowerCase());
+            const assignedList: { className: string; subject: string }[] = [];
+
+            if (currentStaff?.assignedAllocations && currentStaff.assignedAllocations.length > 0) {
+              currentStaff.assignedAllocations.forEach((item) => {
+                assignedList.push({ className: item.className, subject: item.subject });
+              });
+            } else if (currentStaff?.assignedClasses && currentStaff.assignedClasses.length > 0) {
+              const subjs = currentStaff.assignedSubjects || ['Physics', 'Mathematics'];
+              currentStaff.assignedClasses.forEach((c) => {
+                subjs.forEach((s) => assignedList.push({ className: c, subject: s }));
+              });
+            } else if (currentStaff?.classTeacherOf && currentStaff.classTeacherOf !== 'None') {
+              assignedList.push({ className: currentStaff.classTeacherOf, subject: 'Science & Tech' });
+            } else {
+              assignedList.push(
+                { className: 'Class 10-A', subject: 'Physics' },
+                { className: 'Class 10-B', subject: 'Physics' },
+                { className: 'Class 11-A', subject: 'Science & Tech' }
+              );
+            }
+
+            return (
+              <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white p-5 rounded-2xl border border-indigo-700 shadow-xl space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-800/80 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="w-5 h-5 text-indigo-400" />
+                    <h3 className="font-extrabold text-sm text-white">
+                      Assigned Classes & Syllabus Subjects for {teacherName}
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-indigo-300 font-bold bg-indigo-950/80 px-2.5 py-1 rounded-lg border border-indigo-700">
+                    {assignedList.length} Allocated Class-Subject Pair{assignedList.length > 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <p className="text-xs text-indigo-200">
+                  Click any assigned class card to view syllabus, target dates, and update completion status to the Principal:
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {assignedList.map((item, idx) => {
+                    const isCurrent = selectedClass === item.className && selectedSubject === item.subject;
+                    const matchedPlan = plans.find((p) => p.className === item.className && p.subject === item.subject);
+                    const isGreen = matchedPlan?.status === 'COMPLETED_ON_TIME';
+                    const isRed = matchedPlan?.status === 'NOT_COMPLETED_ON_TIME';
+
+                    return (
+                      <button
+                        key={`${item.className}-${item.subject}-${idx}`}
+                        type="button"
+                        onClick={() => {
+                          setSelectedClass(item.className);
+                          setSelectedSubject(item.subject);
+                          if (matchedPlan) {
+                            setTopic(matchedPlan.topic);
+                            setTargetWeek(matchedPlan.targetWeek);
+                            setTargetDate(matchedPlan.targetCompletionDate || '2026-05-05');
+                            setPeriodsRequired(matchedPlan.periodsRequired);
+                            setStatus(matchedPlan.status);
+                            setRemarks(matchedPlan.remarks || '');
+                          }
+                          setAlertSuccessToast(`Loaded ${item.className} - ${item.subject} Syllabus Lesson Plan`);
+                          setTimeout(() => setAlertSuccessToast(null), 3000);
+                        }}
+                        className={`p-3.5 rounded-xl text-left border transition-all cursor-pointer relative flex flex-col justify-between ${
+                          isCurrent
+                            ? 'bg-indigo-600 text-white border-white shadow-lg ring-2 ring-indigo-300 scale-[1.02]'
+                            : isGreen
+                            ? 'bg-emerald-950/80 text-emerald-100 border-emerald-600 hover:bg-emerald-900'
+                            : isRed
+                            ? 'bg-rose-950/80 text-rose-100 border-rose-600 hover:bg-rose-900'
+                            : 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-extrabold text-xs px-2 py-0.5 rounded bg-black/40 border border-white/20">
+                            {item.className}
+                          </span>
+                          {isGreen ? (
+                            <span className="text-[10px] font-black uppercase text-emerald-300 bg-emerald-900/90 px-1.5 py-0.5 rounded">
+                              ✓ Completed
+                            </span>
+                          ) : isRed ? (
+                            <span className="text-[10px] font-black uppercase text-rose-300 bg-rose-900/90 px-1.5 py-0.5 rounded animate-pulse">
+                              ✕ Incomplete
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-300 bg-amber-950 px-1.5 py-0.5 rounded">
+                              ⏳ In Progress
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="mt-2">
+                          <h4 className="font-extrabold text-xs">{item.subject}</h4>
+                          <p className="text-[10px] opacity-80 truncate mt-0.5">
+                            {matchedPlan ? matchedPlan.topic : 'Click to write lesson plan'}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           {/* SECTION 1: PLAN LESSON */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
             <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between">
@@ -631,8 +748,12 @@ export const LessonPlansModule: React.FC = () => {
                       if (found.assignedClasses && found.assignedClasses.length > 0) {
                         setSelectedClass(found.assignedClasses[0]);
                       }
-                      if (found.assignedSubjects && found.assignedSubjects.length > 0) {
-                        setSelectedSubject(found.assignedSubjects[0]);
+                      const assignedList = [
+                        ...(found.assignedSubjects || []),
+                        ...(found.assignedAllocations?.map(a => a.subject) || [])
+                      ].filter(Boolean);
+                      if (assignedList.length > 0) {
+                        setSelectedSubject(assignedList[0]);
                       }
                     }
                   }}
@@ -656,7 +777,6 @@ export const LessonPlansModule: React.FC = () => {
                   onChange={(e) => {
                     const cls = e.target.value;
                     setSelectedClass(cls);
-                    // Find teacher allocated to this class
                     const allocTeacher = staff.find(s => s.assignedClasses?.includes(cls) || s.classTeacherOf === cls);
                     if (allocTeacher) {
                       setTeacherName(allocTeacher.fullName);
@@ -680,33 +800,80 @@ export const LessonPlansModule: React.FC = () => {
                 </select>
               </div>
 
-              {/* SELECT SUBJECT */}
+              {/* SELECT SUBJECT WITH TEACHER ASSIGNED SUBJECT HIGHLIGHTING */}
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                  3. Select Subject
-                </label>
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => {
-                    const subj = e.target.value;
-                    setSelectedSubject(subj);
-                    // Auto populate topic syllabus
-                    if (subj === 'Mathematics') setTopic('Quadratic Equations, Factorization & Discriminant Formula');
-                    else if (subj === 'Physics') setTopic('Light Reflection, Refraction, Ray Diagrams & Lens Formula');
-                    else if (subj === 'Chemistry') setTopic('Chemical Reactions, Balancing Equations & Oxidation');
-                    else if (subj === 'English') setTopic('Direct-Indirect Speech, Tenses & Letter Writing');
-                  }}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                >
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Physics">Physics</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="Science & Tech">Science & Tech</option>
-                  <option value="English">English</option>
-                  <option value="Hindi">Hindi</option>
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Social Studies">Social Studies</option>
-                </select>
+                {(() => {
+                  const currentStaff = staff.find((s) => s.fullName.toLowerCase() === teacherName.toLowerCase());
+                  const assignedSubjectsList = Array.from(new Set([
+                    ...(currentStaff?.assignedSubjects || []),
+                    ...(currentStaff?.assignedAllocations?.map(a => a.subject) || []),
+                    'Mathematics', 'Physics', 'Chemistry', 'Science & Tech', 'English', 'Hindi', 'Computer Science', 'Social Studies'
+                  ].filter(Boolean)));
+
+                  const teacherDirectlyAssigned = Array.from(new Set([
+                    ...(currentStaff?.assignedSubjects || []),
+                    ...(currentStaff?.assignedAllocations?.map(a => a.subject) || [])
+                  ].filter(Boolean)));
+
+                  return (
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                        3. Select Subject (Assigned Subjects Highlighted)
+                      </label>
+                      <select
+                        value={selectedSubject}
+                        onChange={(e) => {
+                          const subj = e.target.value;
+                          setSelectedSubject(subj);
+                          if (subj === 'Mathematics') setTopic('Quadratic Equations, Factorization & Discriminant Formula');
+                          else if (subj === 'Physics') setTopic('Light Reflection, Refraction, Ray Diagrams & Lens Formula');
+                          else if (subj === 'Chemistry') setTopic('Chemical Reactions, Balancing Equations & Oxidation');
+                          else if (subj === 'English') setTopic('Direct-Indirect Speech, Tenses & Letter Writing');
+                        }}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+                      >
+                        {teacherDirectlyAssigned.length > 0 && (
+                          <optgroup label="⭐ TEACHER ALLOCATED SUBJECTS">
+                            {teacherDirectlyAssigned.map((sub) => (
+                              <option key={`assigned-${sub}`} value={sub}>
+                                ⭐ {sub} (Assigned to {teacherName})
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label="ALL SCHOOL SUBJECTS">
+                          {assignedSubjectsList
+                            .filter(sub => !teacherDirectlyAssigned.includes(sub))
+                            .map((sub) => (
+                              <option key={`all-${sub}`} value={sub}>
+                                {sub}
+                              </option>
+                            ))}
+                        </optgroup>
+                      </select>
+
+                      {teacherDirectlyAssigned.length > 0 && (
+                        <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                          <span className="text-[10px] text-slate-500 font-semibold">Assigned:</span>
+                          {teacherDirectlyAssigned.map((sub) => (
+                            <button
+                              key={`badge-${sub}`}
+                              type="button"
+                              onClick={() => setSelectedSubject(sub)}
+                              className={`px-2 py-0.5 rounded-md text-[10px] font-extrabold cursor-pointer transition-all ${
+                                selectedSubject === sub
+                                  ? 'bg-indigo-600 text-white shadow-xs'
+                                  : 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 hover:bg-indigo-100'
+                              }`}
+                            >
+                              ⭐ {sub}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -774,7 +941,7 @@ export const LessonPlansModule: React.FC = () => {
             </button>
           </div>
 
-          {/* SECTION 2: STATUS UPDATE */}
+          {/* SECTION 2: STATUS UPDATE WITH INSTANT CLICK RESPONSE */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
             <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
               <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
@@ -782,10 +949,10 @@ export const LessonPlansModule: React.FC = () => {
               </span>
               <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
                 <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                Lesson Status Update & Principal Reporting
+                Lesson Status Update & Principal Reporting (Click Feedback Enabled)
               </h3>
               <p className="text-xs text-slate-500">
-                Select planned lesson, mark whether completed on time, and request extra days/periods if delayed.
+                Click status buttons to instantly save feedback and update the Principal's central syllabus matrix.
               </p>
             </div>
 
@@ -793,33 +960,70 @@ export const LessonPlansModule: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                    Completion Status
+                    Completion Status (Clicking button updates status & database)
                   </label>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => setStatus('COMPLETED_ON_TIME')}
-                      className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      onClick={() => {
+                        setStatus('COMPLETED_ON_TIME');
+                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        if (existing) {
+                          updateLessonPlanStatus(existing.id, 'COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                        }
+                        setAlertSuccessToast(`✓ Marked "${selectedClass} - ${selectedSubject}" as COMPLETED ON TIME! Saved in Database.`);
+                        setTimeout(() => setAlertSuccessToast(null), 4000);
+                      }}
+                      className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                         status === 'COMPLETED_ON_TIME'
-                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400'
+                          ? 'bg-[#82cc00] text-slate-950 border-emerald-700 shadow-lg ring-4 ring-emerald-300 font-black'
                           : 'bg-slate-50 dark:bg-slate-800 text-emerald-700 border-slate-200 hover:bg-emerald-50'
                       }`}
                     >
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Completed On Time</span>
+                      <span>Completed</span>
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => setStatus('NOT_COMPLETED_ON_TIME')}
-                      className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                      onClick={() => {
+                        setStatus('NOT_COMPLETED_ON_TIME');
+                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        if (existing) {
+                          updateLessonPlanStatus(existing.id, 'NOT_COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                        }
+                        setAlertSuccessToast(`✕ Marked "${selectedClass} - ${selectedSubject}" as NOT COMPLETED / DELAYED! Saved in Database.`);
+                        setTimeout(() => setAlertSuccessToast(null), 4000);
+                      }}
+                      className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
                         status === 'NOT_COMPLETED_ON_TIME'
-                          ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-400'
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-lg ring-4 ring-rose-300 font-black'
                           : 'bg-slate-50 dark:bg-slate-800 text-rose-700 border-slate-200 hover:bg-rose-50'
                       }`}
                     >
                       <XCircle className="w-4 h-4" />
-                      <span>Not Completed On Time</span>
+                      <span>Not Completed</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStatus('IN_PROGRESS');
+                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        if (existing) {
+                          updateLessonPlanStatus(existing.id, 'IN_PROGRESS', periodsRequired, teacherName, remarks);
+                        }
+                        setAlertSuccessToast(`⏳ Marked "${selectedClass} - ${selectedSubject}" as IN PROGRESS! Saved in Database.`);
+                        setTimeout(() => setAlertSuccessToast(null), 4000);
+                      }}
+                      className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                        status === 'IN_PROGRESS'
+                          ? 'bg-amber-500 text-slate-950 border-amber-600 shadow-lg ring-4 ring-amber-200 font-black'
+                          : 'bg-slate-50 dark:bg-slate-800 text-amber-700 border-slate-200 hover:bg-amber-50'
+                      }`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span>In Progress</span>
                     </button>
                   </div>
                 </div>
@@ -859,7 +1063,7 @@ export const LessonPlansModule: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 active:scale-98"
               >
                 <Send className="w-4 h-4" />
                 <span>Submit Status Update to Principal Section</span>

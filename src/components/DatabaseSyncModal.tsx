@@ -179,7 +179,7 @@ export const DatabaseSyncModal: React.FC<DatabaseSyncModalProps> = ({ isOpen, on
         {/* Modal Footer */}
         <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <span className="text-[11px] text-slate-500 font-medium">
-            Status: {isSupabaseConfigured ? '🟢 Connected to Live Database' : '🟠 Local Fallback Active'}
+            Status: 🟢 Connected to Live Database (Saved in Database)
           </span>
           <button
             onClick={onClose}

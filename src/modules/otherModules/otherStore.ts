@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember } from '../../types/otherModules';
+import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember, StaffAllocationItem } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
 import {
   syncFeeCollectionToSupabase,
@@ -309,7 +309,13 @@ export function useOtherModulesStore() {
     }
   };
 
-  const updateStaffAllocation = async (staffId: string, classTeacherOf: string, assignedClasses: string[], assignedSubjects: string[]) => {
+  const updateStaffAllocation = async (
+    staffId: string,
+    classTeacherOf: string,
+    assignedClasses: string[],
+    assignedSubjects: string[],
+    assignedAllocations?: StaffAllocationItem[]
+  ) => {
     let updatedStaffMember: StaffMember | null = null;
     const updatedList = staff.map((s) => {
       if (s.id === staffId || s.employeeCode === staffId) {
@@ -317,7 +323,8 @@ export function useOtherModulesStore() {
           ...s,
           classTeacherOf,
           assignedClasses,
-          assignedSubjects
+          assignedSubjects,
+          assignedAllocations: assignedAllocations || s.assignedAllocations || []
         };
         return updatedStaffMember;
       }

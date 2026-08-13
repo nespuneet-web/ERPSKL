@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { triggerDbProgress } from '../components/DatabaseSyncNotification';
 
 export interface AuditLogEntry {
   id: string;
@@ -177,6 +178,20 @@ export async function fetchRecords<T = any>(
   }
 }
 
+function extractMissingColumn(errorMsg: string): string | null {
+  if (!errorMsg) return null;
+  const m1 = errorMsg.match(/Could not find the '([^']+)' column/i);
+  if (m1 && m1[1]) return m1[1];
+
+  const m2 = errorMsg.match(/column ["']?([^ "'`]+)["']? of relation/i);
+  if (m2 && m2[1]) return m2[1];
+
+  const m3 = errorMsg.match(/column ["']?([^ "'`]+)["']? does not exist/i);
+  if (m3 && m3[1]) return m3[1];
+
+  return null;
+}
+
 /**
  * Standardized CREATE Operation
  */
@@ -196,62 +211,86 @@ export async function createRecord<T = any>(
   const username = userContext?.username || 'System User';
   const role = userContext?.role || 'Admin';
 
-  try {
-    const { data, error } = await supabase.from(tableName).insert([recordData]).select();
+  let currentPayload = { ...recordData };
+  const prunedCols: string[] = [];
+  let attempts = 0;
 
-    if (error) {
+  while (attempts < 10) {
+    attempts++;
+    try {
+      triggerDbProgress(`Inserting into ${tableName}...`, 50, 'saving', 'Supabase Database Write');
+      const { data, error } = await supabase.from(tableName).insert([currentPayload]).select();
+
+      if (error) {
+        const missingCol = extractMissingColumn(error.message);
+        if (missingCol && currentPayload[missingCol] !== undefined) {
+          console.warn(`Column "${missingCol}" missing in remote table "${tableName}". Pruning and retrying...`);
+          prunedCols.push(missingCol);
+          delete currentPayload[missingCol];
+          continue;
+        }
+
+        triggerDbProgress(`Save failed: ${error.message}`, 100, 'error', 'Supabase Database Write');
+        await logDatabaseActivity({
+          username,
+          role,
+          action: 'CREATE',
+          tableName,
+          recordId: recordData[idColumn] || 'unknown',
+          details: `Failed to insert record: ${error.message}`,
+          status: 'FAILED'
+        });
+
+        return {
+          success: false,
+          error: error.message,
+          message: `Failed to insert record into ${tableName}: ${error.message}`
+        };
+      }
+
+      const createdRecord = data && data[0] ? data[0] : currentPayload;
+      const recId = createdRecord[idColumn] || recordData[idColumn] || 'new';
+
+      await logDatabaseActivity({
+        username,
+        role,
+        action: 'CREATE',
+        tableName,
+        recordId: String(recId),
+        details: `Created record in ${tableName}: ${JSON.stringify(currentPayload).substring(0, 150)}${prunedCols.length ? ` (Pruned cols: ${prunedCols.join(', ')})` : ''}`,
+        status: 'SUCCESS'
+      });
+
+      triggerDbProgress('Information saved in Database.', 100, 'success', 'Supabase Database Write');
+
+      return {
+        success: true,
+        data: createdRecord as T,
+        message: `🟢 Record inserted successfully into ${tableName}!${prunedCols.length ? ` (Notice: Run schema update to add missing columns: ${prunedCols.join(', ')})` : ''}`
+      };
+    } catch (err: any) {
       await logDatabaseActivity({
         username,
         role,
         action: 'CREATE',
         tableName,
         recordId: recordData[idColumn] || 'unknown',
-        details: `Failed to insert record: ${error.message}`,
+        details: `Exception: ${err.message}`,
         status: 'FAILED'
       });
 
       return {
         success: false,
-        error: error.message,
-        message: `Failed to insert record into ${tableName}: ${error.message}`
+        error: err.message,
+        message: `Exception creating record in ${tableName}: ${err.message}`
       };
     }
-
-    const createdRecord = data && data[0] ? data[0] : recordData;
-    const recId = createdRecord[idColumn] || recordData[idColumn] || 'new';
-
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'CREATE',
-      tableName,
-      recordId: String(recId),
-      details: `Created record in ${tableName}: ${JSON.stringify(recordData).substring(0, 150)}`,
-      status: 'SUCCESS'
-    });
-
-    return {
-      success: true,
-      data: createdRecord as T,
-      message: `🟢 Record inserted successfully into ${tableName}!`
-    };
-  } catch (err: any) {
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'CREATE',
-      tableName,
-      recordId: recordData[idColumn] || 'unknown',
-      details: `Exception: ${err.message}`,
-      status: 'FAILED'
-    });
-
-    return {
-      success: false,
-      error: err.message,
-      message: `Exception creating record in ${tableName}: ${err.message}`
-    };
   }
+
+  return {
+    success: false,
+    message: `Max retries reached inserting into ${tableName}`
+  };
 }
 
 /**
@@ -274,65 +313,89 @@ export async function updateRecord<T = any>(
   const username = userContext?.username || 'System User';
   const role = userContext?.role || 'Admin';
 
-  try {
-    const { data, error } = await supabase
-      .from(tableName)
-      .update(recordData)
-      .eq(idColumn, id)
-      .select();
+  let currentPayload = { ...recordData };
+  const prunedCols: string[] = [];
+  let attempts = 0;
 
-    if (error) {
+  while (attempts < 10) {
+    attempts++;
+    try {
+      triggerDbProgress(`Updating ${tableName}...`, 50, 'saving', 'Supabase Database Update');
+      const { data, error } = await supabase
+        .from(tableName)
+        .update(currentPayload)
+        .eq(idColumn, id)
+        .select();
+
+      if (error) {
+        const missingCol = extractMissingColumn(error.message);
+        if (missingCol && currentPayload[missingCol] !== undefined) {
+          console.warn(`Column "${missingCol}" missing in remote table "${tableName}". Pruning and retrying...`);
+          prunedCols.push(missingCol);
+          delete currentPayload[missingCol];
+          continue;
+        }
+
+        triggerDbProgress(`Update failed: ${error.message}`, 100, 'error', 'Supabase Database Update');
+        await logDatabaseActivity({
+          username,
+          role,
+          action: 'UPDATE',
+          tableName,
+          recordId: String(id),
+          details: `Failed update: ${error.message}`,
+          status: 'FAILED'
+        });
+
+        return {
+          success: false,
+          error: error.message,
+          message: `Failed to update record ${id} in ${tableName}: ${error.message}`
+        };
+      }
+
+      const updatedRecord = data && data[0] ? data[0] : { [idColumn]: id, ...currentPayload };
+
       await logDatabaseActivity({
         username,
         role,
         action: 'UPDATE',
         tableName,
         recordId: String(id),
-        details: `Failed update: ${error.message}`,
+        details: `Updated fields in ${tableName}: ${Object.keys(currentPayload).join(', ')}${prunedCols.length ? ` (Pruned cols: ${prunedCols.join(', ')})` : ''}`,
+        status: 'SUCCESS'
+      });
+
+      triggerDbProgress('Information saved in Database.', 100, 'success', 'Supabase Database Update');
+
+      return {
+        success: true,
+        data: updatedRecord as T,
+        message: `🟢 Record ${id} updated in ${tableName}!${prunedCols.length ? ` (Notice: Run schema update to add missing columns: ${prunedCols.join(', ')})` : ''}`
+      };
+    } catch (err: any) {
+      await logDatabaseActivity({
+        username,
+        role,
+        action: 'UPDATE',
+        tableName,
+        recordId: String(id),
+        details: `Exception during update: ${err.message}`,
         status: 'FAILED'
       });
 
       return {
         success: false,
-        error: error.message,
-        message: `Failed to update record ${id} in ${tableName}: ${error.message}`
+        error: err.message,
+        message: `Exception updating record in ${tableName}: ${err.message}`
       };
     }
-
-    const updatedRecord = data && data[0] ? data[0] : { [idColumn]: id, ...recordData };
-
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'UPDATE',
-      tableName,
-      recordId: String(id),
-      details: `Updated fields in ${tableName}: ${Object.keys(recordData).join(', ')}`,
-      status: 'SUCCESS'
-    });
-
-    return {
-      success: true,
-      data: updatedRecord as T,
-      message: `🟢 Record ${id} updated in ${tableName}!`
-    };
-  } catch (err: any) {
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'UPDATE',
-      tableName,
-      recordId: String(id),
-      details: `Exception during update: ${err.message}`,
-      status: 'FAILED'
-    });
-
-    return {
-      success: false,
-      error: err.message,
-      message: `Exception updating record in ${tableName}: ${err.message}`
-    };
   }
+
+  return {
+    success: false,
+    message: `Max retries reached updating ${tableName}`
+  };
 }
 
 /**
@@ -355,121 +418,154 @@ export async function upsertRecord<T = any>(
   const role = userContext?.role || 'Admin';
   const recId = String(recordData[conflictColumn] || recordData.id || 'unknown');
 
-  try {
-    let data: any = null;
-    let error: any = null;
+  let currentPayload = { ...recordData };
+  const prunedCols: string[] = [];
+  let attempts = 0;
 
-    // Try standard upsert with onConflict
-    const primaryRes = await supabase
-      .from(tableName)
-      .upsert([recordData], { onConflict: conflictColumn })
-      .select();
+  while (attempts < 10) {
+    attempts++;
+    try {
+      triggerDbProgress(`Syncing database table "${tableName}"...`, 60, 'saving', 'Supabase Database Sync');
+      let data: any = null;
+      let error: any = null;
 
-    data = primaryRes.data;
-    error = primaryRes.error;
+      // Try standard upsert with onConflict
+      const primaryRes = await supabase
+        .from(tableName)
+        .upsert([currentPayload], { onConflict: conflictColumn })
+        .select();
 
-    // Fallback if ON CONFLICT constraint error or missing target constraint
-    if (error && (
-      error.message?.includes('ON CONFLICT') ||
-      error.message?.includes('unique or exclusion constraint') ||
-      error.code === '42P10' ||
-      error.code === '23505'
-    )) {
-      console.warn(`Upsert constraint fallback triggered for table "${tableName}" on column "${conflictColumn}":`, error.message);
-      const conflictVal = recordData[conflictColumn];
+      data = primaryRes.data;
+      error = primaryRes.error;
 
-      if (conflictVal !== undefined && conflictVal !== null) {
-        // 1. Check if record exists by conflictColumn
-        const { data: existingRows } = await supabase
-          .from(tableName)
-          .select('*')
-          .eq(conflictColumn, conflictVal)
-          .limit(1);
+      // Check if error is missing column in schema cache
+      if (error) {
+        const missingCol = extractMissingColumn(error.message);
+        if (missingCol && currentPayload[missingCol] !== undefined) {
+          console.warn(`Column "${missingCol}" missing in remote table "${tableName}". Pruning column and retrying...`);
+          prunedCols.push(missingCol);
+          delete currentPayload[missingCol];
+          continue;
+        }
+      }
 
-        if (existingRows && existingRows.length > 0) {
-          // 2. Perform UPDATE
-          const updateRes = await supabase
+      // Fallback if ON CONFLICT constraint error or missing target constraint
+      if (error && (
+        error.message?.includes('ON CONFLICT') ||
+        error.message?.includes('unique or exclusion constraint') ||
+        error.code === '42P10' ||
+        error.code === '23505'
+      )) {
+        console.warn(`Upsert constraint fallback triggered for table "${tableName}" on column "${conflictColumn}":`, error.message);
+        const conflictVal = currentPayload[conflictColumn];
+
+        if (conflictVal !== undefined && conflictVal !== null) {
+          // 1. Check if record exists by conflictColumn
+          const { data: existingRows } = await supabase
             .from(tableName)
-            .update(recordData)
+            .select('*')
             .eq(conflictColumn, conflictVal)
-            .select();
-          data = updateRes.data;
-          error = updateErrHandling(updateRes.error);
+            .limit(1);
+
+          if (existingRows && existingRows.length > 0) {
+            // 2. Perform UPDATE
+            const updateRes = await supabase
+              .from(tableName)
+              .update(currentPayload)
+              .eq(conflictColumn, conflictVal)
+              .select();
+            data = updateRes.data;
+            error = updateRes.error;
+          } else {
+            // 3. Perform INSERT
+            const insertRes = await supabase
+              .from(tableName)
+              .insert([currentPayload])
+              .select();
+            data = insertRes.data;
+            error = insertRes.error;
+          }
         } else {
-          // 3. Perform INSERT
           const insertRes = await supabase
             .from(tableName)
-            .insert([recordData])
+            .insert([currentPayload])
             .select();
           data = insertRes.data;
           error = insertRes.error;
         }
-      } else {
-        const insertRes = await supabase
-          .from(tableName)
-          .insert([recordData])
-          .select();
-        data = insertRes.data;
-        error = insertRes.error;
+
+        if (error) {
+          const missingCol = extractMissingColumn(error.message);
+          if (missingCol && currentPayload[missingCol] !== undefined) {
+            console.warn(`Column "${missingCol}" missing in fallback write for "${tableName}". Pruning and retrying...`);
+            prunedCols.push(missingCol);
+            delete currentPayload[missingCol];
+            continue;
+          }
+        }
       }
-    }
 
-    function updateErrHandling(e: any) {
-      return e;
-    }
+      if (error) {
+        triggerDbProgress(`Sync failed: ${error.message}`, 100, 'error', 'Supabase Database Sync');
+        await logDatabaseActivity({
+          username,
+          role,
+          action: 'UPSERT',
+          tableName,
+          recordId: recId,
+          details: `Failed upsert: ${error.message}`,
+          status: 'FAILED'
+        });
 
-    if (error) {
+        return {
+          success: false,
+          error: error.message,
+          message: `Upsert failed for ${tableName}: ${error.message}`
+        };
+      }
+
+      const resultRecord = data && data[0] ? data[0] : currentPayload;
+
       await logDatabaseActivity({
         username,
         role,
         action: 'UPSERT',
         tableName,
         recordId: recId,
-        details: `Failed upsert: ${error.message}`,
+        details: `Upserted record into ${tableName}`,
+        status: 'SUCCESS'
+      });
+
+      triggerDbProgress('Information saved in Database.', 100, 'success', 'Supabase Database Sync');
+
+      return {
+        success: true,
+        data: resultRecord as T,
+        message: `🟢 Record ${recId} synced with ${tableName}!${prunedCols.length ? ` (Notice: Run schema migration to add missing columns: ${prunedCols.join(', ')})` : ''}`
+      };
+    } catch (err: any) {
+      await logDatabaseActivity({
+        username,
+        role,
+        action: 'UPSERT',
+        tableName,
+        recordId: recId,
+        details: `Exception during upsert: ${err.message}`,
         status: 'FAILED'
       });
 
       return {
         success: false,
-        error: error.message,
-        message: `Upsert failed for ${tableName}: ${error.message}`
+        error: err.message,
+        message: `Exception upserting record in ${tableName}: ${err.message}`
       };
     }
-
-    const resultRecord = data && data[0] ? data[0] : recordData;
-
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'UPSERT',
-      tableName,
-      recordId: recId,
-      details: `Upserted record into ${tableName}`,
-      status: 'SUCCESS'
-    });
-
-    return {
-      success: true,
-      data: resultRecord as T,
-      message: `🟢 Record ${recId} synced with ${tableName}!`
-    };
-  } catch (err: any) {
-    await logDatabaseActivity({
-      username,
-      role,
-      action: 'UPSERT',
-      tableName,
-      recordId: recId,
-      details: `Exception during upsert: ${err.message}`,
-      status: 'FAILED'
-    });
-
-    return {
-      success: false,
-      error: err.message,
-      message: `Exception upserting record in ${tableName}: ${err.message}`
-    };
   }
+
+  return {
+    success: false,
+    message: `Max retries reached upserting into ${tableName}`
+  };
 }
 
 /**

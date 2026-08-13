@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOtherModulesStore } from '../otherModules/otherStore';
-import { Users, UserPlus, Search, CheckCircle, AlertCircle, Trash2, Mail, Phone, ShieldCheck, Building2, BookOpen, Clock, CheckSquare } from 'lucide-react';
+import { Users, UserPlus, Search, CheckCircle, AlertCircle, Trash2, Mail, Phone, ShieldCheck, Building2, BookOpen, Clock, CheckSquare, Plus, X, Layers } from 'lucide-react';
 import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
 
 const DEPARTMENTS = [
@@ -15,6 +15,34 @@ const DEPARTMENTS = [
   'Administration & Accounts'
 ];
 
+const ALL_SUBJECTS_LIST = [
+  'Physical Education & Sports',
+  'Mathematics',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'Science & Technology',
+  'English Language & Literature',
+  'Hindi / Vernacular Language',
+  'Sanskrit / Regional Language',
+  'Social Studies & History',
+  'Geography & Civics',
+  'Computer Science & IT',
+  'Economics & Commerce',
+  'Accountancy & Business Studies',
+  'Art, Craft & Fine Arts',
+  'Music & Performing Arts',
+  'Environmental Studies (EVS)',
+  'General Knowledge & Moral Values',
+  'Other (Custom Subject)'
+];
+
+const ALL_CLASS_SECTIONS = ALL_SCHOOL_CLASSES.flatMap((cls) => [
+  `${cls}-A`,
+  `${cls}-B`,
+  `${cls}-C`
+]);
+
 export const StaffModule: React.FC = () => {
   const { staff, addStaffMember, deleteStaffMember, updateStaffStatus, updateStaffAllocation } = useOtherModulesStore();
   const [activeTab, setActiveTab] = useState<'directory' | 'departments' | 'class_allocation'>('directory');
@@ -23,17 +51,43 @@ export const StaffModule: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Class allocation state mapping teacherId -> { classTeacherOf: string, subjects: { class: string, subject: string }[] }
-  const [classAllocations, setClassAllocations] = useState<Record<string, { classTeacherOf: string; subjects: string[] }>>({
-    'stf-1': { classTeacherOf: 'Class 10-A', subjects: ['Class 10 Mathematics', 'Class 9 Mathematics'] },
-    'stf-2': { classTeacherOf: 'Class 12-A', subjects: ['Class 11 Physics', 'Class 12 Physics'] },
-    'stf-3': { classTeacherOf: 'Class 8-B', subjects: ['Class 8 English', 'Class 7 English'] }
-  });
-
   // Selected teacher for editing allocation
   const [selectedAllocationTeacher, setSelectedAllocationTeacher] = useState<string>(staff[0]?.id || 'stf-1');
-  const [tempClassTeacher, setTempClassTeacher] = useState('Class 10-A');
-  const [tempSubjects, setTempSubjects] = useState('Class 10 Mathematics, Class 9 Mathematics');
+  const [tempClassTeacher, setTempClassTeacher] = useState('Class 9-A');
+  
+  // Subject dropdown selection
+  const [selectedSubjectDropdown, setSelectedSubjectDropdown] = useState<string>('Physical Education & Sports');
+  const [customSubjectInput, setCustomSubjectInput] = useState<string>('');
+
+  // Selected multiple class sections
+  const [selectedClassSections, setSelectedClassSections] = useState<string[]>(['Class 9-A', 'Class 9-B', 'Class 9-C']);
+
+  // Active teacher allocations list: { className: string; subject: string }[]
+  const [teacherAllocationsList, setTeacherAllocationsList] = useState<{ className: string; subject: string }[]>([
+    { className: 'Class 9-A', subject: 'Physical Education & Sports' },
+    { className: 'Class 9-B', subject: 'Physical Education & Sports' },
+    { className: 'Class 9-C', subject: 'Physical Education & Sports' }
+  ]);
+
+  // Sync state when selected teacher changes or staff list updates
+  useEffect(() => {
+    if (!selectedAllocationTeacher && staff.length > 0) {
+      setSelectedAllocationTeacher(staff[0].id);
+    }
+    const currentStaff = staff.find((s) => s.id === selectedAllocationTeacher || s.employeeCode === selectedAllocationTeacher);
+    if (currentStaff) {
+      setTempClassTeacher(currentStaff.classTeacherOf || 'None');
+      if (currentStaff.assignedAllocations && currentStaff.assignedAllocations.length > 0) {
+        setTeacherAllocationsList(currentStaff.assignedAllocations);
+        setSelectedClassSections(Array.from(new Set(currentStaff.assignedAllocations.map(a => a.className))));
+      } else if (currentStaff.assignedClasses && currentStaff.assignedClasses.length > 0) {
+        const sub = currentStaff.assignedSubjects?.[0] || 'Physical Education & Sports';
+        const list = currentStaff.assignedClasses.map((c) => ({ className: c, subject: sub }));
+        setTeacherAllocationsList(list);
+        setSelectedClassSections(currentStaff.assignedClasses);
+      }
+    }
+  }, [selectedAllocationTeacher, staff]);
 
   // New staff form state
   const [fullName, setFullName] = useState('');
@@ -82,24 +136,70 @@ export const StaffModule: React.FC = () => {
     setIsAddModalOpen(false);
   };
 
+  const toggleClassSection = (cs: string) => {
+    setSelectedClassSections((prev) =>
+      prev.includes(cs) ? prev.filter((c) => c !== cs) : [...prev, cs]
+    );
+  };
+
+  const selectClassesByGrade = (gradeName: string) => {
+    const matching = ALL_CLASS_SECTIONS.filter((c) => c.startsWith(gradeName));
+    setSelectedClassSections((prev) => Array.from(new Set([...prev, ...matching])));
+  };
+
+  const selectAllSectionA = () => {
+    const matching = ALL_CLASS_SECTIONS.filter((c) => c.endsWith('-A'));
+    setSelectedClassSections(matching);
+  };
+
+  const clearSelectedClasses = () => {
+    setSelectedClassSections([]);
+  };
+
+  const handleAddAllocationsToTeacher = () => {
+    const subjectToAssign = selectedSubjectDropdown === 'Other (Custom Subject)' ? customSubjectInput.trim() : selectedSubjectDropdown;
+    if (!subjectToAssign) {
+      alert('Please select or enter a subject name.');
+      return;
+    }
+    if (selectedClassSections.length === 0) {
+      alert('Please select at least one class and section.');
+      return;
+    }
+
+    setTeacherAllocationsList((prev) => {
+      const existingMap = new Map(prev.map((item) => [`${item.className}__${item.subject}`, item]));
+      selectedClassSections.forEach((cs) => {
+        existingMap.set(`${cs}__${subjectToAssign}`, { className: cs, subject: subjectToAssign });
+      });
+      return Array.from(existingMap.values());
+    });
+  };
+
+  const handleRemoveAllocationItem = (index: number) => {
+    setTeacherAllocationsList((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
   const handleSaveAllocation = (teacherId: string) => {
-    const subjectArray = tempSubjects.split(',').map((s) => s.trim()).filter(Boolean);
-    const assignedClasses = Array.from(new Set([tempClassTeacher, ...subjectArray.map(s => {
-      const match = s.match(/Class\s+\d+[-A-Z]*/i);
-      return match ? match[0] : tempClassTeacher;
-    })])).filter(c => c && c !== 'None');
+    const currentStaff = staff.find((s) => s.id === teacherId || s.employeeCode === teacherId);
+    const teacherName = currentStaff ? currentStaff.fullName : 'Faculty Member';
 
-    setClassAllocations((prev) => ({
-      ...prev,
-      [teacherId]: {
-        classTeacherOf: tempClassTeacher,
-        subjects: subjectArray
-      }
-    }));
+    const assignedClasses = Array.from(new Set<string>(teacherAllocationsList.map((a) => a.className)));
+    if (tempClassTeacher && tempClassTeacher !== 'None' && !assignedClasses.includes(tempClassTeacher)) {
+      assignedClasses.push(tempClassTeacher);
+    }
 
-    updateStaffAllocation(teacherId, tempClassTeacher, assignedClasses, subjectArray);
+    const assignedSubjects = Array.from(new Set<string>(teacherAllocationsList.map((a) => a.subject)));
 
-    setSuccessMsg(`🟢 Class & Subject Allocations saved to Central Registry & updated throughout application!`);
+    updateStaffAllocation(
+      teacherId,
+      tempClassTeacher,
+      assignedClasses,
+      assignedSubjects,
+      teacherAllocationsList
+    );
+
+    setSuccessMsg(`🟢 Class & Subject Allocations saved in Database for "${teacherName}"! (${teacherAllocationsList.length} Class-Subject assignments)`);
     setTimeout(() => setSuccessMsg(null), 4000);
   };
 
@@ -219,7 +319,6 @@ export const StaffModule: React.FC = () => {
                   </tr>
                 ) : (
                   filteredStaff.map((stf, idx) => {
-                    const alloc = classAllocations[stf.id];
                     return (
                       <tr key={`${stf.id}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                         <td className="py-3 px-4 font-mono font-bold text-indigo-600">{stf.employeeCode}</td>
@@ -239,15 +338,25 @@ export const StaffModule: React.FC = () => {
                         </td>
                         <td className="py-3 px-4 font-medium text-slate-600 dark:text-slate-300">{stf.qualification}</td>
                         <td className="py-3 px-4">
-                          {alloc ? (
-                            <div className="space-y-0.5">
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 block">
-                                Teacher of {alloc.classTeacherOf}
+                          <div className="space-y-1">
+                            {stf.classTeacherOf && stf.classTeacherOf !== 'None' && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 inline-block">
+                                CT: {stf.classTeacherOf}
                               </span>
-                            </div>
-                          ) : (
-                            <span className="text-slate-400 text-[11px]">Unassigned</span>
-                          )}
+                            )}
+                            {stf.assignedAllocations && stf.assignedAllocations.length > 0 ? (
+                              <p className="text-[10px] text-slate-700 dark:text-slate-300 font-bold">
+                                {stf.assignedAllocations.map(a => `${a.className} (${a.subject})`).slice(0, 3).join(', ')}
+                                {stf.assignedAllocations.length > 3 && ` +${stf.assignedAllocations.length - 3} more`}
+                              </p>
+                            ) : stf.assignedClasses && stf.assignedClasses.length > 0 ? (
+                              <p className="text-[10px] text-slate-600 dark:text-slate-400 font-medium">
+                                Classes: {stf.assignedClasses.join(', ')}
+                              </p>
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">Unassigned</span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-1.5">
@@ -321,7 +430,6 @@ export const StaffModule: React.FC = () => {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {absentTeachers.map((at, idx) => {
-                      const alloc = classAllocations[at.id];
                       return (
                         <div key={`${at.id}-${idx}`} className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-rose-200 dark:border-rose-800 shadow-xs flex flex-col justify-between gap-2">
                           <div>
@@ -335,8 +443,8 @@ export const StaffModule: React.FC = () => {
                             </div>
                             <h4 className="text-xs font-black text-slate-900 dark:text-white mt-1.5">{at.fullName}</h4>
                             <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{at.designation} • {at.department}</p>
-                            {alloc?.classTeacherOf && (
-                              <p className="text-[10px] text-indigo-600 font-bold mt-1">Class Teacher: {alloc.classTeacherOf}</p>
+                            {at.classTeacherOf && at.classTeacherOf !== 'None' && (
+                              <p className="text-[10px] text-indigo-600 font-bold mt-1">Class Teacher: {at.classTeacherOf}</p>
                             )}
                           </div>
 
@@ -399,56 +507,50 @@ export const StaffModule: React.FC = () => {
       {/* TAB 3: ALLOCATION OF CLASSES */}
       {activeTab === 'class_allocation' && (
         <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-6">
-          <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
-            <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <BookOpen className="w-5 h-5 text-indigo-600" />
-              Class Teacher & Subject Allocation Engine
-            </h3>
-            <p className="text-xs text-slate-500">
-              Assign Class Teacher responsibility and teaching subject allocations to faculty members.
-            </p>
+          <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-indigo-600" />
+                Class Teacher & Multi-Class Subject Allocation
+              </h3>
+              <p className="text-xs text-slate-500">
+                Select subjects from dropdowns and allocate multiple classes & sections to faculty members.
+              </p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* SELECT TEACHER & ALLOCATE */}
-            <div className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* LEFT 7 COLS: ALLOCATION BUILDER */}
+            <div className="lg:col-span-7 space-y-5 bg-slate-50/50 dark:bg-slate-800/30 p-5 rounded-2xl border border-slate-200 dark:border-slate-800">
+              {/* SELECT FACULTY MEMBER */}
               <div>
-                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                  Select Faculty Member
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  1. Select Faculty Member
                 </label>
                 <select
                   value={selectedAllocationTeacher}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    setSelectedAllocationTeacher(id);
-                    const existing = classAllocations[id];
-                    if (existing) {
-                      setTempClassTeacher(existing.classTeacherOf);
-                      setTempSubjects(existing.subjects.join(', '));
-                    } else {
-                      setTempClassTeacher('Class 10-A');
-                      setTempSubjects('Class 10 Mathematics');
-                    }
-                  }}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                  onChange={(e) => setSelectedAllocationTeacher(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer shadow-xs focus:ring-2 focus:ring-indigo-500"
                 >
                   {staff.map((s, idx) => (
                     <option key={`${s.id}-${idx}`} value={s.id}>
-                      {s.fullName} ({s.employeeCode}) - {s.department}
+                      {s.fullName} ({s.employeeCode}) — {s.department} [{s.designation}]
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* CLASS TEACHER RESPONSIBILITY */}
               <div>
-                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                  Assigned Class Teacher Duty
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  2. Assigned Class Teacher Duty (Optional)
                 </label>
                 <select
                   value={tempClassTeacher}
                   onChange={(e) => setTempClassTeacher(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer shadow-xs"
                 >
+                  <option value="None">None (Subject Specialist / Multi-Class Teacher)</option>
                   {ALL_SCHOOL_CLASSES.map((cls) => (
                     <React.Fragment key={cls}>
                       <option value={`${cls}-A`}>{cls} - Section A</option>
@@ -456,58 +558,219 @@ export const StaffModule: React.FC = () => {
                       <option value={`${cls}-C`}>{cls} - Section C</option>
                     </React.Fragment>
                   ))}
-                  <option value="None">None (Subject Specialist Only)</option>
                 </select>
               </div>
 
+              {/* DROPDOWN FOR SUBJECT */}
               <div>
-                <label className="block text-xs font-extrabold uppercase text-slate-500 mb-1">
-                  Allocated Teaching Subjects & Classes (Comma Separated)
+                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400 mb-1.5">
+                  3. Select Allocation Subject (Dropdown Menu)
                 </label>
-                <textarea
-                  rows={3}
-                  value={tempSubjects}
-                  onChange={(e) => setTempSubjects(e.target.value)}
-                  placeholder="e.g. Class 10 Mathematics, Class 9 Mathematics, Class 11 Advanced Physics"
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+                <select
+                  value={selectedSubjectDropdown}
+                  onChange={(e) => setSelectedSubjectDropdown(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-extrabold text-indigo-700 dark:text-indigo-300 cursor-pointer shadow-xs"
+                >
+                  {ALL_SUBJECTS_LIST.map((subj) => (
+                    <option key={subj} value={subj}>
+                      {subj}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedSubjectDropdown === 'Other (Custom Subject)' && (
+                  <input
+                    type="text"
+                    placeholder="Type custom subject name..."
+                    value={customSubjectInput}
+                    onChange={(e) => setCustomSubjectInput(e.target.value)}
+                    className="mt-2 w-full px-3.5 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white outline-none"
+                  />
+                )}
               </div>
 
-              <button
-                onClick={() => handleSaveAllocation(selectedAllocationTeacher)}
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer flex items-center gap-2"
-              >
-                <CheckSquare className="w-4 h-4" /> Save Class Allocation
-              </button>
+              {/* SELECT MULTIPLE CLASSES AND SECTIONS */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-600 dark:text-slate-400">
+                    4. Select Multiple Classes & Sections ({selectedClassSections.length} Selected)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={selectAllSectionA}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded hover:bg-indigo-100 cursor-pointer"
+                    >
+                      All Sec A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectClassesByGrade('Class 9')}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded hover:bg-indigo-100 cursor-pointer"
+                    >
+                      Class 9
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectClassesByGrade('Class 10')}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 rounded hover:bg-indigo-100 cursor-pointer"
+                    >
+                      Class 10
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearSelectedClasses}
+                      className="px-2 py-0.5 text-[10px] font-bold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 rounded hover:bg-slate-300 cursor-pointer"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 max-h-48 overflow-y-auto">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
+                    {ALL_CLASS_SECTIONS.map((cs) => {
+                      const isSelected = selectedClassSections.includes(cs);
+                      return (
+                        <button
+                          key={cs}
+                          type="button"
+                          onClick={() => toggleClassSection(cs)}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-between border ${
+                            isSelected
+                              ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs'
+                              : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-indigo-50 hover:border-indigo-300'
+                          }`}
+                        >
+                          <span>{cs}</span>
+                          {isSelected && <CheckCircle className="w-3.5 h-3.5 text-white shrink-0" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION: ADD SUBJECT PAIRING */}
+              <div className="pt-2 flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={handleAddAllocationsToTeacher}
+                  className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-xs cursor-pointer flex items-center justify-center gap-2 transition-all"
+                >
+                  <Plus className="w-4 h-4" />
+                  Pair Subject "{selectedSubjectDropdown === 'Other (Custom Subject)' ? customSubjectInput || 'Custom' : selectedSubjectDropdown}" with {selectedClassSections.length} Class(es)
+                </button>
+              </div>
+
+              {/* ACTIVE ALLOCATION PAIRS LIST FOR SELECTED TEACHER */}
+              <div className="pt-3 border-t border-slate-200 dark:border-slate-700 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold uppercase text-slate-700 dark:text-slate-300">
+                    Configured Class-Subject Allocations ({teacherAllocationsList.length})
+                  </span>
+                  <span className="text-[11px] text-slate-500">Click ✕ to remove any pairing</span>
+                </div>
+
+                {teacherAllocationsList.length === 0 ? (
+                  <p className="text-xs text-slate-400 italic py-2">
+                    No class-subject pairings configured yet. Select subject and classes above to add.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-1">
+                    {teacherAllocationsList.map((item, idx) => (
+                      <span
+                        key={`${item.className}-${item.subject}-${idx}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-900/60 shadow-2xs text-xs font-bold text-slate-900 dark:text-slate-100"
+                      >
+                        <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{item.className}</span>
+                        <span className="text-slate-400">•</span>
+                        <span>{item.subject}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveAllocationItem(idx)}
+                          className="ml-1 p-0.5 text-slate-400 hover:text-rose-600 rounded-full cursor-pointer transition-colors"
+                          title="Remove pairing"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleSaveAllocation(selectedAllocationTeacher)}
+                  className="mt-3 w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer flex items-center justify-center gap-2 transition-all"
+                >
+                  <CheckSquare className="w-4 h-4" />
+                  Save Class Allocations to Live Database
+                </button>
+              </div>
             </div>
 
-            {/* CURRENT ALLOCATION MATRIX */}
-            <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
-              <h4 className="text-xs font-extrabold uppercase text-slate-600 dark:text-slate-300">
-                Active Faculty Allocation Matrix
-              </h4>
+            {/* RIGHT 5 COLS: ACTIVE FACULTY ALLOCATION MATRIX */}
+            <div className="lg:col-span-5 bg-slate-50 dark:bg-slate-800/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-indigo-600" />
+                  Active Faculty Allocation Matrix
+                </h4>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                  {staff.length} Teachers
+                </span>
+              </div>
 
-              <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[520px] overflow-y-auto pr-1">
                 {staff.map((stf, idx) => {
-                  const alloc = classAllocations[stf.id];
+                  const isSelectedTeacher = stf.id === selectedAllocationTeacher;
+                  const allocs = stf.assignedAllocations || [];
+                  const classes = stf.assignedClasses || [];
+                  const subjects = stf.assignedSubjects || [];
+
                   return (
-                    <div key={`${stf.id}-${idx}`} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
-                      <div className="flex items-center justify-between font-bold">
-                        <span className="text-slate-900 dark:text-white">{stf.fullName}</span>
-                        <span className="font-mono text-[10px] text-indigo-600">{stf.employeeCode}</span>
+                    <div
+                      key={`${stf.id}-${idx}`}
+                      onClick={() => setSelectedAllocationTeacher(stf.id)}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer space-y-2 ${
+                        isSelectedTeacher
+                          ? 'bg-white dark:bg-slate-900 border-indigo-500 dark:border-indigo-500 shadow-md ring-2 ring-indigo-500/20'
+                          : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-extrabold text-slate-900 dark:text-white text-xs">{stf.fullName}</p>
+                          <p className="text-[10px] text-slate-500">{stf.department} • {stf.designation}</p>
+                        </div>
+                        <span className="font-mono text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-indigo-600">
+                          {stf.employeeCode}
+                        </span>
                       </div>
-                      <p className="text-slate-500 text-[11px]">Dept: {stf.department}</p>
-                      {alloc ? (
-                        <div className="pt-1 space-y-1">
-                          <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
-                            Class Teacher: <span className="bg-indigo-100 dark:bg-indigo-950 px-1.5 py-0.5 rounded">{alloc.classTeacherOf}</span>
-                          </p>
-                          <p className="text-[10px] text-slate-600 dark:text-slate-400">
-                            Subjects: {alloc.subjects.join(' • ')}
-                          </p>
+
+                      {stf.classTeacherOf && stf.classTeacherOf !== 'None' && (
+                        <div className="inline-block px-2.5 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 text-[10px] font-extrabold">
+                          Class Teacher: {stf.classTeacherOf}
+                        </div>
+                      )}
+
+                      {allocs.length > 0 ? (
+                        <div className="pt-1 flex flex-wrap gap-1">
+                          {allocs.map((a, i) => (
+                            <span key={i} className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                              {a.className} • {a.subject}
+                            </span>
+                          ))}
+                        </div>
+                      ) : classes.length > 0 ? (
+                        <div className="pt-1 text-[10px] text-slate-600 dark:text-slate-400">
+                          <span className="font-bold text-slate-800 dark:text-slate-200">Classes: </span>
+                          {classes.join(' • ')}
+                          {subjects.length > 0 && <span className="block text-[10px] text-slate-500 mt-0.5">Subject: {subjects.join(', ')}</span>}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-slate-400 italic">No classes allocated yet.</p>
+                        <p className="text-[10px] text-slate-400 italic">No classes or subjects allocated yet.</p>
                       )}
                     </div>
                   );

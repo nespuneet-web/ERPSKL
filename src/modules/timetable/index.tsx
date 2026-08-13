@@ -1645,107 +1645,127 @@ export const TimetableModule: React.FC = () => {
           </div>
 
           {/* ACTIVE SUBSTITUTION LOG CHART WITH LIVE REASSIGNMENT */}
-          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <Award className="w-5 h-5 text-emerald-600" />
-                Active Substitution Arrangements Log ({arrangements.length})
-              </h3>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setIsPrintGridModalOpen(true)}
-                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Printer className="w-4 h-4" /> Full-Screen Print Grid
-                </button>
+          {(() => {
+            const activeAbsentArrangements = arrangements.filter((a) => {
+              const teacherStatus = teacherAttendanceMap[a.absentTeacherName.trim().toUpperCase()];
+              return teacherStatus === 'Absent' || teacherStatus === 'On Leave' || teacherStatus === 'Half Day';
+            });
+
+            return (
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                    <Award className="w-5 h-5 text-emerald-600" />
+                    Active Substitution Arrangements Log ({activeAbsentArrangements.length})
+                    <span className="text-[11px] font-normal text-slate-500">
+                      (Only Absent / On Leave / Half Day Teachers)
+                    </span>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setIsPrintGridModalOpen(true)}
+                      className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4" /> Full-Screen Print Grid
+                    </button>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {activeAbsentArrangements.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
+                      <p className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                        🟢 No active substitution arrangements required. All assigned teachers are marked Present, or no absent teacher arrangements have been logged today.
+                      </p>
+                    </div>
+                  ) : (
+                    <table className="w-full text-left text-xs min-w-[750px]">
+                      <thead>
+                        <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-500 uppercase">
+                          <th className="py-3 px-4">Period</th>
+                          <th className="py-3 px-4">Class & Sec</th>
+                          <th className="py-3 px-4">Subject</th>
+                          <th className="py-3 px-4">Absent Teacher</th>
+                          <th className="py-3 px-4">Assigned Substitute (Live Editable)</th>
+                          <th className="py-3 px-4">Status & Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+                        {activeAbsentArrangements.map((a, idx) => {
+                          const absDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.absentTeacherName)?.department);
+                          const subDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.substituteTeacherName)?.department);
+
+                          // Candidate free teachers for this period number to allow live reassigning
+                          const freeForThisPeriod = teacherTimetables.filter((t) => {
+                            const slotVal = t.schedule[`${selectedDay}_${a.periodNumber}`];
+                            return !slotVal || slotVal.trim() === '';
+                          });
+
+                          return (
+                            <tr key={`${a.id}-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                              <td className="py-3 px-4 font-mono font-bold text-blue-600">
+                                Period #{a.periodNumber} ({a.timeSlot})
+                              </td>
+                              <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">{a.classSection}</td>
+                              <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-medium">{a.subject}</td>
+                              <td className="py-3 px-4">
+                                <div className="space-y-0.5">
+                                  <span className="text-rose-600 font-bold block">{a.absentTeacherName}</span>
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold inline-block border ${absDept.badgeClass}`}>
+                                    {absDept.label}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="space-y-1.5 max-w-xs">
+                                  <select
+                                    value={a.substituteTeacherName}
+                                    onChange={(e) => handleUpdateArrangementSubstitute(a.id, e.target.value)}
+                                    className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value={a.substituteTeacherName}>
+                                      👨‍🏫 {a.substituteTeacherName} (Current)
+                                    </option>
+                                    {freeForThisPeriod
+                                      .filter((f) => f.teacherName !== a.substituteTeacherName)
+                                      .map((f, fIdx) => (
+                                        <option key={`${f.id}-${fIdx}`} value={f.teacherName}>
+                                          🔄 {f.teacherName} ({f.department || 'Senior Sec'})
+                                        </option>
+                                      ))}
+                                  </select>
+
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold inline-block border ${subDept.badgeClass}`}>
+                                    {subDept.label}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="py-3 px-4">
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 uppercase tracking-wider">
+                                    {a.status}
+                                  </span>
+                                  <button
+                                    onClick={() => {
+                                      setArrangements((prev) => prev.filter((item) => item.id !== a.id));
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                                    title="Delete arrangement"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[750px]">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 font-bold text-slate-500 uppercase">
-                    <th className="py-3 px-4">Period</th>
-                    <th className="py-3 px-4">Class & Sec</th>
-                    <th className="py-3 px-4">Subject</th>
-                    <th className="py-3 px-4">Absent Teacher</th>
-                    <th className="py-3 px-4">Assigned Substitute (Live Editable)</th>
-                    <th className="py-3 px-4">Status & Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {arrangements.map((a, idx) => {
-                    const absDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.absentTeacherName)?.department);
-                    const subDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.substituteTeacherName)?.department);
-
-                    // Candidate free teachers for this period number to allow live reassigning
-                    const freeForThisPeriod = teacherTimetables.filter((t) => {
-                      const slotVal = t.schedule[`${selectedDay}_${a.periodNumber}`];
-                      return !slotVal || slotVal.trim() === '';
-                    });
-
-                    return (
-                      <tr key={`${a.id}-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                        <td className="py-3 px-4 font-mono font-bold text-blue-600">
-                          Period #{a.periodNumber} ({a.timeSlot})
-                        </td>
-                        <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">{a.classSection}</td>
-                        <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-medium">{a.subject}</td>
-                        <td className="py-3 px-4">
-                          <div className="space-y-0.5">
-                            <span className="text-rose-600 font-bold block">{a.absentTeacherName}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold inline-block border ${absDept.badgeClass}`}>
-                              {absDept.label}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="space-y-1.5 max-w-xs">
-                            <select
-                              value={a.substituteTeacherName}
-                              onChange={(e) => handleUpdateArrangementSubstitute(a.id, e.target.value)}
-                              className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white cursor-pointer focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value={a.substituteTeacherName}>
-                                👨‍🏫 {a.substituteTeacherName} (Current)
-                              </option>
-                              {freeForThisPeriod
-                                .filter((f) => f.teacherName !== a.substituteTeacherName)
-                                .map((f, fIdx) => (
-                                  <option key={`${f.id}-${fIdx}`} value={f.teacherName}>
-                                    🔄 {f.teacherName} ({f.department || 'Senior Sec'})
-                                  </option>
-                                ))}
-                            </select>
-
-                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold inline-block border ${subDept.badgeClass}`}>
-                              {subDept.label}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 uppercase tracking-wider">
-                              {a.status}
-                            </span>
-                            <button
-                              onClick={() => {
-                                setArrangements((prev) => prev.filter((item) => item.id !== a.id));
-                              }}
-                              className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
-                              title="Delete arrangement"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* ACTIVE ROUND DUTY PATROL SCHEDULE (BELOW SUBSTITUTIONS) */}
           <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl border border-indigo-800/80 shadow-md text-white space-y-4">

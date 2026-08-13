@@ -1,7 +1,14 @@
 import { useState, useEffect } from 'react';
 import { ExaminationType, SubjectConfig, ExamMarkSheet, ReportCardTemplate, StudentMarkEntry } from '../../types/examination';
 import { INITIAL_EXAM_TYPES, INITIAL_SUBJECTS, INITIAL_REPORT_TEMPLATES } from '../../data/mockData';
-import { syncMarksheetToSupabase, fetchMarksheetsFromSupabase } from '../../lib/supabaseSync';
+import {
+  syncMarksheetToSupabase,
+  fetchMarksheetsFromSupabase,
+  syncSubjectConfigToSupabase,
+  fetchSubjectConfigsFromSupabase,
+  syncExamTypeToSupabase,
+  fetchExamTypesFromSupabase
+} from '../../lib/supabaseSync';
 
 const EXAM_TYPES_KEY = 'schoolerp_exam_types_v1';
 const SUBJECTS_KEY = 'schoolerp_subjects_v1';
@@ -102,6 +109,11 @@ export function useExamStore() {
   const addExamType = (exam: Omit<ExaminationType, 'id'>) => {
     const newExam: ExaminationType = { ...exam, id: `ex-${Date.now()}` };
     setExamTypes((prev) => [...prev, newExam]);
+    syncExamTypeToSupabase({
+      id: newExam.id,
+      examName: newExam.name,
+      academicYear: '2025-2026'
+    });
   };
 
   const updateExamType = (id: string, fields: Partial<ExaminationType>) => {
@@ -115,6 +127,12 @@ export function useExamStore() {
   const addSubject = (subject: Omit<SubjectConfig, 'id'>) => {
     const newSub: SubjectConfig = { ...subject, id: `sub-${Date.now()}` };
     setSubjects((prev) => [...prev, newSub]);
+    syncSubjectConfigToSupabase({
+      code: newSub.code,
+      name: newSub.name,
+      theoryMaxMarks: newSub.theoryMaxMarks || 80,
+      internalMaxMarks: newSub.internalMaxMarks || 20
+    });
   };
 
   const updateSubject = (id: string, fields: Partial<SubjectConfig>) => {

@@ -82,6 +82,11 @@ export interface LibraryBook {
   rackLocation: string;
 }
 
+export interface StaffAllocationItem {
+  className: string;
+  subject: string;
+}
+
 export interface StaffMember {
   id: string;
   employeeCode: string;
@@ -96,6 +101,7 @@ export interface StaffMember {
   status: 'Active' | 'On Leave' | 'Absent' | 'Half Day' | 'Resigned' | 'In Interview';
   assignedClasses?: string[];
   assignedSubjects?: string[];
+  assignedAllocations?: StaffAllocationItem[];
   classTeacherOf?: string;
 }
 
