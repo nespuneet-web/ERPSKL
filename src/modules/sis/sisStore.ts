@@ -8,10 +8,22 @@ const SIS_STORAGE_KEY = 'schoolerp_sis_students_v1';
 const SIS_HOUSES_KEY = 'schoolerp_sis_houses_v1';
 const SIS_CLUBS_KEY = 'schoolerp_sis_clubs_v1';
 
+function ensureUniqueStudentIds(list: Student[]): Student[] {
+  const seen = new Set<string>();
+  return list.map((item, idx) => {
+    let id = item.id || `std-${idx}`;
+    if (seen.has(id)) {
+      id = `${id}-${idx}-${Date.now().toString(36)}`;
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 export function useSisStore() {
   const [students, setStudents] = useState<Student[]>(() => {
     const saved = localStorage.getItem(SIS_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_STUDENTS;
+    return saved ? ensureUniqueStudentIds(JSON.parse(saved)) : ensureUniqueStudentIds(INITIAL_STUDENTS);
   });
 
   const [houses, setHouses] = useState<SchoolHouse[]>(() => {
@@ -48,7 +60,7 @@ export function useSisStore() {
           const map: Record<string, Student> = {};
           prev.forEach((s) => { map[s.admissionNo] = s; });
           remote.forEach((s) => { map[s.admissionNo] = s; });
-          return Object.values(map);
+          return ensureUniqueStudentIds(Object.values(map));
         });
       }
     }

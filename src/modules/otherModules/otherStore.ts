@@ -40,6 +40,18 @@ const INITIAL_INVENTORY: InventoryItem[] = [
   { id: 'inv-2', itemCode: 'DESK-DUAL-04', itemName: 'Dual Seater Wooden Bench', category: 'Furniture', quantity: 200, unitPrice: 3500, location: 'Classrooms Block B', status: 'In Stock' }
 ];
 
+function ensureUniqueStaffIds(list: StaffMember[]): StaffMember[] {
+  const seen = new Set<string>();
+  return list.map((item, idx) => {
+    let id = item.id || `stf-${idx}`;
+    if (seen.has(id)) {
+      id = `${id}-${idx}-${Date.now().toString(36)}`;
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 export function useOtherModulesStore() {
   const [attendance, setAttendance] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE);
   const [fees, setFees] = useState<FeeTransaction[]>(INITIAL_FEES);
@@ -51,11 +63,11 @@ export function useOtherModulesStore() {
   const [staff, setStaff] = useState<StaffMember[]>(() => {
     try {
       const saved = localStorage.getItem('schoolerp_staff_list_v1');
-      if (saved) return JSON.parse(saved);
+      if (saved) return ensureUniqueStaffIds(JSON.parse(saved));
     } catch (e) {
       console.error(e);
     }
-    return INITIAL_STAFF;
+    return ensureUniqueStaffIds(INITIAL_STAFF);
   });
 
   useEffect(() => {
@@ -76,7 +88,7 @@ export function useOtherModulesStore() {
           const map: Record<string, StaffMember> = {};
           prev.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
           remote.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
-          const merged = Object.values(map);
+          const merged = ensureUniqueStaffIds(Object.values(map));
           try {
             localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(merged));
           } catch (e) {
@@ -91,7 +103,7 @@ export function useOtherModulesStore() {
     const handleStaffEvent = (e: Event) => {
       const customEvent = e as CustomEvent<StaffMember[]>;
       if (customEvent.detail) {
-        setStaff(customEvent.detail);
+        setStaff(ensureUniqueStaffIds(customEvent.detail));
       }
     };
     window.addEventListener('schoolerp_staff_updated', handleStaffEvent);
@@ -145,6 +157,29 @@ export function useOtherModulesStore() {
     const updatedList = staff.map((s) => {
       if (s.id === staffId) {
         updatedStaffMember = { ...s, status };
+        return updatedStaffMember;
+      }
+      return s;
+    });
+
+    setStaff(updatedList);
+    notifyStaffUpdated(updatedList);
+
+    if (updatedStaffMember) {
+      await syncStaffToSupabase(updatedStaffMember);
+    }
+  };
+
+  const updateStaffAllocation = async (staffId: string, classTeacherOf: string, assignedClasses: string[], assignedSubjects: string[]) => {
+    let updatedStaffMember: StaffMember | null = null;
+    const updatedList = staff.map((s) => {
+      if (s.id === staffId || s.employeeCode === staffId) {
+        updatedStaffMember = {
+          ...s,
+          classTeacherOf,
+          assignedClasses,
+          assignedSubjects
+        };
         return updatedStaffMember;
       }
       return s;
@@ -240,6 +275,7 @@ export function useOtherModulesStore() {
     addStaffMember,
     deleteStaffMember,
     updateStaffStatus,
+    updateStaffAllocation,
     routes
   };
 }

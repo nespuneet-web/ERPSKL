@@ -6,7 +6,14 @@ import { getClassFeeStructure } from '../fees/feeStructureStore';
 import { AdmissionLetterModal } from './AdmissionLetterModal';
 import { ParentIdCardModal } from './ParentIdCardModal';
 import { AllocationModal } from './AllocationModal';
-import { AdmissionApplication, PARENT_OCCUPATION_CATEGORIES, AdmissionStage } from '../../types/admission';
+import {
+  AddInquiryModal,
+  AddRegistrationModal,
+  AddAdmissionStepModal,
+  EditApplicationModal,
+  AgeCriteriaMatrixModal
+} from './AdmissionModals';
+import { AdmissionApplication, PARENT_OCCUPATION_CATEGORIES, AdmissionStage, StudentCategoryType } from '../../types/admission';
 import { ALL_SCHOOL_CLASSES, GROUP_A_INDOOR_ACTIVITIES, GROUP_B_OUTDOOR_ACTIVITIES } from '../../data/mockData';
 import {
   UserPlus,
@@ -35,6 +42,7 @@ import {
   HelpCircle,
   CreditCard,
   User,
+  Edit3,
   X
 } from 'lucide-react';
 
@@ -44,6 +52,8 @@ export const AdmissionModule: React.FC = () => {
     seats,
     syncStatus,
     addInquiry,
+    updateApplication,
+    addProtectedEditLog,
     promoteInquiryToRegistration,
     promoteRegistrationToAdmission,
     updateApplicationStatus
@@ -82,82 +92,44 @@ export const AdmissionModule: React.FC = () => {
   const [showOfferModal, setShowOfferModal] = useState<AdmissionApplication | null>(null);
   const [showParentIdModal, setShowParentIdModal] = useState<AdmissionApplication | null>(null);
   const [showAllocationModal, setShowAllocationModal] = useState<AdmissionApplication | null>(null);
+  const [editingApplication, setEditingApplication] = useState<AdmissionApplication | null>(null);
   
   // 3-Step Process Modal States
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [showAdmissionStepModal, setShowAdmissionStepModal] = useState(false);
-
-  // Inquiry form fields
-  const [inqStudentName, setInqStudentName] = useState('');
-  const [inqApplyingClass, setInqApplyingClass] = useState('Class 1');
-  const [inqGender, setInqGender] = useState<'Male' | 'Female' | 'Other'>('Male');
-  const [inqDob, setInqDob] = useState('2019-05-10');
-  const [inqParentName, setInqParentName] = useState('');
-  const [inqParentOccupation, setInqParentOccupation] = useState<string>('Doctor / Surgeon / Medical Specialist');
-  const [inqMotherOccupation, setInqMotherOccupation] = useState<string>('Teacher / Professor / Educator');
-  const [inqContactNumber, setInqContactNumber] = useState('');
-  const [inqEmail, setInqEmail] = useState('');
-  const [inqPreviousSchool, setInqPreviousSchool] = useState('');
-  const [inqSource, setInqSource] = useState<'Walk-in' | 'Website' | 'Referral' | 'Social Media' | 'Newspaper Ad'>('Walk-in');
-
-  // Registration step form field
-  const [selectedInquiryId, setSelectedInquiryId] = useState('');
-  const [regClass, setRegClass] = useState('Class 1');
-  const [regFeeAmount, setRegFeeAmount] = useState(1500);
-
-  // Admission step form field
-  const [selectedRegistrationId, setSelectedRegistrationId] = useState('');
+  const [showAgeMatrixModal, setShowAgeMatrixModal] = useState(false);
 
   // Lists filtered by stage
   const inquiryCandidates = applications.filter((app) => app.status === 'Inquiry' || app.status === 'Received');
   const registeredCandidates = applications.filter((app) => app.status === 'Registration' || app.status === 'Test Scheduled' || app.status === 'Interview Scheduled');
 
-  const handleCreateInquiry = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!inqStudentName || !inqParentName || !inqContactNumber) return;
-
-    addInquiry({
-      studentName: inqStudentName,
-      applyingClass: inqApplyingClass,
-      gender: inqGender,
-      dob: inqDob,
-      parentName: inqParentName,
-      parentOccupation: inqParentOccupation,
-      motherOccupation: inqMotherOccupation,
-      contactNumber: inqContactNumber,
-      email: inqEmail,
-      previousSchool: inqPreviousSchool || 'None',
-      inquirySource: inqSource,
-      documentsUploaded: []
-    });
-
-    setInqStudentName('');
-    setInqParentName('');
-    setInqContactNumber('');
-    setInqEmail('');
+  const handleInquirySubmit = (data: any) => {
+    addInquiry(data);
     setShowInquiryModal(false);
   };
 
-  const handleProcessRegistration = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedInquiryId) return;
-    promoteInquiryToRegistration(selectedInquiryId, regFeeAmount);
-    setSelectedInquiryId('');
+  const handleRegistrationSubmit = (inquiryId: string, overrideFee: number, details: any) => {
+    promoteInquiryToRegistration(inquiryId, overrideFee, details);
     setShowRegistrationModal(false);
   };
 
-  const handleProcessAdmission = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedRegistrationId) return;
-    promoteRegistrationToAdmission(selectedRegistrationId);
-    
-    const app = applications.find((a) => a.id === selectedRegistrationId);
+  const handleAdmissionStepSubmit = (registrationId: string, studentCategory: StudentCategoryType) => {
+    promoteRegistrationToAdmission(registrationId, studentCategory);
+    const app = applications.find((a) => a.id === registrationId);
     if (app) {
       setShowOfferModal(app);
     }
-    setSelectedRegistrationId('');
     setShowAdmissionStepModal(false);
+  };
+
+  const handleSaveEditedRecord = (updated: AdmissionApplication, auditLog?: any) => {
+    if (auditLog) {
+      addProtectedEditLog(updated.id, auditLog, updated);
+    } else {
+      updateApplication(updated);
+    }
+    setEditingApplication(null);
   };
 
   const filteredApps = applications.filter((app) => {
@@ -241,6 +213,14 @@ export const AdmissionModule: React.FC = () => {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowAgeMatrixModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-xl cursor-pointer transition-all border border-slate-200 dark:border-slate-700 shrink-0"
+                  title="View official NEP Class Age Eligibility Rules (Cutoff: 1 April)"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-600" /> Age Rules Matrix
+                </button>
+
                 <button
                   onClick={() => setShowInquiryModal(true)}
                   className="flex items-center gap-1.5 px-4 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all shrink-0"
@@ -463,8 +443,16 @@ export const AdmissionModule: React.FC = () => {
 
                         <td className="py-3 px-4 text-right space-x-1.5">
                           <button
+                            onClick={() => setEditingApplication(app)}
+                            className="px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1 border border-slate-200 dark:border-slate-700"
+                            title="Edit Candidate Information & Status"
+                          >
+                            <Edit3 className="w-3.5 h-3.5 text-indigo-600" /> Edit Record
+                          </button>
+
+                          <button
                             onClick={() => setShowAllocationModal(app)}
-                            className="px-3 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1 border border-amber-200 dark:border-amber-800"
+                            className="px-2.5 py-1.5 text-xs font-bold text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1 border border-amber-200 dark:border-amber-800"
                             title="Allocate Section, House, Club & Activities"
                           >
                             <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Allocate
@@ -472,7 +460,7 @@ export const AdmissionModule: React.FC = () => {
 
                           <button
                             onClick={() => setShowOfferModal(app)}
-                            className="px-3 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
+                            className="px-2.5 py-1.5 text-xs font-bold text-indigo-700 dark:text-indigo-300 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
                             title="Generate & Save Provisional Offer Letter"
                           >
                             <FileText className="w-3.5 h-3.5" /> Offer Letter
@@ -480,7 +468,7 @@ export const AdmissionModule: React.FC = () => {
 
                           <button
                             onClick={() => setShowParentIdModal(app)}
-                            className="px-3 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
+                            className="px-2.5 py-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 rounded-lg cursor-pointer transition-all inline-flex items-center gap-1"
                             title="Generate Parent Short Leave Gate ID Card"
                           >
                             <QrCode className="w-3.5 h-3.5" /> Parent ID
@@ -663,301 +651,42 @@ export const AdmissionModule: React.FC = () => {
         />
       )}
 
-      {/* STEP 1: INQUIRY MODAL (FREE OF CHARGE) */}
+      {/* MODALS */}
       {showInquiryModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <UserPlus className="w-5 h-5 text-indigo-600" /> Step 1: Record New Student Inquiry
-                </h3>
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-0.5">
-                  ✓ Free of charge • No registration or admission fee collected at inquiry
-                </p>
-              </div>
-              <button onClick={() => setShowInquiryModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateInquiry} className="space-y-3.5">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Student Candidate Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Ananya Sharma"
-                  value={inqStudentName}
-                  onChange={(e) => setInqStudentName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Applying Class *</label>
-                  <select
-                    value={inqApplyingClass}
-                    onChange={(e) => setInqApplyingClass(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                  >
-                    {ALL_SCHOOL_CLASSES.map((cls) => (
-                      <option key={cls} value={cls}>{cls}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Inquiry Source *</label>
-                  <select
-                    value={inqSource}
-                    onChange={(e) => setInqSource(e.target.value as any)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                  >
-                    <option value="Walk-in">Walk-in Visit</option>
-                    <option value="Website">School Website</option>
-                    <option value="Referral">Parent Referral</option>
-                    <option value="Social Media">Social Media</option>
-                    <option value="Newspaper Ad">Newspaper Ad</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father / Guardian Name *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Dr. Rajesh Sharma"
-                    value={inqParentName}
-                    onChange={(e) => setInqParentName(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father Occupation *</label>
-                  <select
-                    value={inqParentOccupation}
-                    onChange={(e) => setInqParentOccupation(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                  >
-                    {PARENT_OCCUPATION_CATEGORIES.map((occ) => (
-                      <option key={occ} value={occ}>{occ}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Mobile Number *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="+91 98765 43210"
-                    value={inqContactNumber}
-                    onChange={(e) => setInqContactNumber(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Email Address</label>
-                  <input
-                    type="email"
-                    placeholder="parent@example.com"
-                    value={inqEmail}
-                    onChange={(e) => setInqEmail(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowInquiryModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer"
-                >
-                  Save Inquiry (Free)
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddInquiryModal
+          onClose={() => setShowInquiryModal(false)}
+          onSubmit={handleInquirySubmit}
+        />
       )}
 
-      {/* STEP 2: REGISTRATION MODAL (CHARGEABLE, RESTRICTED TO INQUIRIES) */}
       {showRegistrationModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <CreditCard className="w-5 h-5 text-emerald-600" /> Step 2: Register Student (Chargeable Stage)
-                </h3>
-                <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                  Select candidate from visited inquiries • Standard Registration Fee: ₹1,500
-                </p>
-              </div>
-              <button onClick={() => setShowRegistrationModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleProcessRegistration} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-1">
-                  Select Inquiry Candidate * (Strict Rule: Only Inquiry Visited Students Allowed)
-                </label>
-                {inquiryCandidates.length === 0 ? (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-bold">
-                    ⚠️ No pending Inquiry candidates available. Please add an Inquiry first in Step 1.
-                  </div>
-                ) : (
-                  <select
-                    required
-                    value={selectedInquiryId}
-                    onChange={(e) => {
-                      setSelectedInquiryId(e.target.value);
-                      const selected = inquiryCandidates.find((c) => c.id === e.target.value);
-                      if (selected) {
-                        setRegClass(selected.applyingClass);
-                        const customFee = getClassFeeStructure(selected.applyingClass);
-                        setRegFeeAmount(customFee.registrationFee);
-                      }
-                    }}
-                    className="w-full px-3 py-2 text-xs bg-emerald-50/60 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-800 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                  >
-                    <option value="">-- Choose Candidate From Inquiry List ({inquiryCandidates.length} Pending) --</option>
-                    {inquiryCandidates.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.studentName} ({c.applyingClass}) — Parent: {c.parentName} ({c.contactNumber})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {selectedInquiryId && (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-bold">Registration Fee Amount:</span>
-                    <span className="font-extrabold text-emerald-600">₹{regFeeAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-slate-500 font-bold">Target Applying Class:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">{regClass}</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowRegistrationModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!selectedInquiryId}
-                  className="px-5 py-2 text-xs font-extrabold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 rounded-xl shadow cursor-pointer"
-                >
-                  Collect ₹1,500 Fee & Register
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddRegistrationModal
+          inquiries={inquiryCandidates}
+          onClose={() => setShowRegistrationModal(false)}
+          onSubmit={handleRegistrationSubmit}
+        />
       )}
 
-      {/* STEP 3: ADMISSION MODAL (CHARGEABLE, RESTRICTED TO REGISTERED STUDENTS) */}
       {showAdmissionStepModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-xl space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5 text-purple-600" /> Step 3: Process Final Admission
-                </h3>
-                <p className="text-[11px] text-slate-500 font-bold mt-0.5">
-                  Select candidate from Registered list • Generate Offer Letter & Dues
-                </p>
-              </div>
-              <button onClick={() => setShowAdmissionStepModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+        <AddAdmissionStepModal
+          registeredCandidates={registeredCandidates}
+          onClose={() => setShowAdmissionStepModal(false)}
+          onSubmit={handleAdmissionStepSubmit}
+        />
+      )}
 
-            <form onSubmit={handleProcessAdmission} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-purple-600 dark:text-purple-400 mb-1">
-                  Select Registered Candidate * (Strict Rule: Only Registered Students Allowed)
-                </label>
-                {registeredCandidates.length === 0 ? (
-                  <div className="p-3 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 rounded-xl text-amber-800 dark:text-amber-300 text-xs font-bold">
-                    ⚠️ No registered candidates available. Please register an Inquiry candidate in Step 2 first.
-                  </div>
-                ) : (
-                  <select
-                    required
-                    value={selectedRegistrationId}
-                    onChange={(e) => setSelectedRegistrationId(e.target.value)}
-                    className="w-full px-3 py-2 text-xs bg-purple-50/60 dark:bg-purple-950/40 border border-purple-300 dark:border-purple-800 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
-                  >
-                    <option value="">-- Choose Candidate From Registration List ({registeredCandidates.length} Registered) --</option>
-                    {registeredCandidates.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.studentName} ({c.applyingClass}) — Parent: {c.parentName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+      {editingApplication && (
+        <EditApplicationModal
+          application={editingApplication}
+          onClose={() => setEditingApplication(null)}
+          onSave={handleSaveEditedRecord}
+        />
+      )}
 
-              {selectedRegistrationId && (
-                <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
-                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">Admission Dues Breakdown:</span>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <span className="text-slate-500">Admission Fee:</span> <span className="font-bold text-right">₹25,000</span>
-                    <span className="text-slate-500">Tuition Fee:</span> <span className="font-bold text-right">₹18,000</span>
-                    <span className="text-slate-500">Transport & Lab:</span> <span className="font-bold text-right">₹7,500</span>
-                    <span className="text-slate-700 font-extrabold border-t pt-1">Total Fee Dues:</span>
-                    <span className="font-black text-purple-600 border-t pt-1 text-right">₹50,500</span>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAdmissionStepModal(false)}
-                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!selectedRegistrationId}
-                  className="px-5 py-2 text-xs font-extrabold text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 rounded-xl shadow cursor-pointer"
-                >
-                  Advance to Final Admission
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {showAgeMatrixModal && (
+        <AgeCriteriaMatrixModal
+          onClose={() => setShowAgeMatrixModal(false)}
+        />
       )}
     </div>
   );

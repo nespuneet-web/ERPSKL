@@ -70,7 +70,9 @@ export interface Student {
   dob: string;
   bloodGroup: string;
   religion: string;
-  category: 'General' | 'OBC' | 'SC' | 'ST' | 'EWS';
+  caste?: string;
+  category: 'General' | 'OBC' | 'SC' | 'ST' | 'EWS' | 'Other';
+  studentCategory?: 'Staff Ward' | 'Normal Child' | 'Management Child' | 'Government-Funded Student';
   nationality: string;
   motherTongue: string;
   photoUrl: string;
@@ -85,6 +87,29 @@ export interface Student {
   house: string; // Customizable House Name
   previousSchool?: string;
   tcNumber?: string;
+
+  // Sibling & Other School Info
+  hasSiblingInSchool?: boolean;
+  appliedOtherSchool?: boolean;
+  otherSchoolDetails?: string;
+
+  // Age Eligibility & Override Info
+  forceAdmission?: boolean;
+  forceAdmissionReason?: string;
+  forceAdmissionAuthorizedBy?: string;
+  forceAdmissionTimestamp?: string;
+
+  // Post-Admission Protected Edit Audit Logs
+  protectedEditLogs?: Array<{
+    id?: string;
+    requestedBy: string;
+    fieldChanged: string;
+    previousValue: string;
+    newValue: string;
+    approvedBy: string;
+    approvedAt: string;
+    reason?: string;
+  }>;
   
   // Co-curricular Activities & Clubs
   groupAActivity?: string; // Group A: Indoor Activity (Max 1)

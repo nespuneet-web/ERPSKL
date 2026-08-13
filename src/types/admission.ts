@@ -1,5 +1,25 @@
 export type AdmissionStage = 'Inquiry' | 'Registration' | 'Admission Process' | 'Offered' | 'Confirmed' | 'Waitlisted' | 'Rejected';
 
+export type StudentCategoryType = 'Staff Ward' | 'Normal Child' | 'Management Child' | 'Government-Funded Student';
+
+export interface AdmissionSiblingRecord {
+  name: string;
+  className: string;
+  admissionNo: string;
+  relation: string;
+}
+
+export interface ProtectedEditLog {
+  id?: string;
+  requestedBy: string;
+  fieldChanged: string;
+  previousValue: string;
+  newValue: string;
+  approvedBy: string;
+  approvedAt: string;
+  reason?: string;
+}
+
 export interface AdmissionFeeBreakdown {
   registrationFee: number;
   admissionFee: number;
@@ -18,6 +38,7 @@ export interface AdmissionApplication {
   gender: 'Male' | 'Female' | 'Other';
   dob: string;
   parentName: string;
+  motherName?: string;
   parentOccupation: string;
   motherOccupation?: string;
   contactNumber: string;
@@ -38,6 +59,33 @@ export interface AdmissionApplication {
   offerLetterSavedAt?: string;
   parentPhotoUrl?: string;
   emergencyPassCode?: string;
+
+  // Additional Registration & Social Fields
+  caste?: string;
+  category?: 'General' | 'SC' | 'ST' | 'OBC' | 'Other';
+  religion?: string;
+
+  // Sibling Information
+  hasSiblingInSchool?: boolean;
+  siblingsList?: AdmissionSiblingRecord[];
+
+  // Other School Admission Information
+  appliedOtherSchool?: boolean;
+  otherSchoolDetails?: string;
+
+  // Mandatory Student Category
+  studentCategory?: StudentCategoryType;
+
+  // Age Eligibility & Force Admission
+  isAgeEligible?: boolean;
+  calculatedAgeYears?: number;
+  forceAdmission?: boolean;
+  forceAdmissionReason?: string;
+  forceAdmissionAuthorizedBy?: string;
+  forceAdmissionTimestamp?: string;
+
+  // Post-Admission Edit Audit Records
+  protectedEditLogs?: ProtectedEditLog[];
 }
 
 export interface SeatAvailability {

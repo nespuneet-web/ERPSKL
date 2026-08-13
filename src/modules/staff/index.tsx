@@ -16,7 +16,7 @@ const DEPARTMENTS = [
 ];
 
 export const StaffModule: React.FC = () => {
-  const { staff, addStaffMember, deleteStaffMember, updateStaffStatus } = useOtherModulesStore();
+  const { staff, addStaffMember, deleteStaffMember, updateStaffStatus, updateStaffAllocation } = useOtherModulesStore();
   const [activeTab, setActiveTab] = useState<'directory' | 'departments' | 'class_allocation'>('directory');
   
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,6 +84,11 @@ export const StaffModule: React.FC = () => {
 
   const handleSaveAllocation = (teacherId: string) => {
     const subjectArray = tempSubjects.split(',').map((s) => s.trim()).filter(Boolean);
+    const assignedClasses = Array.from(new Set([tempClassTeacher, ...subjectArray.map(s => {
+      const match = s.match(/Class\s+\d+[-A-Z]*/i);
+      return match ? match[0] : tempClassTeacher;
+    })])).filter(c => c && c !== 'None');
+
     setClassAllocations((prev) => ({
       ...prev,
       [teacherId]: {
@@ -91,7 +96,10 @@ export const StaffModule: React.FC = () => {
         subjects: subjectArray
       }
     }));
-    setSuccessMsg(`🟢 Class & Subject Allocations updated successfully!`);
+
+    updateStaffAllocation(teacherId, tempClassTeacher, assignedClasses, subjectArray);
+
+    setSuccessMsg(`🟢 Class & Subject Allocations saved to Central Registry & updated throughout application!`);
     setTimeout(() => setSuccessMsg(null), 4000);
   };
 
@@ -210,10 +218,10 @@ export const StaffModule: React.FC = () => {
                     </td>
                   </tr>
                 ) : (
-                  filteredStaff.map((stf) => {
+                  filteredStaff.map((stf, idx) => {
                     const alloc = classAllocations[stf.id];
                     return (
-                      <tr key={stf.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
+                      <tr key={`${stf.id}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40">
                         <td className="py-3 px-4 font-mono font-bold text-indigo-600">{stf.employeeCode}</td>
                         <td className="py-3 px-4">
                           <p className="font-bold text-slate-900 dark:text-white">{stf.fullName}</p>
@@ -242,16 +250,31 @@ export const StaffModule: React.FC = () => {
                           )}
                         </td>
                         <td className="py-3 px-4">
-                          <select
-                            value={stf.status}
-                            onChange={(e) => updateStaffStatus(stf.id, e.target.value as any)}
-                            className="px-2 py-1 rounded-lg text-xs font-bold border bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 cursor-pointer"
-                          >
-                            <option value="Active">🟢 Active</option>
-                            <option value="Absent">🔴 Absent</option>
-                            <option value="Half Day">🟡 Half Day</option>
-                            <option value="On Leave">🟣 On Leave</option>
-                          </select>
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => updateStaffStatus(stf.id, 'Active')}
+                              className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 border ${
+                                stf.status === 'Active' || stf.status === 'Present' as any
+                                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:bg-emerald-50'
+                              }`}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" /> Present
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => updateStaffStatus(stf.id, 'Absent')}
+                              className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1 border ${
+                                stf.status === 'Absent'
+                                  ? 'bg-rose-600 text-white border-rose-700 shadow-sm'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700 hover:bg-rose-50'
+                              }`}
+                            >
+                              <AlertCircle className="w-3.5 h-3.5" /> Absent
+                            </button>
+                          </div>
                         </td>
                         <td className="py-3 px-4 text-center">
                           <button
@@ -273,6 +296,65 @@ export const StaffModule: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* ABSENT TEACHERS LIST AT BOTTOM */}
+          {(() => {
+            const absentTeachers = staff.filter((s) => s.status === 'Absent' || s.status === 'On Leave');
+            return (
+              <div className="bg-rose-50/70 dark:bg-rose-950/40 p-5 rounded-2xl border border-rose-200 dark:border-rose-900/60 shadow-xs space-y-3 mt-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-400" />
+                    <h3 className="text-sm font-extrabold text-rose-900 dark:text-rose-200 uppercase tracking-wide">
+                      Absent Teachers List ({absentTeachers.length} Absent Today)
+                    </h3>
+                  </div>
+                  <span className="text-xs font-semibold text-rose-700 dark:text-rose-300">
+                    Automatically interlinked across Substitution & Timetable
+                  </span>
+                </div>
+
+                {absentTeachers.length === 0 ? (
+                  <div className="p-4 bg-white/80 dark:bg-slate-900/80 rounded-xl text-center text-xs text-emerald-700 dark:text-emerald-300 font-bold border border-emerald-200 dark:border-emerald-900">
+                    🎉 All teachers are Present today! No staff absences reported.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {absentTeachers.map((at, idx) => {
+                      const alloc = classAllocations[at.id];
+                      return (
+                        <div key={`${at.id}-${idx}`} className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-rose-200 dark:border-rose-800 shadow-xs flex flex-col justify-between gap-2">
+                          <div>
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono text-[10px] font-bold text-rose-600 bg-rose-100 dark:bg-rose-950 px-2 py-0.5 rounded">
+                                {at.employeeCode}
+                              </span>
+                              <span className="text-[10px] font-black uppercase text-rose-700 dark:text-rose-300 bg-rose-100 dark:bg-rose-950 px-2 py-0.5 rounded">
+                                {at.status}
+                              </span>
+                            </div>
+                            <h4 className="text-xs font-black text-slate-900 dark:text-white mt-1.5">{at.fullName}</h4>
+                            <p className="text-[11px] font-semibold text-slate-600 dark:text-slate-400">{at.designation} • {at.department}</p>
+                            {alloc?.classTeacherOf && (
+                              <p className="text-[10px] text-indigo-600 font-bold mt-1">Class Teacher: {alloc.classTeacherOf}</p>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => updateStaffStatus(at.id, 'Active')}
+                            className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg transition-all flex items-center justify-center gap-1 cursor-pointer"
+                          >
+                            <CheckCircle className="w-3.5 h-3.5" /> Mark Present
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -350,8 +432,8 @@ export const StaffModule: React.FC = () => {
                   }}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
                 >
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>
+                  {staff.map((s, idx) => (
+                    <option key={`${s.id}-${idx}`} value={s.id}>
                       {s.fullName} ({s.employeeCode}) - {s.department}
                     </option>
                   ))}
@@ -406,10 +488,10 @@ export const StaffModule: React.FC = () => {
               </h4>
 
               <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
-                {staff.map((stf) => {
+                {staff.map((stf, idx) => {
                   const alloc = classAllocations[stf.id];
                   return (
-                    <div key={stf.id} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
+                    <div key={`${stf.id}-${idx}`} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1 text-xs">
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-slate-900 dark:text-white">{stf.fullName}</span>
                         <span className="font-mono text-[10px] text-indigo-600">{stf.employeeCode}</span>

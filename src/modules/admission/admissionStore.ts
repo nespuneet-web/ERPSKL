@@ -14,10 +14,22 @@ const INITIAL_SEATS: SeatAvailability[] = [
   { className: 'Class 11 Science', totalSeats: 50, filledSeats: 35, reservedSeats: 5, availableSeats: 10 }
 ];
 
+function ensureUniqueAppIds(list: AdmissionApplication[]): AdmissionApplication[] {
+  const seen = new Set<string>();
+  return list.map((item, idx) => {
+    let id = item.id || `app-${idx}`;
+    if (seen.has(id)) {
+      id = `${id}-${idx}-${Date.now().toString(36)}`;
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 export function useAdmissionStore() {
   const [applications, setApplications] = useState<AdmissionApplication[]>(() => {
     const saved = localStorage.getItem(ADMISSION_STORAGE_KEY);
-    return saved ? JSON.parse(saved) : INITIAL_APPLICATIONS;
+    return saved ? ensureUniqueAppIds(JSON.parse(saved)) : ensureUniqueAppIds(INITIAL_APPLICATIONS);
   });
 
   const [seats] = useState<SeatAvailability[]>(INITIAL_SEATS);
@@ -37,7 +49,7 @@ export function useAdmissionStore() {
           const map: Record<string, AdmissionApplication> = {};
           prev.forEach((a) => { map[a.applicationNo] = a; });
           remote.forEach((a) => { map[a.applicationNo] = a; });
-          return Object.values(map);
+          return ensureUniqueAppIds(Object.values(map));
         });
       }
     }
@@ -115,9 +127,65 @@ export function useAdmissionStore() {
     return newApp;
   };
 
+  const updateApplication = async (
+    updated: AdmissionApplication,
+    userContext?: { username?: string; role?: string }
+  ) => {
+    setApplications((prev) =>
+      prev.map((a) => (a.id === updated.id ? updated : a))
+    );
+    setSyncStatus(`Updated application details for "${updated.studentName}"...`);
+    const res = await syncAdmissionLeadToSupabase(updated, userContext);
+    setSyncStatus(res.message);
+    setTimeout(() => setSyncStatus(null), 5000);
+  };
+
+  const addProtectedEditLog = async (
+    applicationId: string,
+    logData: {
+      requestedBy: string;
+      fieldChanged: string;
+      previousValue: string;
+      newValue: string;
+      approvedBy: string;
+      reason?: string;
+    },
+    updatedAppFields?: Partial<AdmissionApplication>,
+    userContext?: { username?: string; role?: string }
+  ) => {
+    let finalApp: AdmissionApplication | null = null;
+    setApplications((prev) =>
+      prev.map((a) => {
+        if (a.id === applicationId) {
+          const newLog = {
+            id: `edit-log-${Date.now()}`,
+            ...logData,
+            approvedAt: new Date().toISOString()
+          };
+          const existingLogs = a.protectedEditLogs || [];
+          finalApp = {
+            ...a,
+            ...(updatedAppFields || {}),
+            protectedEditLogs: [newLog, ...existingLogs]
+          };
+          return finalApp;
+        }
+        return a;
+      })
+    );
+
+    if (finalApp) {
+      setSyncStatus(`Logged approved edit by ${logData.approvedBy} for "${(finalApp as AdmissionApplication).studentName}"...`);
+      const res = await syncAdmissionLeadToSupabase(finalApp, userContext);
+      setSyncStatus(res.message);
+      setTimeout(() => setSyncStatus(null), 5000);
+    }
+  };
+
   const promoteInquiryToRegistration = async (
     inquiryId: string,
     overrideRegistrationFee?: number,
+    additionalDetails?: Partial<AdmissionApplication>,
     userContext?: { username?: string; role?: string }
   ) => {
     let updatedApp: AdmissionApplication | null = null;
@@ -128,10 +196,11 @@ export function useAdmissionStore() {
           const regFee = overrideRegistrationFee ?? classFees.registrationFee;
           updatedApp = {
             ...a,
+            ...(additionalDetails || {}),
             status: 'Registration',
             feePaid: true,
             registrationFee: regFee,
-            applicationNo: a.applicationNo.replace('INQ', 'REG'),
+            applicationNo: a.applicationNo.includes('INQ') ? a.applicationNo.replace('INQ', 'REG') : a.applicationNo,
             applicationDate: new Date().toISOString().split('T')[0]
           };
           return updatedApp;
@@ -150,6 +219,8 @@ export function useAdmissionStore() {
 
   const promoteRegistrationToAdmission = async (
     registrationId: string,
+    studentCategory?: AdmissionApplication['studentCategory'],
+    additionalDetails?: Partial<AdmissionApplication>,
     userContext?: { username?: string; role?: string }
   ) => {
     let updatedApp: AdmissionApplication | null = null;
@@ -175,8 +246,10 @@ export function useAdmissionStore() {
 
           updatedApp = {
             ...a,
+            ...(additionalDetails || {}),
+            studentCategory: studentCategory || a.studentCategory || 'Normal Child',
             status: 'Admission Process',
-            applicationNo: a.applicationNo.replace('REG', 'ADM'),
+            applicationNo: a.applicationNo.includes('REG') ? a.applicationNo.replace('REG', 'ADM') : a.applicationNo,
             applicationDate: new Date().toISOString().split('T')[0],
             feeBreakdown
           };
@@ -200,6 +273,8 @@ export function useAdmissionStore() {
     syncStatus,
     addApplication,
     addInquiry,
+    updateApplication,
+    addProtectedEditLog,
     promoteInquiryToRegistration,
     promoteRegistrationToAdmission,
     updateApplicationStatus

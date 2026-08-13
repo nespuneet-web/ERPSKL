@@ -94,6 +94,9 @@ export interface StaffMember {
   qualification: string;
   monthlySalary: number;
   status: 'Active' | 'On Leave' | 'Absent' | 'Half Day' | 'Resigned' | 'In Interview';
+  assignedClasses?: string[];
+  assignedSubjects?: string[];
+  classTeacherOf?: string;
 }
 
 export interface NoticeItem {

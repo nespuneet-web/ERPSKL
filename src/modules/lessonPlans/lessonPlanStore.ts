@@ -392,25 +392,49 @@ const INITIAL_ALERTS: PrincipalTeacherAlert[] = [
   }
 ];
 
+function ensureUniquePlanIds(list: LessonPlan[]): LessonPlan[] {
+  const seen = new Set<string>();
+  return list.map((item, idx) => {
+    let id = item.id || `lp-${idx}`;
+    if (seen.has(id)) {
+      id = `${id}-${idx}-${Date.now().toString(36)}`;
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
+function ensureUniqueAlertIds(list: PrincipalTeacherAlert[]): PrincipalTeacherAlert[] {
+  const seen = new Set<string>();
+  return list.map((item, idx) => {
+    let id = item.id || `alt-${idx}`;
+    if (seen.has(id)) {
+      id = `${id}-${idx}-${Date.now().toString(36)}`;
+    }
+    seen.add(id);
+    return { ...item, id };
+  });
+}
+
 export function useLessonPlanStore() {
   const [plans, setPlans] = useState<LessonPlan[]>(() => {
     try {
       const saved = localStorage.getItem(LESSON_PLANS_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return ensureUniquePlanIds(JSON.parse(saved));
     } catch (e) {
       console.error('Error loading lesson plans:', e);
     }
-    return INITIAL_LESSON_PLANS;
+    return ensureUniquePlanIds(INITIAL_LESSON_PLANS);
   });
 
   const [alerts, setAlerts] = useState<PrincipalTeacherAlert[]>(() => {
     try {
       const saved = localStorage.getItem(LESSON_ALERTS_KEY);
-      if (saved) return JSON.parse(saved);
+      if (saved) return ensureUniqueAlertIds(JSON.parse(saved));
     } catch (e) {
       console.error('Error loading lesson alerts:', e);
     }
-    return INITIAL_ALERTS;
+    return ensureUniqueAlertIds(INITIAL_ALERTS);
   });
 
   // Fetch & Sync Remote Supabase Data on Mount and Periodically
@@ -425,7 +449,7 @@ export function useLessonPlanStore() {
           const map: Record<string, LessonPlan> = {};
           prev.forEach((p) => { map[p.id] = p; });
           remotePlans.forEach((rp) => { map[rp.id] = rp; });
-          return Object.values(map);
+          return ensureUniquePlanIds(Object.values(map));
         });
       } else if (plans.length > 0 && isMounted) {
         // Initial push of seed data to Supabase if empty
@@ -439,7 +463,7 @@ export function useLessonPlanStore() {
           const map: Record<string, PrincipalTeacherAlert> = {};
           prev.forEach((a) => { map[a.id] = a; });
           remoteAlerts.forEach((ra) => { map[ra.id] = ra; });
-          return Object.values(map);
+          return ensureUniqueAlertIds(Object.values(map));
         });
       } else if (alerts.length > 0 && isMounted) {
         alerts.forEach((a) => syncLessonAlertToSupabase(a));

@@ -423,14 +423,14 @@ export const LessonPlansModule: React.FC = () => {
           {/* Scrollable Small Tile Grid */}
           <div className="max-h-[680px] overflow-y-auto pr-1 space-y-4 custom-scrollbar">
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {filteredPlans.map((plan) => {
+              {filteredPlans.map((plan, idx) => {
                 const isGreen = plan.status === 'COMPLETED_ON_TIME';
                 const isRed = plan.status === 'NOT_COMPLETED_ON_TIME';
                 const isExpanded = expandedTileId === plan.id;
 
                 return (
                   <div
-                    key={plan.id}
+                    key={`${plan.id}-${idx}`}
                     onClick={() => setExpandedTileId(isExpanded ? null : plan.id)}
                     className={`p-3.5 rounded-2xl border transition-all cursor-pointer relative flex flex-col justify-between group ${
                       isExpanded
@@ -593,118 +593,152 @@ export const LessonPlansModule: React.FC = () => {
       )}
 
       {/* ==================================================================== */}
-      {/* 2. TEACHER LESSON PLAN ENTRY & UPDATE FORM */}
+      {/* 2. TEACHER LESSON ENTRY & STATUS UPDATE (SECTION 1 & SECTION 2) */}
       {/* ==================================================================== */}
       {activeTab === 'teacher_entry' && (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm max-w-3xl mx-auto space-y-6">
-          <div className="border-b pb-4">
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <GraduationCap className="w-5 h-5 text-indigo-600" />
-              Teacher Lesson Plan Submission & Status Update
-            </h3>
-            <p className="text-xs text-slate-500 mt-1">
-              Select your assigned class, pre-populate the syllabus topic, and submit completion status with periods required.
-            </p>
-          </div>
-
-          <form onSubmit={handleTeacherSave} className="space-y-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="space-y-6">
+          {/* SECTION 1: PLAN LESSON */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-3 flex items-center justify-between">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Choose Class
-                </label>
-                <select
-                  value={selectedClass}
-                  onChange={(e) => setSelectedClass(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
-                >
-                  <option value="PG-A">PG-A</option>
-                  <option value="Nursery-A">Nursery-A</option>
-                  <option value="LKG-A">LKG-A</option>
-                  <option value="LKG-B">LKG-B</option>
-                  <option value="UKG-A">UKG-A</option>
-                  <option value="Class 1-A">Class 1-A</option>
-                  <option value="Class 2-A">Class 2-A</option>
-                  <option value="Class 3-A">Class 3-A</option>
-                  <option value="Class 4-A">Class 4-A</option>
-                  <option value="Class 5-A">Class 5-A</option>
-                  <option value="Class 6-A">Class 6-A</option>
-                  <option value="Class 7-A">Class 7-A</option>
-                  <option value="Class 8-A">Class 8-A</option>
-                  <option value="Class 9-A">Class 9-A</option>
-                  <option value="Class 9-B">Class 9-B</option>
-                  <option value="Class 10-A">Class 10-A</option>
-                  <option value="Class 10-B">Class 10-B</option>
-                  <option value="Class 11-A">Class 11-A (Science)</option>
-                  <option value="Class 11-B">Class 11-B (Commerce)</option>
-                  <option value="Class 12-A">Class 12-A (Science)</option>
-                  <option value="Class 12-B">Class 12-B (Commerce)</option>
-                </select>
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300">
+                  SECTION 1
+                </span>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                  <Calendar className="w-5 h-5 text-indigo-600" />
+                  Plan Lesson (Chapter, Class, Syllabus & Target Dates)
+                </h3>
               </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Choose Subject
-                </label>
-                <select
-                  value={selectedSubject}
-                  onChange={(e) => setSelectedSubject(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
-                >
-                  <option value="Physics">Physics</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="Science & Tech">Science & Tech</option>
-                  <option value="Chemistry">Chemistry</option>
-                  <option value="English">English</option>
-                </select>
-              </div>
+              <p className="text-xs text-slate-500 hidden sm:block font-medium">
+                Interlinked with Staff Directory & Class Allocations
+              </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* SELECT TEACHER */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Select Teacher (Staff Directory Database)
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                  1. Select Teacher
                 </label>
                 <select
                   value={teacherName}
-                  onChange={(e) => handleSelectTeacher(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setTeacherName(name);
+                    const found = staff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
+                    if (found) {
+                      setTeacherRole(found.designation);
+                      if (found.assignedClasses && found.assignedClasses.length > 0) {
+                        setSelectedClass(found.assignedClasses[0]);
+                      }
+                      if (found.assignedSubjects && found.assignedSubjects.length > 0) {
+                        setSelectedSubject(found.assignedSubjects[0]);
+                      }
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
                 >
-                  {staff.map((stf) => (
-                    <option key={stf.id} value={stf.fullName}>
-                      {stf.fullName} ({stf.designation} - {stf.department})
+                  {staff.map((stf, idx) => (
+                    <option key={`${stf.id}-${idx}`} value={stf.fullName}>
+                      {stf.fullName} {stf.status === 'Absent' ? '🔴 (Absent)' : '🟢'} — [{stf.designation}]
                     </option>
                   ))}
                 </select>
               </div>
 
+              {/* SELECT CLASS (FILTERS TEACHER) */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Designation / Role
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                  2. Select Class & Section
                 </label>
-                <input
-                  type="text"
-                  value={teacherRole}
-                  onChange={(e) => setTeacherRole(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                />
+                <select
+                  value={selectedClass}
+                  onChange={(e) => {
+                    const cls = e.target.value;
+                    setSelectedClass(cls);
+                    // Find teacher allocated to this class
+                    const allocTeacher = staff.find(s => s.assignedClasses?.includes(cls) || s.classTeacherOf === cls);
+                    if (allocTeacher) {
+                      setTeacherName(allocTeacher.fullName);
+                      setTeacherRole(allocTeacher.designation);
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+                >
+                  <option value="Class 10-A">Class 10-A</option>
+                  <option value="Class 10-B">Class 10-B</option>
+                  <option value="Class 9-A">Class 9-A</option>
+                  <option value="Class 8-A">Class 8-A</option>
+                  <option value="Class 7-A">Class 7-A</option>
+                  <option value="Class 6-A">Class 6-A</option>
+                  <option value="Class 12-A">Class 12-A</option>
+                  <option value="Class 11-A">Class 11-A</option>
+                  <option value="PG-A">PG-A (Pre-Primary)</option>
+                  <option value="Nursery-A">Nursery-A</option>
+                  <option value="LKG-A">LKG-A</option>
+                  <option value="UKG-A">UKG-A</option>
+                </select>
+              </div>
+
+              {/* SELECT SUBJECT */}
+              <div>
+                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
+                  3. Select Subject
+                </label>
+                <select
+                  value={selectedSubject}
+                  onChange={(e) => {
+                    const subj = e.target.value;
+                    setSelectedSubject(subj);
+                    // Auto populate topic syllabus
+                    if (subj === 'Mathematics') setTopic('Quadratic Equations, Factorization & Discriminant Formula');
+                    else if (subj === 'Physics') setTopic('Light Reflection, Refraction, Ray Diagrams & Lens Formula');
+                    else if (subj === 'Chemistry') setTopic('Chemical Reactions, Balancing Equations & Oxidation');
+                    else if (subj === 'English') setTopic('Direct-Indirect Speech, Tenses & Letter Writing');
+                  }}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+                >
+                  <option value="Mathematics">Mathematics</option>
+                  <option value="Physics">Physics</option>
+                  <option value="Chemistry">Chemistry</option>
+                  <option value="Science & Tech">Science & Tech</option>
+                  <option value="English">English</option>
+                  <option value="Hindi">Hindi</option>
+                  <option value="Computer Science">Computer Science</option>
+                  <option value="Social Studies">Social Studies</option>
+                </select>
               </div>
             </div>
 
+            {/* LESSON TOPIC & SYLLABUS DETAIL */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Lesson Topic Name (Pre-populated / Customizable)
+              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>4. Chapter Name & Syllabus Topic (Auto-loaded & Editable)</span>
+                <span className="text-[10px] text-indigo-600 font-bold">Auto-suggested from Master Syllabus</span>
               </label>
               <textarea
                 rows={2}
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
-                placeholder="Enter topic name and scope..."
+                className="w-full p-3 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder="Enter lesson chapter, topics, and practical scope..."
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* TARGET DATES */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Planning Start Date
+                </label>
+                <input
+                  type="date"
+                  value="2026-04-01"
+                  onChange={() => {}}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                />
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                   Target Completion Week
@@ -713,97 +747,125 @@ export const LessonPlansModule: React.FC = () => {
                   type="text"
                   value={targetWeek}
                   onChange={(e) => setTargetWeek(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
                 />
               </div>
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Target Date
+                  Target Completion Date
                 </label>
                 <input
                   type="date"
                   value={targetDate}
                   onChange={(e) => setTargetDate(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold"
                 />
               </div>
-            </div>
-
-            {/* THREE MANDATORY BUTTONS REQUIREMENT */}
-            <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
-              <label className="block text-xs font-extrabold text-slate-900 dark:text-white">
-                Select Lesson Completion Status (Select One):
-              </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Button 1: On time completed */}
-                <button
-                  type="button"
-                  onClick={() => setStatus('COMPLETED_ON_TIME')}
-                  className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border ${
-                    status === 'COMPLETED_ON_TIME'
-                      ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400'
-                      : 'bg-white dark:bg-slate-800 text-emerald-700 border-emerald-300 hover:bg-emerald-50'
-                  }`}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>On time completed</span>
-                </button>
-
-                {/* Button 2: Not completed on time */}
-                <button
-                  type="button"
-                  onClick={() => setStatus('NOT_COMPLETED_ON_TIME')}
-                  className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer border ${
-                    status === 'NOT_COMPLETED_ON_TIME'
-                      ? 'bg-red-600 text-white border-red-700 shadow-md ring-2 ring-red-400'
-                      : 'bg-white dark:bg-slate-800 text-red-700 border-red-300 hover:bg-red-50'
-                  }`}
-                >
-                  <XCircle className="w-4 h-4" />
-                  <span>Not completed on time</span>
-                </button>
-              </div>
-
-              {/* Button 3: Periods Required */}
-              <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-indigo-600" />
-                  Specify Number of Periods Required to Cover Lesson:
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  max={50}
-                  value={periodsRequired}
-                  onChange={(e) => setPeriodsRequired(parseInt(e.target.value) || 1)}
-                  className="w-24 px-3 py-1.5 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl font-mono font-bold text-slate-900 dark:text-white text-center"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Remarks / Delay Explanation
-              </label>
-              <input
-                type="text"
-                value={remarks}
-                onChange={(e) => setRemarks(e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-                placeholder="Explain extra period requirement or lab needs..."
-              />
             </div>
 
             <button
-              type="submit"
-              className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+              type="button"
+              onClick={handleTeacherSave}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer flex items-center gap-2"
             >
-              <Sparkles className="w-4 h-4" />
-              <span>Submit & Save Lesson Plan Status</span>
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Save Planned Lesson to Syllabus Engine</span>
             </button>
-          </form>
+          </div>
+
+          {/* SECTION 2: STATUS UPDATE */}
+          <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                SECTION 2
+              </span>
+              <h3 className="text-base font-extrabold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                Lesson Status Update & Principal Reporting
+              </h3>
+              <p className="text-xs text-slate-500">
+                Select planned lesson, mark whether completed on time, and request extra days/periods if delayed.
+              </p>
+            </div>
+
+            <form onSubmit={handleTeacherSave} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    Completion Status
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setStatus('COMPLETED_ON_TIME')}
+                      className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                        status === 'COMPLETED_ON_TIME'
+                          ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-400'
+                          : 'bg-slate-50 dark:bg-slate-800 text-emerald-700 border-slate-200 hover:bg-emerald-50'
+                      }`}
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Completed On Time</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setStatus('NOT_COMPLETED_ON_TIME')}
+                      className={`p-3 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border ${
+                        status === 'NOT_COMPLETED_ON_TIME'
+                          ? 'bg-rose-600 text-white border-rose-700 shadow-md ring-2 ring-rose-400'
+                          : 'bg-slate-50 dark:bg-slate-800 text-rose-700 border-slate-200 hover:bg-rose-50'
+                      }`}
+                    >
+                      <XCircle className="w-4 h-4" />
+                      <span>Not Completed On Time</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    {status === 'NOT_COMPLETED_ON_TIME' ? '🔴 Extra Days / Periods Needed' : 'Periods Required'}
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={periodsRequired}
+                      onChange={(e) => setPeriodsRequired(parseInt(e.target.value) || 1)}
+                      className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold text-slate-900 dark:text-white"
+                    />
+                    <span className="text-xs font-extrabold text-slate-500 whitespace-nowrap">
+                      {status === 'NOT_COMPLETED_ON_TIME' ? 'Extra Days Requested' : 'Total Periods'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Status Remarks / Explanation for Principal
+                </label>
+                <input
+                  type="text"
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
+                  placeholder="Explain status update, delay cause, or extra period requirement..."
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Send className="w-4 h-4" />
+                <span>Submit Status Update to Principal Section</span>
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -826,9 +888,9 @@ export const LessonPlansModule: React.FC = () => {
             <div className="p-8 text-center text-xs text-slate-500">No communication alerts recorded yet.</div>
           ) : (
             <div className="space-y-3">
-              {alerts.map((alt) => (
+              {alerts.map((alt, idx) => (
                 <div
-                  key={alt.id}
+                  key={`${alt.id}-${idx}`}
                   className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="space-y-1">
@@ -999,11 +1061,11 @@ export const LessonPlansModule: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {plans.map((p) => {
+              {plans.map((p, idx) => {
                 const isGreen = p.status === 'COMPLETED_ON_TIME';
                 const isRed = p.status === 'NOT_COMPLETED_ON_TIME';
                 return (
-                  <tr key={p.id} className="border-b border-slate-200">
+                  <tr key={`${p.id}-${idx}`} className="border-b border-slate-200">
                     <td className="p-2 border border-slate-300 font-black">{p.className}</td>
                     <td className="p-2 border border-slate-300 font-bold">{p.subject}</td>
                     <td className="p-2 border border-slate-300">{p.teacherName}</td>

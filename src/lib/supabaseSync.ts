@@ -113,24 +113,25 @@ export async function syncAdmissionLeadToSupabase(
     parent_name: app.parentName || '',
     phone: app.contactNumber || '',
     class_seeking: app.applyingClass || 'Class 1',
-    lead_source: 'Online Portal',
+    lead_source: app.inquirySource || 'Online Portal',
     status: app.status || 'Received'
   };
 
   const res = await upsertRecord('admission_leads', payload, 'lead_no', userContext);
 
-  // Sync to admission_fee_schedules table
+  // Sync to admission_fee_schedules table with live centralized fee breakdown
+  const fb = app.feeBreakdown;
   await upsertRecord('admission_fee_schedules', {
     application_no: app.applicationNo || `APP-${Date.now()}`,
     student_name: (app.studentName || '').toUpperCase(),
     class_name: app.applyingClass || 'Class 1',
-    registration_fee: app.registrationFee || 1500,
-    admission_fee: 25000,
-    tuition_fee: 18000,
-    transport_fee: 4500,
-    commitment_fee: 5000,
-    lab_fee: 3000,
-    total_fee: (app.registrationFee || 1500) + 55500,
+    registration_fee: app.registrationFee || fb?.registrationFee || 1500,
+    admission_fee: fb?.admissionFee || 25000,
+    tuition_fee: fb?.tuitionFee || 18000,
+    transport_fee: fb?.transportFee || 4500,
+    commitment_fee: fb?.commitmentFee || 5000,
+    lab_fee: fb?.labFee || 3000,
+    total_fee: fb?.totalFee || ((app.registrationFee || 1500) + 55500),
     fee_paid: Boolean(app.feePaid)
   }, 'application_no', userContext);
 

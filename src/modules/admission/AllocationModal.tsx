@@ -33,7 +33,7 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
     if (!existing) {
       // Create new student in master SIS roster
       addStudent({
-        admissionNo: `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
+        admissionNo: application.applicationNo.includes('ADM') ? application.applicationNo : `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
         registrationNo: `REG-${Math.floor(10000 + Math.random() * 90000)}`,
         scholarNo: `SCH-${Math.floor(1000 + Math.random() * 9000)}`,
         penNo: `PEN-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
@@ -41,10 +41,12 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
         aadhaarNo: '7812 9012 3456',
         fullName: application.studentName,
         gender: application.gender || 'Male',
-        dob: application.dob || '2010-05-10',
+        dob: application.dob || '2019-05-10',
         bloodGroup: 'O+',
-        religion: 'Hinduism',
-        category: 'General',
+        religion: application.religion || 'Hinduism',
+        caste: application.caste || '',
+        category: application.category || 'General',
+        studentCategory: application.studentCategory || 'Normal Child',
         nationality: 'Indian',
         motherTongue: 'Hindi',
         photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
@@ -57,9 +59,17 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
         clubName: selectedClub,
         groupAActivity: selectedIndoor,
         groupBActivity: selectedOutdoor,
+        previousSchool: application.previousSchool || 'None',
         transportRequired: true,
         busRouteNo: 'Route 1 - Civil Lines Metro',
         hostelRequired: false,
+        hasSiblingInSchool: Boolean(application.hasSiblingInSchool),
+        appliedOtherSchool: Boolean(application.appliedOtherSchool),
+        otherSchoolDetails: application.otherSchoolDetails || '',
+        forceAdmission: application.forceAdmission,
+        forceAdmissionReason: application.forceAdmissionReason,
+        forceAdmissionAuthorizedBy: application.forceAdmissionAuthorizedBy,
+        forceAdmissionTimestamp: application.forceAdmissionTimestamp,
         parents: {
           fatherName: application.parentName,
           fatherMobile: application.contactNumber,
@@ -67,16 +77,22 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
           fatherOccupation: application.parentOccupation || 'Doctor / Engineer',
           fatherIncome: '18,00,000 PA',
           fatherQualification: 'Graduate',
-          motherName: 'Mother',
+          motherName: application.motherName || 'Mother',
           motherOccupation: application.motherOccupation || 'Educator',
           motherMobile: application.contactNumber,
           motherEmail: application.email || 'mother@example.com',
-          address: 'Main Town, Delhi NCR',
+          address: application.address || 'Main Town, Delhi NCR',
           emergencyContact: application.contactNumber
         },
         medical: { bloodGroup: 'O+', disability: false },
         documents: [],
-        siblings: [],
+        siblings: (application.siblingsList || []).map((s, idx) => ({
+          id: `sib-${idx}`,
+          name: s.name,
+          classSection: s.className,
+          admissionNo: s.admissionNo,
+          relation: s.relation === 'Sister' ? 'Sister' : 'Brother'
+        })),
         promotions: [],
         status: 'Active'
       });

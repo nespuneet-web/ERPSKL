@@ -1373,11 +1373,11 @@ export const TimetableModule: React.FC = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                {teacherTimetables.map((t) => {
+                {teacherTimetables.map((t, idx) => {
                   const status = teacherAttendanceMap[t.teacherName] || 'Present';
                   return (
                     <div
-                      key={t.id}
+                      key={`${t.id}-${idx}`}
                       className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
                         status === 'Absent'
                           ? 'bg-rose-950/60 border-rose-500/80 text-rose-100'
@@ -1442,8 +1442,8 @@ export const TimetableModule: React.FC = () => {
                   onChange={(e) => setSelectedAbsentTeacher(e.target.value)}
                   className="w-full px-3.5 py-2.5 text-xs font-bold bg-slate-900 border border-blue-600 rounded-xl text-white shadow-inner"
                 >
-                  {teacherTimetables.map((st) => (
-                    <option key={st.id} value={st.teacherName}>
+                  {teacherTimetables.map((st, idx) => (
+                    <option key={`${st.id}-${idx}`} value={st.teacherName}>
                       👨‍🏫 {st.teacherName} — [{teacherAttendanceMap[st.teacherName] || 'Present'}] ({st.department || 'Senior Secondary'})
                     </option>
                   ))}
@@ -1674,7 +1674,7 @@ export const TimetableModule: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
-                  {arrangements.map((a) => {
+                  {arrangements.map((a, idx) => {
                     const absDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.absentTeacherName)?.department);
                     const subDept = getDepartmentTheme(teacherTimetables.find((t) => t.teacherName === a.substituteTeacherName)?.department);
 
@@ -1685,7 +1685,7 @@ export const TimetableModule: React.FC = () => {
                     });
 
                     return (
-                      <tr key={a.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                      <tr key={`${a.id}-${idx}`} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                         <td className="py-3 px-4 font-mono font-bold text-blue-600">
                           Period #{a.periodNumber} ({a.timeSlot})
                         </td>
@@ -1711,8 +1711,8 @@ export const TimetableModule: React.FC = () => {
                               </option>
                               {freeForThisPeriod
                                 .filter((f) => f.teacherName !== a.substituteTeacherName)
-                                .map((f) => (
-                                  <option key={f.id} value={f.teacherName}>
+                                .map((f, fIdx) => (
+                                  <option key={`${f.id}-${fIdx}`} value={f.teacherName}>
                                     🔄 {f.teacherName} ({f.department || 'Senior Sec'})
                                   </option>
                                 ))}
