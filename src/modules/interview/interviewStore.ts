@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CandidateApplicant, InterviewerRating } from '../../types/interview';
 import { INITIAL_CANDIDATES } from '../../data/mockData';
+import { syncExitInterviewToSupabase } from '../../lib/supabaseSync';
 
 const INTERVIEW_STORAGE_KEY = 'schoolerp_interview_candidates_v1';
 
@@ -24,6 +25,16 @@ export function useInterviewStore() {
       ratings: []
     };
     setCandidates((prev) => [newCand, ...prev]);
+
+    syncExitInterviewToSupabase({
+      candidateName: newCand.fullName,
+      department: newCand.subjectExpertise || 'Academic',
+      designation: newCand.appliedPosition,
+      feedbackNotes: `Applied for ${newCand.appliedPosition}`,
+      rating: 'New Application',
+      status: 'New'
+    });
+
     return newCand;
   };
 

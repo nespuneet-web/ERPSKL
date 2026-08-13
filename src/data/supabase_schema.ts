@@ -567,6 +567,23 @@ BEGIN
 END $$;
 
 -- ====================================================================
+-- AUTO-MIGRATIONS FOR EXISTING TABLES (Safe execution on existing DBs)
+-- ====================================================================
+ALTER TABLE public.fee_structures ADD COLUMN IF NOT EXISTS commitment_fee NUMERIC(10, 2) DEFAULT 5000.00;
+ALTER TABLE public.fee_structures ADD COLUMN IF NOT EXISTS lab_fee NUMERIC(10, 2) DEFAULT 3000.00;
+
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS registration_fee NUMERIC(10, 2) DEFAULT 1500.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS admission_fee NUMERIC(10, 2) DEFAULT 25000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS tuition_fee NUMERIC(10, 2) DEFAULT 18000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS transport_fee NUMERIC(10, 2) DEFAULT 4500.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS commitment_fee NUMERIC(10, 2) DEFAULT 5000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS lab_fee NUMERIC(10, 2) DEFAULT 3000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS total_fee NUMERIC(10, 2) DEFAULT 57000.00;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS fee_paid BOOLEAN DEFAULT false;
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS payment_mode VARCHAR(50) DEFAULT 'Quarterly';
+ALTER TABLE public.admission_fee_schedules ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'Offered';
+
+-- ====================================================================
 -- PRE-SEEDED INITIAL DATA FOR ALL WEB ERP SECTIONS
 -- ====================================================================
 

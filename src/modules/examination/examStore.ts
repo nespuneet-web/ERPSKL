@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ExaminationType, SubjectConfig, ExamMarkSheet, ReportCardTemplate, StudentMarkEntry } from '../../types/examination';
 import { INITIAL_EXAM_TYPES, INITIAL_SUBJECTS, INITIAL_REPORT_TEMPLATES } from '../../data/mockData';
-import { syncMarksheetToSupabase } from '../../lib/supabaseSync';
+import { syncMarksheetToSupabase, fetchMarksheetsFromSupabase } from '../../lib/supabaseSync';
 
 const EXAM_TYPES_KEY = 'schoolerp_exam_types_v1';
 const SUBJECTS_KEY = 'schoolerp_subjects_v1';
@@ -62,6 +62,41 @@ export function useExamStore() {
   useEffect(() => {
     localStorage.setItem(TEMPLATES_KEY, JSON.stringify(reportTemplates));
   }, [reportTemplates]);
+
+  // Load Remote Student Marks from Supabase on mount
+  useEffect(() => {
+    let active = true;
+    async function loadRemoteMarks() {
+      const remoteMarks = await fetchMarksheetsFromSupabase();
+      if (remoteMarks && remoteMarks.length > 0 && active) {
+        setMarksheets((prev) => {
+          const updated = [...prev];
+          remoteMarks.forEach((m: any) => {
+            const studentId = m.student_admission_no;
+            const marksObtained = Number(m.marks_obtained) || 0;
+            // Merge into active marksheets if existing or create
+            let sheet = updated[0];
+            if (sheet) {
+              sheet.entries = {
+                ...sheet.entries,
+                [studentId]: {
+                  studentId,
+                  theoryMarks: marksObtained,
+                  internalMarks: 0,
+                  totalMarksObtained: marksObtained,
+                  status: 'Present',
+                  remarks: m.remarks || 'Evaluated'
+                }
+              };
+            }
+          });
+          return [...updated];
+        });
+      }
+    }
+    loadRemoteMarks();
+    return () => { active = false; };
+  }, []);
 
   // Actions
   const addExamType = (exam: Omit<ExaminationType, 'id'>) => {

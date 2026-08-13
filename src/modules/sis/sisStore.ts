@@ -59,7 +59,10 @@ export function useSisStore() {
         setStudents((prev) => {
           const map: Record<string, Student> = {};
           prev.forEach((s) => { map[s.admissionNo] = s; });
-          remote.forEach((s) => { map[s.admissionNo] = s; });
+          remote.forEach((r) => {
+            const existing = map[r.admissionNo];
+            map[r.admissionNo] = existing ? { ...r, ...existing } : r;
+          });
           return ensureUniqueStudentIds(Object.values(map));
         });
       }

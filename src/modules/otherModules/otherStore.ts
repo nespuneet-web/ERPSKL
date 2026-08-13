@@ -1,10 +1,29 @@
 import { useState, useEffect } from 'react';
 import { AttendanceRecord, FeeTransaction, TimetableSlot, LibraryBook, NoticeItem, VisitorPass, InventoryItem, StaffMember } from '../../types/otherModules';
 import { INITIAL_STAFF, INITIAL_ROUTES, INITIAL_NOTICES } from '../../data/mockData';
-import { syncFeeCollectionToSupabase, fetchStaffFromSupabase, syncStaffToSupabase } from '../../lib/supabaseSync';
+import {
+  syncFeeCollectionToSupabase,
+  fetchFeeCollectionsFromSupabase,
+  fetchStaffFromSupabase,
+  syncStaffToSupabase,
+  syncAttendanceToSupabase,
+  fetchAttendanceFromSupabase,
+  syncInventoryToSupabase,
+  fetchInventoryFromSupabase,
+  syncLibraryBookToSupabase,
+  fetchLibraryBooksFromSupabase,
+  syncVisitorPassToSupabase,
+  fetchVisitorPassesFromSupabase,
+  syncTransportRouteToSupabase,
+  fetchTransportRoutesFromSupabase
+} from '../../lib/supabaseSync';
 import { deleteRecord } from '../../lib/dbUtility';
 
-const OTHER_STORAGE_KEY = 'schoolerp_other_modules_v1';
+const STORAGE_ATTENDANCE_KEY = 'schoolerp_attendance_v1';
+const STORAGE_FEES_KEY = 'schoolerp_fees_v1';
+const STORAGE_BOOKS_KEY = 'schoolerp_books_v1';
+const STORAGE_VISITORS_KEY = 'schoolerp_visitors_v1';
+const STORAGE_INVENTORY_KEY = 'schoolerp_inventory_v1';
 
 const INITIAL_ATTENDANCE: AttendanceRecord[] = [
   { id: 'att-1', studentId: 'std-101', studentName: 'Aarav Sharma', classSection: 'Class 10-A', rollNo: 1, date: new Date().toISOString().split('T')[0], status: 'Present' },
@@ -53,13 +72,52 @@ function ensureUniqueStaffIds(list: StaffMember[]): StaffMember[] {
 }
 
 export function useOtherModulesStore() {
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(INITIAL_ATTENDANCE);
-  const [fees, setFees] = useState<FeeTransaction[]>(INITIAL_FEES);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_ATTENDANCE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_ATTENDANCE;
+  });
+
+  const [fees, setFees] = useState<FeeTransaction[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_FEES_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_FEES;
+  });
+
   const [timetable, setTimetable] = useState<TimetableSlot[]>(INITIAL_TIMETABLE);
-  const [books, setBooks] = useState<LibraryBook[]>(INITIAL_BOOKS);
+
+  const [books, setBooks] = useState<LibraryBook[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_BOOKS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_BOOKS;
+  });
+
   const [notices, setNotices] = useState<NoticeItem[]>(INITIAL_NOTICES);
-  const [visitors, setVisitors] = useState<VisitorPass[]>(INITIAL_VISITORS);
-  const [inventory, setInventory] = useState<InventoryItem[]>(INITIAL_INVENTORY);
+
+  const [visitors, setVisitors] = useState<VisitorPass[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_VISITORS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_VISITORS;
+  });
+
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_INVENTORY_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) { console.error(e); }
+    return INITIAL_INVENTORY;
+  });
+
+  const [routes, setRoutes] = useState(INITIAL_ROUTES);
+
   const [staff, setStaff] = useState<StaffMember[]>(() => {
     try {
       const saved = localStorage.getItem('schoolerp_staff_list_v1');
@@ -70,6 +128,27 @@ export function useOtherModulesStore() {
     return ensureUniqueStaffIds(INITIAL_STAFF);
   });
 
+  // LocalStorage Sync Effects
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_ATTENDANCE_KEY, JSON.stringify(attendance)); } catch (e) { console.error(e); }
+  }, [attendance]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_FEES_KEY, JSON.stringify(fees)); } catch (e) { console.error(e); }
+  }, [fees]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_BOOKS_KEY, JSON.stringify(books)); } catch (e) { console.error(e); }
+  }, [books]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_VISITORS_KEY, JSON.stringify(visitors)); } catch (e) { console.error(e); }
+  }, [visitors]);
+
+  useEffect(() => {
+    try { localStorage.setItem(STORAGE_INVENTORY_KEY, JSON.stringify(inventory)); } catch (e) { console.error(e); }
+  }, [inventory]);
+
   useEffect(() => {
     try {
       localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(staff));
@@ -78,27 +157,87 @@ export function useOtherModulesStore() {
     }
   }, [staff]);
 
-  // Load remote staff from Supabase on mount
+  // Load Remote Data from Supabase on mount
   useEffect(() => {
     let active = true;
-    async function loadRemoteStaff() {
-      const remote = await fetchStaffFromSupabase();
-      if (remote && remote.length > 0 && active) {
+
+    async function loadAllRemote() {
+      // Remote Staff
+      const remoteStaff = await fetchStaffFromSupabase();
+      if (remoteStaff && remoteStaff.length > 0 && active) {
         setStaff((prev) => {
           const map: Record<string, StaffMember> = {};
           prev.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
-          remote.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
+          remoteStaff.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
           const merged = ensureUniqueStaffIds(Object.values(map));
-          try {
-            localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(merged));
-          } catch (e) {
-            console.error(e);
-          }
+          try { localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(merged)); } catch (e) {}
           return merged;
         });
       }
+
+      // Remote Fees
+      const remoteFees = await fetchFeeCollectionsFromSupabase();
+      if (remoteFees && remoteFees.length > 0 && active) {
+        setFees((prev) => {
+          const map: Record<string, FeeTransaction> = {};
+          prev.forEach((f) => { map[f.receiptNo] = f; });
+          remoteFees.forEach((f) => { map[f.receiptNo] = f; });
+          return Object.values(map);
+        });
+      }
+
+      // Remote Attendance
+      const remoteAtt = await fetchAttendanceFromSupabase();
+      if (remoteAtt && remoteAtt.length > 0 && active) {
+        setAttendance((prev) => {
+          const map: Record<string, AttendanceRecord> = {};
+          prev.forEach((a) => { map[`${a.studentId}-${a.date}`] = a; });
+          remoteAtt.forEach((a) => { map[`${a.studentId}-${a.date}`] = a; });
+          return Object.values(map);
+        });
+      }
+
+      // Remote Inventory
+      const remoteInv = await fetchInventoryFromSupabase();
+      if (remoteInv && remoteInv.length > 0 && active) {
+        setInventory((prev) => {
+          const map: Record<string, InventoryItem> = {};
+          prev.forEach((i) => { map[i.itemCode] = i; });
+          remoteInv.forEach((i) => { map[i.itemCode] = i; });
+          return Object.values(map);
+        });
+      }
+
+      // Remote Library Books
+      const remoteBks = await fetchLibraryBooksFromSupabase();
+      if (remoteBks && remoteBks.length > 0 && active) {
+        setBooks((prev) => {
+          const map: Record<string, LibraryBook> = {};
+          prev.forEach((b) => { map[b.isbn] = b; });
+          remoteBks.forEach((b) => { map[b.isbn] = b; });
+          return Object.values(map);
+        });
+      }
+
+      // Remote Visitors
+      const remoteVis = await fetchVisitorPassesFromSupabase();
+      if (remoteVis && remoteVis.length > 0 && active) {
+        setVisitors((prev) => {
+          const map: Record<string, VisitorPass> = {};
+          prev.forEach((v) => { map[v.passNo] = v; });
+          remoteVis.forEach((v) => { map[v.passNo] = v; });
+          return Object.values(map);
+        });
+      }
+
+      // Remote Transport Routes
+      const remoteRt = await fetchTransportRoutesFromSupabase();
+      if (remoteRt && remoteRt.length > 0 && active) {
+        setRoutes(remoteRt);
+      }
     }
-    loadRemoteStaff();
+
+    loadAllRemote();
 
     const handleStaffEvent = (e: Event) => {
       const customEvent = e as CustomEvent<StaffMember[]>;
@@ -192,7 +331,6 @@ export function useOtherModulesStore() {
       await syncStaffToSupabase(updatedStaffMember);
     }
   };
-  const [routes] = useState(INITIAL_ROUTES);
 
   const [feeSyncStatus, setFeeSyncStatus] = useState<string | null>(null);
 
@@ -221,12 +359,23 @@ export function useOtherModulesStore() {
     return newTrx;
   };
 
-  const markAttendance = (records: AttendanceRecord[]) => {
+  const markAttendance = async (records: AttendanceRecord[]) => {
     setAttendance((prev) => {
       const dates = records.map((r) => r.date);
       const filtered = prev.filter((p) => !dates.includes(p.date));
       return [...records, ...filtered];
     });
+
+    for (const rec of records) {
+      const [cls, sec] = (rec.classSection || 'Class 10-A').split('-');
+      await syncAttendanceToSupabase({
+        date: rec.date,
+        className: cls || 'Class 10',
+        section: sec || 'A',
+        studentAdmissionNo: rec.studentId || 'ADM-001',
+        status: rec.status
+      });
+    }
   };
 
   const addNotice = (notice: Omit<NoticeItem, 'id' | 'date'>) => {
@@ -238,7 +387,7 @@ export function useOtherModulesStore() {
     setNotices((prev) => [newNot, ...prev]);
   };
 
-  const addVisitor = (visitor: Omit<VisitorPass, 'id' | 'passNo' | 'entryTime' | 'status'>) => {
+  const addVisitor = async (visitor: Omit<VisitorPass, 'id' | 'passNo' | 'entryTime' | 'status'>) => {
     const newVis: VisitorPass = {
       ...visitor,
       id: `vis-${Date.now()}`,
@@ -247,14 +396,71 @@ export function useOtherModulesStore() {
       status: 'Inside'
     };
     setVisitors((prev) => [newVis, ...prev]);
+    await syncVisitorPassToSupabase({
+      passNo: newVis.passNo,
+      visitorName: newVis.visitorName,
+      phone: newVis.phone,
+      purpose: newVis.purpose,
+      whomToMeet: newVis.whomToMeet,
+      entryTime: newVis.entryTime,
+      status: 'Inside'
+    });
   };
 
-  const checkOutVisitor = (id: string) => {
+  const checkOutVisitor = async (id: string) => {
+    let targetPass: VisitorPass | null = null;
     setVisitors((prev) =>
-      prev.map((v) =>
-        v.id === id ? { ...v, status: 'Checked Out', exitTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : v
-      )
+      prev.map((v) => {
+        if (v.id === id || v.passNo === id) {
+          targetPass = { ...v, status: 'Checked Out', exitTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+          return targetPass;
+        }
+        return v;
+      })
     );
+    if (targetPass) {
+      await syncVisitorPassToSupabase({
+        passNo: (targetPass as VisitorPass).passNo,
+        visitorName: (targetPass as VisitorPass).visitorName,
+        phone: (targetPass as VisitorPass).phone,
+        purpose: (targetPass as VisitorPass).purpose,
+        whomToMeet: (targetPass as VisitorPass).whomToMeet,
+        entryTime: (targetPass as VisitorPass).entryTime,
+        status: 'Checked Out'
+      });
+    }
+  };
+
+  const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
+    const newItem: InventoryItem = {
+      ...item,
+      id: `inv-${Date.now()}`
+    };
+    setInventory((prev) => [newItem, ...prev]);
+    await syncInventoryToSupabase({
+      itemCode: newItem.itemCode,
+      itemName: newItem.itemName,
+      category: newItem.category,
+      quantity: newItem.quantity,
+      unitPrice: newItem.unitPrice
+    });
+  };
+
+  const addBook = async (book: Omit<LibraryBook, 'id' | 'copiesAvailable'>) => {
+    const newBook: LibraryBook = {
+      ...book,
+      id: `bk-${Date.now()}`,
+      copiesAvailable: book.copiesTotal
+    };
+    setBooks((prev) => [newBook, ...prev]);
+    await syncLibraryBookToSupabase({
+      isbn: newBook.isbn,
+      title: newBook.title,
+      author: newBook.author,
+      category: newBook.category,
+      copiesTotal: newBook.copiesTotal,
+      rackLocation: newBook.rackLocation
+    });
   };
 
   return {
@@ -271,6 +477,8 @@ export function useOtherModulesStore() {
     addVisitor,
     checkOutVisitor,
     inventory,
+    addInventoryItem,
+    addBook,
     staff,
     addStaffMember,
     deleteStaffMember,

@@ -48,7 +48,10 @@ export function useAdmissionStore() {
         setApplications((prev) => {
           const map: Record<string, AdmissionApplication> = {};
           prev.forEach((a) => { map[a.applicationNo] = a; });
-          remote.forEach((a) => { map[a.applicationNo] = a; });
+          remote.forEach((r) => {
+            const existing = map[r.applicationNo];
+            map[r.applicationNo] = existing ? { ...r, ...existing } : r;
+          });
           return ensureUniqueAppIds(Object.values(map));
         });
       }

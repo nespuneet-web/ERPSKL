@@ -1,4 +1,8 @@
 import { useState, useEffect } from 'react';
+import {
+  syncStudentAcademicPermissionsToSupabase,
+  fetchStudentAcademicPermissionsFromSupabase
+} from '../../lib/supabaseSync';
 
 export interface StudentAcademicPermission {
   studentId: string;
@@ -98,11 +102,30 @@ export function useAcademicPermissions() {
     }
   }, [globalReportCardActive]);
 
+  // Remote Supabase Load on mount
+  useEffect(() => {
+    let active = true;
+    async function loadRemotePermissions() {
+      const remote = await fetchStudentAcademicPermissionsFromSupabase();
+      if (remote && remote.length > 0 && active) {
+        setPermissions((prev) => {
+          const map: Record<string, StudentAcademicPermission> = {};
+          prev.forEach((p) => { map[p.studentId] = p; });
+          remote.forEach((p) => { map[p.studentId] = p; });
+          return Object.values(map);
+        });
+      }
+    }
+    loadRemotePermissions();
+    return () => { active = false; };
+  }, []);
+
   const toggleStudentPermission = (studentId: string, field: 'halfYearlyGranted' | 'annualGranted' | 'unitTestGranted' | 'reportCardActive') => {
+    let updatedPerm: StudentAcademicPermission | null = null;
     setPermissions((prev) => {
       const exists = prev.some((p) => p.studentId === studentId);
       if (!exists) {
-        const newPerm: StudentAcademicPermission = {
+        updatedPerm = {
           studentId,
           studentName: 'Student',
           className: 'Class 10-A',
@@ -113,10 +136,20 @@ export function useAcademicPermissions() {
           updatedAt: new Date().toISOString().split('T')[0],
           grantedBy: 'Admission Panel'
         };
-        return [...prev, newPerm];
+        return [...prev, updatedPerm];
       }
-      return prev.map((p) => (p.studentId === studentId ? { ...p, [field]: !p[field], updatedAt: new Date().toISOString().split('T')[0] } : p));
+      return prev.map((p) => {
+        if (p.studentId === studentId) {
+          updatedPerm = { ...p, [field]: !p[field], updatedAt: new Date().toISOString().split('T')[0] };
+          return updatedPerm;
+        }
+        return p;
+      });
     });
+
+    if (updatedPerm) {
+      syncStudentAcademicPermissionsToSupabase(updatedPerm);
+    }
   };
 
   const grantAllPermissions = () => {

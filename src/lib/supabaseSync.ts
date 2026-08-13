@@ -332,6 +332,25 @@ export async function syncFeeCollectionToSupabase(
   };
 }
 
+export async function fetchFeeCollectionsFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('fee_collections', { orderBy: { column: 'created_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `fee-${row.receipt_no}`,
+    receiptNo: row.receipt_no,
+    studentId: row.student_admission_no,
+    studentName: row.student_name,
+    classSection: row.class_name,
+    feeHead: row.fee_head,
+    amountPaid: row.amount_paid,
+    paymentMode: row.payment_mode,
+    transactionRef: row.transaction_ref,
+    paymentDate: row.payment_date ? new Date(row.payment_date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    status: 'Paid'
+  }));
+}
+
 /**
  * 5. STAFF SYNC
  */
@@ -469,6 +488,22 @@ export async function syncAttendanceToSupabase(
   };
 }
 
+export async function fetchAttendanceFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('daily_attendance', { orderBy: { column: 'created_at', ascending: false }, limit: 200 });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `att-${row.student_admission_no}-${row.attendance_date}`,
+    studentId: row.student_admission_no,
+    studentName: row.student_admission_no,
+    classSection: `${row.class_name}-${row.section}`,
+    rollNo: 1,
+    date: row.attendance_date,
+    status: row.status,
+    remarks: row.marked_by ? `Marked by ${row.marked_by}` : ''
+  }));
+}
+
 /**
  * 9. INVENTORY & HOSTEL SYNC
  */
@@ -497,6 +532,166 @@ export async function syncInventoryToSupabase(
     message: res.success ? `🟢 Live DB Updated: Inventory "${item.itemName}" saved to Supabase!` : (res.error || res.message),
     data: res.data
   };
+}
+
+export async function fetchInventoryFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('inventory_items', { orderBy: { column: 'created_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `inv-${row.item_code}`,
+    itemCode: row.item_code,
+    itemName: row.item_name,
+    category: row.category,
+    quantity: row.total_quantity,
+    unitPrice: row.unit_price,
+    location: 'Central Store',
+    status: 'In Stock'
+  }));
+}
+
+/**
+ * 9B. LIBRARY BOOKS SYNC & FETCH
+ */
+export async function syncLibraryBookToSupabase(
+  book: {
+    isbn: string;
+    title: string;
+    author: string;
+    category: string;
+    copiesTotal: number;
+    rackLocation?: string;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    accession_no: book.isbn || `ACC-${Date.now()}`,
+    title: book.title,
+    author: book.author,
+    category: book.category,
+    total_copies: book.copiesTotal,
+    available_copies: book.copiesTotal,
+    rack_no: book.rackLocation || 'Rack 1'
+  };
+
+  const res = await upsertRecord('library_books', payload, 'accession_no', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Book "${book.title}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchLibraryBooksFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('library_books', { orderBy: { column: 'created_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `bk-${row.accession_no}`,
+    isbn: row.accession_no,
+    title: row.title,
+    author: row.author,
+    category: row.category,
+    copiesTotal: row.total_copies,
+    copiesAvailable: row.available_copies,
+    rackLocation: row.rack_no
+  }));
+}
+
+/**
+ * 9C. VISITOR PASSES SYNC & FETCH
+ */
+export async function syncVisitorPassToSupabase(
+  pass: {
+    passNo: string;
+    visitorName: string;
+    phone: string;
+    purpose: string;
+    whomToMeet: string;
+    entryTime?: string;
+    status?: string;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    pass_no: pass.passNo || `VP-${Date.now()}`,
+    visitor_name: pass.visitorName,
+    phone: pass.phone,
+    purpose: pass.purpose,
+    whom_to_meet: pass.whomToMeet,
+    entry_time: pass.entryTime || new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    status: pass.status || 'Inside'
+  };
+
+  const res = await upsertRecord('visitor_passes', payload, 'pass_no', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Visitor Pass #${pass.passNo} saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchVisitorPassesFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('visitor_passes', { orderBy: { column: 'created_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `vis-${row.pass_no}`,
+    passNo: row.pass_no,
+    visitorName: row.visitor_name,
+    phone: row.phone,
+    purpose: row.purpose,
+    whomToMeet: row.whom_to_meet,
+    entryTime: row.entry_time,
+    status: row.status,
+    exitTime: row.exit_time
+  }));
+}
+
+/**
+ * 9D. TRANSPORT ROUTES SYNC & FETCH
+ */
+export async function syncTransportRouteToSupabase(
+  route: {
+    routeName: string;
+    busNumber: string;
+    driverName: string;
+    driverPhone: string;
+    monthlyFee: number;
+    totalCapacity?: number;
+  },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    route_name: route.routeName,
+    bus_number: route.busNumber,
+    driver_name: route.driverName,
+    driver_phone: route.driverPhone,
+    monthly_fee: route.monthlyFee,
+    total_capacity: route.totalCapacity || 40
+  };
+
+  const res = await upsertRecord('transport_routes', payload, 'route_name', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Route "${route.routeName}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchTransportRoutesFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('transport_routes', { orderBy: { column: 'route_name', ascending: true } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+
+  return (res.data as any[]).map((row: any) => ({
+    id: row.id || `rt-${row.route_name}`,
+    routeName: row.route_name,
+    busNumber: row.bus_number,
+    driverName: row.driver_name,
+    driverPhone: row.driver_phone,
+    monthlyFee: row.monthly_fee,
+    totalCapacity: row.total_capacity
+  }));
 }
 
 /**
@@ -533,6 +728,12 @@ export async function syncMarksheetToSupabase(
   };
 }
 
+export async function fetchMarksheetsFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('student_marks', { orderBy: { column: 'created_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+  return res.data as any[];
+}
+
 /**
  * 11. STUDENT ACADEMIC PERMISSIONS SYNC
  */
@@ -567,6 +768,22 @@ export async function syncStudentAcademicPermissionsToSupabase(
     message: res.success ? `🟢 Live DB Updated: Permissions for "${perm.studentName}" saved to Supabase!` : (res.error || res.message),
     data: res.data
   };
+}
+
+export async function fetchStudentAcademicPermissionsFromSupabase(): Promise<any[] | null> {
+  const res = await fetchRecords('student_academic_permissions', { orderBy: { column: 'updated_at', ascending: false } });
+  if (!res.success || !res.data || res.data.length === 0) return null;
+  return (res.data as any[]).map((row: any) => ({
+    studentId: row.student_id,
+    studentName: row.student_name,
+    className: row.class_name,
+    halfYearlyGranted: row.half_yearly_granted,
+    annualGranted: row.annual_granted,
+    unitTestGranted: row.unit_test_granted ?? true,
+    reportCardActive: row.report_card_active,
+    updatedAt: row.updated_at ? new Date(row.updated_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+    grantedBy: row.granted_by || 'Admission Panel'
+  }));
 }
 
 /**

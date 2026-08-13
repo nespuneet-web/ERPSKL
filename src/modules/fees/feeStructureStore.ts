@@ -3,7 +3,8 @@ import { ALL_SCHOOL_CLASSES } from '../../types/admission';
 import {
   syncClassFeeStructureToSupabase,
   fetchClassFeeStructuresFromSupabase,
-  syncFeeCollectionToSupabase
+  syncFeeCollectionToSupabase,
+  fetchFeeCollectionsFromSupabase
 } from '../../lib/supabaseSync';
 
 export interface ClassFeeStructure {
@@ -211,6 +212,49 @@ export function useFeeStructureStore() {
       console.error(e);
     }
   }, [transactions]);
+
+  // Remote Supabase Fetch on mount
+  useEffect(() => {
+    let active = true;
+    async function loadRemoteFeeData() {
+      const remoteStructures = await fetchClassFeeStructuresFromSupabase();
+      if (remoteStructures && remoteStructures.length > 0 && active) {
+        setFeeStructures((prev) => {
+          const map: Record<string, ClassFeeStructure> = {};
+          prev.forEach((s) => { map[s.className] = s; });
+          remoteStructures.forEach((s) => { map[s.className] = s; });
+          return Object.values(map);
+        });
+      }
+
+      const remoteFeeCol = await fetchFeeCollectionsFromSupabase();
+      if (remoteFeeCol && remoteFeeCol.length > 0 && active) {
+        setTransactions((prev) => {
+          const map: Record<string, ExtendedFeeTransaction> = {};
+          prev.forEach((t) => { map[t.receiptNo] = t; });
+          remoteFeeCol.forEach((t) => {
+            map[t.receiptNo] = {
+              id: t.id,
+              receiptNo: t.receiptNo,
+              studentId: t.studentId,
+              studentName: t.studentName,
+              classSection: t.classSection,
+              feeHead: t.feeHead,
+              amountPaid: t.amountPaid,
+              paymentMode: t.paymentMode as any,
+              paymentFrequency: 'Monthly',
+              paymentDate: t.paymentDate,
+              status: 'Paid',
+              remarks: `Receipt #${t.receiptNo}`
+            };
+          });
+          return Object.values(map);
+        });
+      }
+    }
+    loadRemoteFeeData();
+    return () => { active = false; };
+  }, []);
 
   const updateClassFeeStructure = (updated: ClassFeeStructure) => {
     setFeeStructures((prev) =>
