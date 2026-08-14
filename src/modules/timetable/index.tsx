@@ -52,7 +52,9 @@ import {
   syncSubstitutionToSupabase,
   fetchSubstitutionsFromSupabase,
   syncRoundDutyToSupabase,
-  fetchRoundDutiesFromSupabase
+  fetchRoundDutiesFromSupabase,
+  syncAttendanceToSupabase,
+  syncStaffToSupabase
 } from '../../lib/supabaseSync';
 import { TimetableArrangement, TeacherAvailability } from '../../types/otherModules';
 import {
@@ -708,12 +710,33 @@ export const TimetableModule: React.FC = () => {
 
   const [isPrintGridModalOpen, setIsPrintGridModalOpen] = useState(false);
 
-  // Toggle teacher attendance status
-  const handleToggleAttendance = (teacherName: string, status: 'Present' | 'Absent' | 'On Leave' | 'Half Day') => {
+  // Toggle teacher attendance status & sync live to Supabase
+  const handleToggleAttendance = async (teacherName: string, status: 'Present' | 'Absent' | 'On Leave' | 'Half Day') => {
     setLocalAttendanceOverrides((prev) => ({
       ...prev,
       [teacherName.toUpperCase()]: status
     }));
+
+    // Find staff record if exists
+    const matchingStaff = staff.find((s) => s.fullName.toUpperCase() === teacherName.toUpperCase());
+    if (matchingStaff) {
+      await syncStaffToSupabase({
+        ...matchingStaff,
+        status: status === 'Present' ? 'Active' : status
+      });
+    }
+
+    // Record daily attendance entry in Supabase DB
+    await syncAttendanceToSupabase({
+      id: `att-teacher-${teacherName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${new Date().toISOString().split('T')[0]}`,
+      date: new Date().toISOString().split('T')[0],
+      studentId: matchingStaff?.employeeCode || `EMP-${teacherName.slice(0, 4).toUpperCase()}`,
+      studentName: teacherName.toUpperCase(),
+      className: 'Staff Faculty',
+      section: 'Staff',
+      status: status === 'Present' ? 'Present' : (status === 'Absent' ? 'Absent' : (status === 'Half Day' ? 'Half Day' : 'On Leave')),
+      remarks: `Timetable auto-attendance override: ${status}`
+    });
   };
 
   // GLOBAL AUTO-SUBSTITUTION FOR ALL ABSENT / ON LEAVE / HALF DAY TEACHERS ON SELECTED DAY

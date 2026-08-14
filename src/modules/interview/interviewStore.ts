@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { CandidateApplicant, InterviewerRating } from '../../types/interview';
 import { INITIAL_CANDIDATES } from '../../data/mockData';
-import { syncExitInterviewToSupabase } from '../../lib/supabaseSync';
+import { syncExitInterviewToSupabase, syncCandidateEvaluationToSupabase } from '../../lib/supabaseSync';
 
 const INTERVIEW_STORAGE_KEY = 'schoolerp_interview_candidates_v1';
 
@@ -26,19 +26,13 @@ export function useInterviewStore() {
     };
     setCandidates((prev) => [newCand, ...prev]);
 
-    syncExitInterviewToSupabase({
-      candidateName: newCand.fullName,
-      department: newCand.subjectExpertise || 'Academic',
-      designation: newCand.appliedPosition,
-      feedbackNotes: `Applied for ${newCand.appliedPosition}`,
-      rating: 'New Application',
-      status: 'New'
-    });
+    syncCandidateEvaluationToSupabase(newCand);
 
     return newCand;
   };
 
   const addRating = (candidateId: string, rating: InterviewerRating) => {
+    let updatedCandidate: CandidateApplicant | null = null;
     setCandidates((prev) =>
       prev.map((c) => {
         if (c.id === candidateId) {
@@ -64,32 +58,43 @@ export function useInterviewStore() {
 
           const finalPercent = Math.round((totalScoreAvg / updatedRatings.length) * 10 * 10) / 10;
 
-          return {
+          updatedCandidate = {
             ...c,
             ratings: updatedRatings,
             overallScore: finalPercent,
             status: 'In Interview'
           };
+          return updatedCandidate;
         }
         return c;
       })
     );
+
+    if (updatedCandidate) {
+      syncCandidateEvaluationToSupabase(updatedCandidate);
+    }
   };
 
   const updateCandidateStatus = (candidateId: string, status: CandidateApplicant['status'], extra?: { salary?: number; joiningDate?: string }) => {
+    let updatedCandidate: CandidateApplicant | null = null;
     setCandidates((prev) =>
       prev.map((c) => {
         if (c.id === candidateId) {
-          return {
+          updatedCandidate = {
             ...c,
             status,
             offeredSalary: extra?.salary ?? c.offeredSalary,
             joiningDate: extra?.joiningDate ?? c.joiningDate
           };
+          return updatedCandidate;
         }
         return c;
       })
     );
+
+    if (updatedCandidate) {
+      syncCandidateEvaluationToSupabase(updatedCandidate);
+    }
   };
 
   return {

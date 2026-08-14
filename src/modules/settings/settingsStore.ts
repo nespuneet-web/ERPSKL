@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { SchoolProfile, ClassSectionConfig, FeeHead, PermissionMatrix } from '../../types/settings';
-import { syncClassConfigToSupabase, fetchClassConfigsFromSupabase } from '../../lib/supabaseSync';
+import {
+  syncClassConfigToSupabase,
+  fetchClassConfigsFromSupabase,
+  syncSchoolProfileToSupabase,
+  fetchSchoolProfileFromSupabase
+} from '../../lib/supabaseSync';
 
 const SETTINGS_STORAGE_KEY = 'schoolerp_admin_settings_v1';
 
@@ -60,16 +65,24 @@ export function useSettingsStore() {
     localStorage.setItem(`${SETTINGS_STORAGE_KEY}_feeheads`, JSON.stringify(feeHeads));
   }, [feeHeads]);
 
-  // Load Remote Classes Config from Supabase
+  // Load Remote Classes Config and School Profile from Supabase
   useEffect(() => {
     let active = true;
-    async function loadRemoteClasses() {
-      const remote = await fetchClassConfigsFromSupabase();
-      if (remote && remote.length > 0 && active) {
+    async function loadRemoteData() {
+      const [remoteClasses, remoteProfile] = await Promise.all([
+        fetchClassConfigsFromSupabase(),
+        fetchSchoolProfileFromSupabase()
+      ]);
+
+      if (remoteProfile && active) {
+        setProfile((prev) => ({ ...prev, ...remoteProfile }));
+      }
+
+      if (remoteClasses && remoteClasses.length > 0 && active) {
         setClasses((prev) => {
           const map: Record<string, ClassSectionConfig> = {};
           prev.forEach((c) => { map[c.className] = c; });
-          remote.forEach((rc) => {
+          remoteClasses.forEach((rc) => {
             map[rc.className] = {
               id: rc.id,
               className: rc.className,
@@ -81,12 +94,14 @@ export function useSettingsStore() {
         });
       }
     }
-    loadRemoteClasses();
+    loadRemoteData();
     return () => { active = false; };
   }, []);
 
-  const updateProfile = (fields: Partial<SchoolProfile>) => {
-    setProfile((prev) => ({ ...prev, ...fields }));
+  const updateProfile = async (fields: Partial<SchoolProfile>) => {
+    const updated = { ...profile, ...fields };
+    setProfile(updated);
+    await syncSchoolProfileToSupabase(updated);
   };
 
   const addClassConfig = (cls: Omit<ClassSectionConfig, 'id'>) => {

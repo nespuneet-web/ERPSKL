@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Student, SchoolHouse, SchoolClub } from '../../types/sis';
 import { INITIAL_STUDENTS, DEFAULT_SCHOOL_HOUSES, DEFAULT_SCHOOL_CLUBS } from '../../data/mockData';
-import { syncStudentToSupabase, fetchStudentsFromSupabase } from '../../lib/supabaseSync';
+import {
+  syncStudentToSupabase,
+  fetchStudentsFromSupabase,
+  syncHousesClubsToSupabase,
+  fetchHousesClubsFromSupabase
+} from '../../lib/supabaseSync';
 import { deleteRecord } from '../../lib/dbUtility';
 
 const SIS_STORAGE_KEY = 'schoolerp_sis_students_v1';
@@ -50,16 +55,29 @@ export function useSisStore() {
     localStorage.setItem(SIS_CLUBS_KEY, JSON.stringify(clubs));
   }, [clubs]);
 
-  // Fetch remote students on mount
+  // Fetch remote students, houses, and clubs on mount
   useEffect(() => {
     let active = true;
     async function loadRemote() {
-      const remote = await fetchStudentsFromSupabase();
-      if (remote && remote.length > 0 && active) {
+      const [remoteStudents, remoteHousesClubs] = await Promise.all([
+        fetchStudentsFromSupabase(),
+        fetchHousesClubsFromSupabase()
+      ]);
+
+      if (remoteHousesClubs && active) {
+        if (remoteHousesClubs.houses && remoteHousesClubs.houses.length > 0) {
+          setHouses(remoteHousesClubs.houses);
+        }
+        if (remoteHousesClubs.clubs && remoteHousesClubs.clubs.length > 0) {
+          setClubs(remoteHousesClubs.clubs);
+        }
+      }
+
+      if (remoteStudents && remoteStudents.length > 0 && active) {
         setStudents((prev) => {
           const map: Record<string, Student> = {};
           prev.forEach((s) => { map[s.admissionNo] = s; });
-          remote.forEach((r) => {
+          remoteStudents.forEach((r) => {
             const existing = map[r.admissionNo];
             map[r.admissionNo] = existing ? { ...r, ...existing } : r;
           });
@@ -118,14 +136,18 @@ export function useSisStore() {
     }
   };
 
-  const addHouse = (house: Omit<SchoolHouse, 'id'>) => {
+  const addHouse = async (house: Omit<SchoolHouse, 'id'>) => {
     const newHouse: SchoolHouse = { ...house, id: `house-${Date.now()}` };
-    setHouses((prev) => [...prev, newHouse]);
+    const updatedHouses = [...houses, newHouse];
+    setHouses(updatedHouses);
+    await syncHousesClubsToSupabase({ houses: updatedHouses, clubs });
   };
 
-  const addClub = (club: Omit<SchoolClub, 'id'>) => {
+  const addClub = async (club: Omit<SchoolClub, 'id'>) => {
     const newClub: SchoolClub = { ...club, id: `club-${Date.now()}` };
-    setClubs((prev) => [...prev, newClub]);
+    const updatedClubs = [...clubs, newClub];
+    setClubs(updatedClubs);
+    await syncHousesClubsToSupabase({ houses, clubs: updatedClubs });
   };
 
   const addDocumentToStudent = (studentId: string, doc: { title: string; type: any; fileName: string; url: string }) => {

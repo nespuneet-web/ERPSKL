@@ -1195,6 +1195,135 @@ export async function fetchExamTypesFromSupabase(): Promise<any[] | null> {
   }));
 }
 
+export async function syncSchoolProfileToSupabase(
+  profile: any,
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    id: 'school_main_profile',
+    school_name: profile.schoolName,
+    affil_no: profile.affilNo,
+    school_code: profile.schoolCode,
+    address: profile.address,
+    phone: profile.phone,
+    email: profile.email,
+    website: profile.website,
+    logo_url: profile.logoUrl,
+    principal_name: profile.principalName,
+    academic_year: profile.academicYear,
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await upsertRecord('school_settings', payload, 'id', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: School profile saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchSchoolProfileFromSupabase(): Promise<any | null> {
+  const res = await fetchRecords('school_settings');
+  if (!res.success || !res.data || res.data.length === 0) return null;
+  const row = (res.data as any[]).find((r) => r.id === 'school_main_profile') || res.data[0];
+  if (!row) return null;
+  return {
+    schoolName: row.school_name || row.schoolName,
+    affilNo: row.affil_no || row.affilNo,
+    schoolCode: row.school_code || row.schoolCode,
+    address: row.address,
+    phone: row.phone,
+    email: row.email,
+    website: row.website,
+    logoUrl: row.logo_url || row.logoUrl,
+    principalName: row.principal_name || row.principalName,
+    academicYear: row.academic_year || row.academicYear
+  };
+}
+
+export async function syncCandidateEvaluationToSupabase(
+  candidate: any,
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    id: candidate.id || `cand-${Date.now()}`,
+    candidate_name: candidate.fullName,
+    department: candidate.subjectExpertise || 'Academic',
+    designation: candidate.appliedPosition,
+    feedback_notes: JSON.stringify({
+      code: candidate.candidateCode,
+      score: candidate.overallScore,
+      ratings: candidate.ratings,
+      salary: candidate.offeredSalary,
+      joining: candidate.joiningDate
+    }),
+    rating: `${candidate.overallScore || 0}%`,
+    status: candidate.status || 'In Interview',
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await upsertRecord('staff_exit_interviews', payload, 'id', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Candidate ${candidate.fullName} saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function syncNoticeToSupabase(
+  notice: any,
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    id: notice.id || `not-${Date.now()}`,
+    title: notice.title,
+    content: notice.content,
+    target_audience: notice.targetAudience,
+    published_by: notice.publishedBy,
+    publish_date: notice.publishDate || new Date().toISOString().split('T')[0],
+    created_at: new Date().toISOString()
+  };
+
+  const res = await upsertRecord('broadcast_notices', payload, 'id', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Notice "${notice.title}" saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function syncHousesClubsToSupabase(
+  data: { houses: any[]; clubs: any[] },
+  userContext?: { username?: string; role?: string }
+): Promise<SupabaseSyncResult> {
+  const payload = {
+    id: 'school_houses_clubs_config',
+    school_name: 'Houses & Clubs Configuration',
+    address: JSON.stringify({ houses: data.houses, clubs: data.clubs }),
+    updated_at: new Date().toISOString()
+  };
+
+  const res = await upsertRecord('school_settings', payload, 'id', userContext);
+  return {
+    success: res.success,
+    message: res.success ? `🟢 Live DB Updated: Houses & Clubs configuration saved to Supabase!` : (res.error || res.message),
+    data: res.data
+  };
+}
+
+export async function fetchHousesClubsFromSupabase(): Promise<{ houses?: any[]; clubs?: any[] } | null> {
+  const res = await fetchRecords('school_settings');
+  if (!res.success || !res.data || res.data.length === 0) return null;
+  const row = (res.data as any[]).find((r) => r.id === 'school_houses_clubs_config');
+  if (!row || !row.address) return null;
+  try {
+    const parsed = JSON.parse(row.address);
+    return parsed;
+  } catch (e) {
+    return null;
+  }
+}
+
 /**
  * Full Master Database Synchronize Handler
  * Synchronizes all front-end tables & schema state with Supabase Cloud Database.
