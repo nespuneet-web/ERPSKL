@@ -222,6 +222,14 @@ export async function createRecord<T = any>(
       const { data, error } = await supabase.from(tableName).insert([currentPayload]).select();
 
       if (error) {
+        if (error.message?.includes('invalid input syntax for type uuid') || error.code === '22P02') {
+          if (currentPayload.id !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentPayload.id))) {
+            console.warn(`Non-UUID string "${currentPayload.id}" passed to UUID column in "${tableName}". Pruning "id" field and retrying...`);
+            delete currentPayload.id;
+            continue;
+          }
+        }
+
         const missingCol = extractMissingColumn(error.message);
         if (missingCol && currentPayload[missingCol] !== undefined) {
           console.warn(`Column "${missingCol}" missing in remote table "${tableName}". Pruning and retrying...`);
@@ -438,8 +446,16 @@ export async function upsertRecord<T = any>(
       data = primaryRes.data;
       error = primaryRes.error;
 
-      // Check if error is missing column in schema cache
+      // Check if error is missing column in schema cache or invalid UUID syntax
       if (error) {
+        if (error.message?.includes('invalid input syntax for type uuid') || error.code === '22P02') {
+          if (currentPayload.id !== undefined && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(currentPayload.id))) {
+            console.warn(`Non-UUID string "${currentPayload.id}" passed to UUID column in "${tableName}". Pruning "id" field and retrying...`);
+            delete currentPayload.id;
+            continue;
+          }
+        }
+
         const missingCol = extractMissingColumn(error.message);
         if (missingCol && currentPayload[missingCol] !== undefined) {
           console.warn(`Column "${missingCol}" missing in remote table "${tableName}". Pruning column and retrying...`);

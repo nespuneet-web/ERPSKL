@@ -45,7 +45,9 @@ export function saveCentralizedApplications(list: AdmissionApplication[]) {
   try {
     localStorage.setItem(ADMISSION_STORAGE_KEY, JSON.stringify(list));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('schoolerp_admissions_updated'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('schoolerp_admissions_updated'));
+      }, 0);
     }
   } catch (e) {
     console.error('Error saving centralized admissions:', e);
@@ -191,7 +193,11 @@ export function useAdmissionStore() {
             map[r.applicationNo] = existing ? { ...r, ...existing } : r;
           });
           const combined = ensureUniqueAppIds(Object.values(map));
-          saveCentralizedApplications(combined);
+          try {
+            localStorage.setItem(ADMISSION_STORAGE_KEY, JSON.stringify(combined));
+          } catch (e) {
+            console.error(e);
+          }
           return combined;
         });
       }

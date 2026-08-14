@@ -141,7 +141,9 @@ export const StaffModule: React.FC = () => {
   // NEW STAFF REGISTRATION MODAL FORM STATE
   // ==========================================
   const [fullName, setFullName] = useState('');
-  const [designation, setDesignation] = useState('PGT Mathematics');
+  const [designationCategory, setDesignationCategory] = useState<'PRT' | 'TGT' | 'PGT' | 'Contractual' | 'Others'>('PGT');
+  const [customDesignation, setCustomDesignation] = useState('');
+  const [designation, setDesignation] = useState('PGT');
   const [department, setDepartment] = useState('Mathematics');
   const [modalSelectedSubjects, setModalSelectedSubjects] = useState<string[]>(['Mathematics']);
   const [modalCustomSubject, setModalCustomSubject] = useState('');
@@ -158,14 +160,6 @@ export const StaffModule: React.FC = () => {
     setDepartment(newDept);
     const recSubjs = DEPARTMENT_SUBJECT_MAPPING[newDept] || ['General'];
     setModalSelectedSubjects([recSubjs[0]]);
-    if (newDept.includes('Math')) setDesignation('PGT Mathematics');
-    else if (newDept.includes('Sci')) setDesignation('PGT Physics / Science');
-    else if (newDept.includes('Lang')) setDesignation('TGT Languages');
-    else if (newDept.includes('Social')) setDesignation('TGT Social Studies');
-    else if (newDept.includes('Computer')) setDesignation('PGT Computer Science & IT');
-    else if (newDept.includes('Commerce')) setDesignation('PGT Commerce & Accounts');
-    else if (newDept.includes('Physical')) setDesignation('Physical Education Director');
-    else if (newDept.includes('Fine Arts')) setDesignation('Art & Fine Arts Incharge');
   };
 
   const toggleModalSubject = (subj: string) => {
@@ -237,11 +231,14 @@ export const StaffModule: React.FC = () => {
 
     const generatedCode = employeeCode.trim() || `EMP-${String(staff.length + 1).padStart(3, '0')}`;
     const cleanName = fullName.trim().toUpperCase();
+    const finalDesignation = designationCategory === 'Others'
+      ? (customDesignation.trim() || 'Others')
+      : (customDesignation.trim() ? `${designationCategory} (${customDesignation.trim()})` : designationCategory);
 
     const newStaff = await addStaffMember({
       employeeCode: generatedCode,
       fullName: cleanName,
-      designation: designation.trim(),
+      designation: finalDesignation,
       department: department.trim(),
       email: email.trim() || `${cleanName.toLowerCase().replace(/[^a-z0-9]/g, '.')}@school.edu`,
       phone: phone.trim() || '+91 98100 00000',
@@ -264,6 +261,7 @@ export const StaffModule: React.FC = () => {
     setEmail('');
     setPhone('');
     setModalCustomSubject('');
+    setCustomDesignation('');
     setIsAddModalOpen(false);
   };
 
@@ -1110,14 +1108,33 @@ export const StaffModule: React.FC = () => {
 
                   <div>
                     <label className="block text-xs font-extrabold uppercase text-slate-600 dark:text-slate-400 mb-1">
-                      Designation *
+                      Designation Category *
                     </label>
-                    <input
-                      type="text"
-                      value={designation}
-                      onChange={(e) => setDesignation(e.target.value)}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white outline-none"
-                    />
+                    <select
+                      value={designationCategory}
+                      onChange={(e) => {
+                        const val = e.target.value as 'PRT' | 'TGT' | 'PGT' | 'Contractual' | 'Others';
+                        setDesignationCategory(val);
+                        setDesignation(val);
+                      }}
+                      className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                    >
+                      <option value="PRT">PRT (Primary Teacher: Classes 1-5)</option>
+                      <option value="TGT">TGT (Trained Graduate Teacher: Classes 6-10)</option>
+                      <option value="PGT">PGT (Post Graduate Teacher: Classes 11-12)</option>
+                      <option value="Contractual">Contractual (Visiting / Contract Faculty)</option>
+                      <option value="Others">Others (Special Educator, Incharge, Admin)</option>
+                    </select>
+
+                    {designationCategory === 'Others' && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom designation (e.g. Special Educator, Lab Head)..."
+                        value={customDesignation}
+                        onChange={(e) => setCustomDesignation(e.target.value)}
+                        className="mt-2 w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 rounded-xl text-xs text-slate-900 dark:text-white outline-none"
+                      />
+                    )}
                   </div>
                 </div>
               </div>

@@ -772,9 +772,7 @@ export async function syncMarksheetToSupabase(
   };
   await upsertRecord('students', studentPayload, 'admission_no', userContext);
 
-  const markId = `mark-${params.studentAdmissionNo}-${params.subjectName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-  const markPayload = {
-    id: markId,
+  const markPayload: Record<string, any> = {
     student_admission_no: params.studentAdmissionNo,
     student_name: params.studentName.toUpperCase(),
     marks_obtained: params.marksObtained,
@@ -782,7 +780,7 @@ export async function syncMarksheetToSupabase(
     remarks: params.remarks || 'Marks evaluated'
   };
 
-  const res = await upsertRecord('student_marks', markPayload, 'id', userContext);
+  const res = await upsertRecord('student_marks', markPayload, 'student_admission_no', userContext);
   return {
     success: res.success,
     message: res.success ? `🟢 Live DB Updated: Marks (${params.marksObtained}) for "${params.studentName}" synced to Supabase!` : (res.error || res.message),

@@ -22,6 +22,7 @@ export const ExaminationModule: React.FC = () => {
     updateSubject,
     marksheets,
     syncStatus,
+    autoSaveStatus,
     saveStudentMark,
     syncMarksheetBatch,
     toggleMarksheetLock,
@@ -124,6 +125,7 @@ export const ExaminationModule: React.FC = () => {
           subjects={subjects}
           students={students}
           marksheets={marksheets}
+          autoSaveStatus={autoSaveStatus}
           onSaveMark={saveStudentMark}
           onSyncMarksBatch={syncMarksheetBatch}
           onToggleLock={(msId, user) => {

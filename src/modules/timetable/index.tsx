@@ -551,7 +551,10 @@ export const TimetableModule: React.FC = () => {
       );
 
       const freeTeachers = teacherTimetables.filter((t) => {
-        if (teacherAttendanceMap[t.teacherName] === 'Absent') return false;
+        const tUpper = t.teacherName.trim().toUpperCase();
+        const stf = staff.find((s) => s.fullName.trim().toUpperCase() === tUpper);
+        const isAbsent = stf ? (stf.status === 'Absent' || stf.status === 'On Leave' || stf.status === 'Inactive') : (teacherAttendanceMap[tUpper] === 'Absent');
+        if (isAbsent) return false;
         if (subTeacherNames.has(t.teacherName)) return false;
         if (fixedTeachersMap.has(`${pNo}_${t.teacherName}`)) return false;
 
@@ -717,47 +720,45 @@ export const TimetableModule: React.FC = () => {
   const [constraintMode, setConstraintMode] = useState<SubstitutionConstraintMode>('same_dept_first');
   const [autoSubBanner, setAutoSubBanner] = useState<{ count: number; message: string } | null>(null);
 
-  // TEACHER DAILY ATTENDANCE STATE (Present / Absent) - Synced with Staff Directory
+  // TEACHER DAILY ATTENDANCE STATE (Present / Absent) - Synced with Central Staff Directory
   const [localAttendanceOverrides, setLocalAttendanceOverrides] = useState<Record<string, 'Present' | 'Absent'>>({});
 
-  // Compute effective teacher attendance map combining staff directory and local overrides
+  // Compute effective teacher attendance map directly from central staff directory as the single source of truth
   const teacherAttendanceMap: Record<string, 'Present' | 'Absent'> = {};
   
-  // 1. Populate automatically from central staff directory
+  // 1. Populate automatically from central staff directory (100% unified source of truth)
   staff.forEach((stf) => {
     const nameKey = stf.fullName.trim().toUpperCase();
     const stfStatus = (stf.status || '').toLowerCase();
-    const isAbsentInStaff = stfStatus === 'absent' || stfStatus === 'on leave' || stfStatus === 'inactive';
+    const isAbsentInStaff = stfStatus === 'absent' || stfStatus === 'on leave' || stfStatus === 'inactive' || stfStatus === 'half day';
     teacherAttendanceMap[nameKey] = isAbsentInStaff ? 'Absent' : 'Present';
   });
 
-  // 2. Default baseline absences if not set
-  if (!('POONAM SINGH' in teacherAttendanceMap)) teacherAttendanceMap['POONAM SINGH'] = 'Absent';
-  if (!('ANITA DESHMUKH' in teacherAttendanceMap)) teacherAttendanceMap['ANITA DESHMUKH'] = 'Absent';
-  if (!('PRATEEK BANSAL' in teacherAttendanceMap)) teacherAttendanceMap['PRATEEK BANSAL'] = 'Absent';
-
-  // 3. Apply user local overrides
+  // 2. Apply user local overrides if any in session
   Object.assign(teacherAttendanceMap, localAttendanceOverrides);
 
   const [isPrintGridModalOpen, setIsPrintGridModalOpen] = useState(false);
 
-  // Toggle teacher attendance status & sync live to Supabase
+  // Toggle teacher attendance status & sync live to Supabase & Central Staff Directory
   const handleToggleAttendance = async (teacherName: string, status: 'Present' | 'Absent') => {
+    const cleanName = teacherName.trim().toUpperCase();
+    const newStaffStatus: 'Active' | 'Absent' = status === 'Present' ? 'Active' : 'Absent';
+
     setLocalAttendanceOverrides((prev) => ({
       ...prev,
-      [teacherName.toUpperCase()]: status
+      [cleanName]: status
     }));
 
     // Find staff record if exists and update status in global store & Supabase
-    const cleanName = teacherName.trim().toUpperCase();
     const matchingStaff = staff.find((s) => 
       s.fullName.trim().toUpperCase() === cleanName ||
       (s.employeeCode && s.employeeCode.trim().toUpperCase() === cleanName)
     );
+
     if (matchingStaff) {
-      await updateStaffStatus(matchingStaff.id, status === 'Present' ? 'Active' : 'Absent');
+      await updateStaffStatus(matchingStaff.id, newStaffStatus);
     } else {
-      await syncStaffToSupabase({
+      const newStf = {
         id: `stf-${Date.now()}`,
         employeeCode: `EMP-${teacherName.slice(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '')}`,
         fullName: teacherName,
@@ -768,8 +769,10 @@ export const TimetableModule: React.FC = () => {
         joiningDate: new Date().toISOString().split('T')[0],
         qualification: 'B.Ed. / M.Sc.',
         monthlySalary: 50000,
-        status: status === 'Present' ? 'Active' : 'Absent'
-      });
+        status: newStaffStatus
+      };
+      await addStaffMember(newStf);
+      await syncStaffToSupabase(newStf);
     }
   };
 
@@ -778,8 +781,13 @@ export const TimetableModule: React.FC = () => {
     const absentTeacherNames = teacherTimetables
       .map((t) => t.teacherName)
       .filter((tName) => {
-        const st = teacherAttendanceMap[tName.toUpperCase()];
-        return st === 'Absent';
+        const cleanName = tName.trim().toUpperCase();
+        const stf = staff.find((s) => s.fullName.trim().toUpperCase() === cleanName);
+        if (stf) {
+          const st = (stf.status || '').toLowerCase();
+          return st === 'absent' || st === 'on leave' || st === 'inactive' || st === 'half day';
+        }
+        return teacherAttendanceMap[cleanName] === 'Absent';
       });
 
     if (absentTeacherNames.length === 0) {
@@ -1421,22 +1429,36 @@ export const TimetableModule: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-xs font-black">
+                <div className="flex items-center gap-2 text-xs font-black flex-wrap">
+                  <span className="px-3 py-1.5 rounded-xl bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1.5 shadow-xs">
+                    Total Faculty: {staff.length}
+                  </span>
                   <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-xs">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Present: {Object.values(teacherAttendanceMap).filter((v) => v === 'Present').length}
+                    Present: {staff.filter((s) => (s.status || 'Active') === 'Active' || (s.status as any) === 'Present').length}
                   </span>
                   <span className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5 shadow-xs">
                     <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
-                    Absent: {Object.values(teacherAttendanceMap).filter((v) => v === 'Absent').length}
+                    Absent: {staff.filter((s) => s.status === 'Absent' || (s.status as any) === 'Inactive').length}
                   </span>
+                  {staff.some((s) => s.status === 'On Leave' || s.status === 'Half Day') && (
+                    <span className="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-xs">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                      On Leave: {staff.filter((s) => s.status === 'On Leave' || s.status === 'Half Day').length}
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-80 overflow-y-auto pr-1">
                 {teacherTimetables.map((t, idx) => {
-                  const status = teacherAttendanceMap[t.teacherName] || 'Present';
-                  const isPresent = status === 'Present';
+                  const upperName = t.teacherName.trim().toUpperCase();
+                  const matchedStaff = staff.find((s) => s.fullName.trim().toUpperCase() === upperName);
+                  const isAbsent = matchedStaff
+                    ? (matchedStaff.status === 'Absent' || matchedStaff.status === 'On Leave' || matchedStaff.status === 'Inactive')
+                    : (teacherAttendanceMap[upperName] === 'Absent');
+                  const isPresent = !isAbsent;
+                  const displayStatus = matchedStaff?.status || (isPresent ? 'Present' : 'Absent');
                   const deptTheme = getDepartmentTheme(t.department);
 
                   return (
@@ -1460,7 +1482,7 @@ export const TimetableModule: React.FC = () => {
                                 : 'bg-rose-500 text-white font-black shadow-xs'
                             }`}
                           >
-                            {status}
+                            {displayStatus}
                           </span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block border ${deptTheme.badgeClass}`}>

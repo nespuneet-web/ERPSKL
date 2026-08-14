@@ -162,7 +162,9 @@ export function saveCentralizedStudents(list: Student[]) {
   try {
     localStorage.setItem(SIS_STORAGE_KEY, JSON.stringify(list));
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('schoolerp_students_updated'));
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('schoolerp_students_updated'));
+      }, 0);
     }
   } catch (e) {
     console.error('Error saving centralized students:', e);

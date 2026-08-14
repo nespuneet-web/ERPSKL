@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole, UserSession, AcademicSession, SystemNotification, AuditLog } from '../types/common';
+import { UserAccount, toUserSession, saveActiveSession, getSavedActiveSession, getAllUserAccounts } from '../lib/userManager';
 
 export const ALL_MODULE_IDS = [
   'sis',
@@ -30,13 +31,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   'Principal': [...ALL_MODULE_IDS],
   'Vice Principal': [...ALL_MODULE_IDS],
 
-  'Teacher': ['sis', 'attendance', 'timetable', 'lesson_plans', 'examination', 'library', 'communication'],
-  'Class Teacher': ['sis', 'attendance', 'timetable', 'lesson_plans', 'examination', 'library', 'communication'],
+  // Teachers have access to student marking, entering marks, reports, student directory search, timetable, staff profile, communication, lesson plans, library, idcards
+  'Teacher': ['sis', 'attendance', 'timetable', 'examination', 'reports', 'lesson_plans', 'staff', 'communication', 'library', 'idcards'],
+  'Class Teacher': ['sis', 'attendance', 'timetable', 'examination', 'reports', 'lesson_plans', 'staff', 'communication', 'library', 'idcards'],
 
+  // Students have access strictly to the student section: profile/SIS, attendance, timetable, examination/marks, library, digital noticeboard, and smart ID card
   'Student': ['sis', 'attendance', 'timetable', 'examination', 'library', 'communication', 'idcards'],
   'Parent': ['sis', 'attendance', 'timetable', 'examination', 'fees', 'transport', 'communication', 'library'],
 
-  'Examination Incharge': ['examination', 'sis', 'timetable', 'lesson_plans', 'certificates', 'communication'],
+  'Examination Incharge': ['examination', 'sis', 'timetable', 'lesson_plans', 'reports', 'certificates', 'communication'],
   'Timetable Incharge': ['timetable', 'sis', 'staff', 'attendance', 'lesson_plans', 'communication'],
   'Admission Team': ['admission', 'sis', 'fees', 'communication'],
   'Account Department': ['fees', 'reports', 'sis', 'communication', 'certificates'],
@@ -49,10 +52,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   'Read-only Auditor': ['reports', 'sis', 'examination', 'attendance', 'fees']
 };
 
-const PERMISSIONS_STORAGE_KEY = 'schoolerp_role_permissions_v2';
+const PERMISSIONS_STORAGE_KEY = 'schoolerp_role_permissions_v3';
 
 interface AuthContextType {
   currentUser: UserSession;
+  setCurrentUser: (user: UserSession) => void;
+  loginUser: (account: UserAccount) => void;
+  logout: () => void;
   activeRole: UserRole;
   setActiveRole: (role: UserRole) => void;
   academicSessions: AcademicSession[];
@@ -78,8 +84,8 @@ interface AuthContextType {
 
 const DEFAULT_USER: UserSession = {
   id: 'usr-admin-1',
-  name: 'Dr. V. K. Sharma',
-  email: 'admin@schoolerp.edu',
+  name: 'Dr. V. K. Sharma (Super Admin)',
+  email: 'admin@gdgoenka.edu',
   role: 'Super Admin',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
   department: 'Administration'
@@ -94,8 +100,22 @@ const INITIAL_SESSIONS: AcademicSession[] = [
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser] = useState<UserSession>(DEFAULT_USER);
-  const [activeRole, setActiveRoleState] = useState<UserRole>('Super Admin');
+  const [currentUser, setCurrentUserState] = useState<UserSession>(() => {
+    const saved = getSavedActiveSession();
+    if (saved) {
+      return toUserSession(saved);
+    }
+    return DEFAULT_USER;
+  });
+
+  const [activeRole, setActiveRoleState] = useState<UserRole>(() => {
+    const saved = getSavedActiveSession();
+    if (saved) {
+      return saved.role;
+    }
+    return 'Super Admin';
+  });
+
   const [academicSessions] = useState<AcademicSession[]>(INITIAL_SESSIONS);
   const [currentAcademicSession, setCurrentAcademicSession] = useState<AcademicSession>(INITIAL_SESSIONS[0]);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -104,21 +124,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [notifications, setNotifications] = useState<SystemNotification[]>([
     {
       id: 'notif-1',
-      title: 'Marks Locked for Half Yearly',
-      message: 'Examination Incharge locked marks entry for Class 10 Mathematics.',
-      type: 'warning',
-      timestamp: '10 mins ago',
-      read: false,
-      module: 'Examination'
-    },
-    {
-      id: 'notif-2',
-      title: 'New Student Registration',
-      message: 'Aarav Sharma completed SIS onboarding.',
+      title: 'Teacher & Student User Accounts Ready',
+      message: 'Teacher accounts (1-70) and Student accounts (1-1200) provisioned with default passwords.',
       type: 'success',
-      timestamp: '1 hour ago',
+      timestamp: 'Just now',
       read: false,
-      module: 'SIS'
+      module: 'Auth'
     }
   ]);
 
@@ -126,11 +137,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     {
       id: 'log-1',
       timestamp: new Date().toISOString(),
-      user: 'Dr. V. K. Sharma',
-      role: 'Super Admin',
+      user: currentUser.name,
+      role: activeRole,
       action: 'SYSTEM_BOOTSTRAP',
       module: 'System',
-      details: 'Modular School ERP Initialized successfully.'
+      details: 'Modular School ERP Initialized with full user authentication matrix.'
     }
   ]);
 
@@ -154,6 +165,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error saving role permissions:', e);
     }
   }, [rolePermissions]);
+
+  const loginUser = (account: UserAccount) => {
+    const session = toUserSession(account);
+    setCurrentUserState(session);
+    setActiveRoleState(account.role);
+    saveActiveSession(account);
+  };
+
+  const logout = () => {
+    setCurrentUserState(DEFAULT_USER);
+    setActiveRoleState('Super Admin');
+    saveActiveSession({
+      id: 'usr-admin-1',
+      username: 'admin',
+      displayName: 'Dr. V. K. Sharma (Super Admin)',
+      role: 'Super Admin',
+      defaultPassword: 'admin',
+      currentPassword: 'admin',
+      isPasswordChanged: false,
+      category: 'admin_staff',
+      email: 'admin@gdgoenka.edu'
+    });
+  };
+
+  const setCurrentUser = (user: UserSession) => {
+    setCurrentUserState(user);
+  };
 
   const updateRolePermissions = (role: UserRole, allowedModules: string[]) => {
     setRolePermissions((prev) => ({
@@ -224,6 +262,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     <AuthContext.Provider
       value={{
         currentUser,
+        setCurrentUser,
+        loginUser,
+        logout,
         activeRole,
         setActiveRole,
         academicSessions,

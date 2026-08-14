@@ -94,7 +94,7 @@ function ErpLayout() {
   const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
   const [isPermissionsModalOpen, setIsPermissionsModalOpen] = useState(false);
 
-  const { activeRole, setActiveRole, academicSessions, currentAcademicSession, setCurrentAcademicSession, isModuleAllowed, getAllowedModules } = useAuth();
+  const { currentUser, logout, activeRole, setActiveRole, academicSessions, currentAcademicSession, setCurrentAcademicSession, isModuleAllowed, getAllowedModules } = useAuth();
 
   // Automatic Background Real-Time Database Sync Initialization
   useEffect(() => {
@@ -306,29 +306,47 @@ function ErpLayout() {
               <span>DB Auto-Synced (Live)</span>
             </button>
 
-            {/* User Login & Password Button */}
-            <button
-              onClick={() => setIsLoginModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
-              title="User Login & Password Credentials"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span>User Login</span>
-            </button>
+            {/* User Login & Profile Pill */}
+            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="flex items-center gap-2 px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-200 hover:text-indigo-600 dark:hover:text-indigo-400 cursor-pointer transition-colors"
+                title="Click to Switch User or Change Password"
+              >
+                <div className="w-5 h-5 rounded-full bg-indigo-600 text-white font-extrabold text-[10px] flex items-center justify-center">
+                  {currentUser.name.charAt(0)}
+                </div>
+                <span className="hidden sm:inline font-bold max-w-[140px] truncate">{currentUser.name}</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-extrabold text-[10px]">
+                  {activeRole}
+                </span>
+              </button>
+
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-xs cursor-pointer transition-all active:scale-95"
+                title="Open Login & Credentials Hub"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Switch User</span>
+              </button>
+            </div>
 
             {/* Role Switcher */}
             <select
               value={activeRole}
               onChange={(e) => setActiveRole(e.target.value as any)}
-              className="px-3 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 rounded-lg cursor-pointer"
+              className="px-2.5 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-900 dark:text-indigo-200 rounded-lg cursor-pointer hidden sm:block"
             >
               <option value="Super Admin">Role: Super Admin</option>
+              <option value="Teacher">Role: Teacher</option>
+              <option value="Timetable Incharge">Role: Timetable Incharge</option>
+              <option value="Reception">Role: Reception</option>
+              <option value="Student">Role: Student Portal</option>
               <option value="School Admin">Role: School Admin</option>
               <option value="Principal">Role: Principal</option>
               <option value="Examination Incharge">Role: Exam Incharge</option>
-              <option value="Teacher">Role: Class Teacher</option>
               <option value="Accountant">Role: Accountant</option>
-              <option value="Student">Role: Student Portal</option>
               <option value="Parent">Role: Parent Portal</option>
             </select>
 

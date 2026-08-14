@@ -64,15 +64,16 @@ const MODULE_METADATA: { id: string; name: string; category: string; icon: React
 ];
 
 const TARGET_ROLES: UserRole[] = [
-  'Student',
   'Teacher',
+  'Student',
+  'Timetable Incharge',
+  'Reception',
   'Class Teacher',
   'Parent',
   'Accountant',
   'Examination Incharge',
   'Admission Team',
   'HR',
-  'Reception',
   'Principal',
   'School Admin',
   'Super Admin'

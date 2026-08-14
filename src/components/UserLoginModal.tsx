@@ -1,25 +1,40 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { LogIn, Key, UserCheck, ShieldCheck, Lock, CheckCircle2, User, Eye, EyeOff, X, RefreshCw } from 'lucide-react';
-import { UserRole } from '../types/common';
-
-interface UserCredential {
-  username: string;
-  password: string;
-  role: UserRole;
-  name: string;
-  id: string;
-}
-
-const DEFAULT_CREDENTIALS: UserCredential[] = [
-  { username: 'student', password: 'Student 123', role: 'Student', name: 'Aarav Sharma (Student)', id: 'std-101' },
-  { username: 'teacher1', password: 'Teacher 123', role: 'Teacher', name: 'Ankur Kabra (PGT Maths)', id: 'tch-201' },
-  { username: 'admin', password: 'Admin 123', role: 'Super Admin', name: 'Dr. V. K. Sharma (Super Admin)', id: 'adm-001' },
-  { username: 'principal', password: 'Principal 123', role: 'School Admin', name: 'Meenakshi Verma (Principal)', id: 'adm-002' },
-  { username: 'parent', password: 'Parent 123', role: 'Parent', name: 'Rajesh Sharma (Parent)', id: 'prn-301' }
-];
-
-const STORAGE_KEY = 'schoolerp_user_credentials_v1';
+import {
+  LogIn,
+  Key,
+  UserCheck,
+  ShieldCheck,
+  Lock,
+  CheckCircle2,
+  User,
+  Eye,
+  EyeOff,
+  X,
+  RefreshCw,
+  Search,
+  Download,
+  Copy,
+  Users,
+  GraduationCap,
+  Briefcase,
+  Sparkles,
+  BookOpen,
+  Clock,
+  Award,
+  Calendar,
+  Bell,
+  Check,
+  ShieldAlert
+} from 'lucide-react';
+import {
+  getAllUserAccounts,
+  authenticateUser,
+  updateUserPassword,
+  resetUserPasswordToDefault,
+  UserAccount,
+  normalizeUsername
+} from '../lib/userManager';
 
 interface UserLoginModalProps {
   isOpen: boolean;
@@ -27,426 +42,767 @@ interface UserLoginModalProps {
 }
 
 export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose }) => {
-  const { activeRole, setActiveRole, currentUser, logActivity, addNotification } = useAuth();
+  const { currentUser, activeRole, loginUser, logout, logActivity, addNotification } = useAuth();
 
-  const [credentials, setCredentials] = useState<UserCredential[]>(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading credentials:', e);
-    }
-    return DEFAULT_CREDENTIALS;
-  });
-
+  const [activeTab, setActiveTab] = useState<'login' | 'change_password' | 'directory'>('login');
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'login' | 'change_password'>('login');
   const [loginMessage, setLoginMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
-  // Change password fields
-  const [targetUsername, setTargetUsername] = useState('student');
+  // Change password state
+  const [targetUsername, setTargetUsername] = useState('teacher1');
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPass, setShowNewPass] = useState(false);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(credentials));
-    } catch (e) {
-      console.error('Error saving credentials:', e);
-    }
-  }, [credentials]);
+  // Directory state
+  const [directoryFilter, setDirectoryFilter] = useState<'all' | 'teacher' | 'student' | 'admin_staff'>('teacher');
+  const [directorySearch, setDirectorySearch] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
+  const [accountsRefreshKey, setAccountsRefreshKey] = useState(0);
+
+  // Reload accounts when updated
+  const allAccounts = useMemo(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    accountsRefreshKey;
+    return getAllUserAccounts();
+  }, [accountsRefreshKey]);
+
+  const filteredAccounts = useMemo(() => {
+    return allAccounts.filter((acc) => {
+      if (directoryFilter !== 'all' && acc.category !== directoryFilter) return false;
+      if (directorySearch.trim()) {
+        const q = directorySearch.trim().toLowerCase();
+        return (
+          acc.username.toLowerCase().includes(q) ||
+          acc.displayName.toLowerCase().includes(q) ||
+          acc.role.toLowerCase().includes(q) ||
+          (acc.designation && acc.designation.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [allAccounts, directoryFilter, directorySearch]);
 
   if (!isOpen) return null;
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUser = usernameInput.trim().toLowerCase();
-    const cleanPass = passwordInput.trim().toLowerCase().replace(/\s+/g, '');
+    if (!usernameInput.trim()) {
+      setLoginMessage({ type: 'error', text: 'Please enter a valid User ID / Username.' });
+      return;
+    }
 
-    // 1. Direct or normalized match in credentials store
-    const found = credentials.find(
-      (c) =>
-        c.username.toLowerCase() === cleanUser &&
-        (c.password.toLowerCase().replace(/\s+/g, '') === cleanPass || c.password === passwordInput.trim())
-    );
+    const authResult = authenticateUser(usernameInput, passwordInput);
 
-    if (found) {
-      setActiveRole(found.role);
-      logActivity('USER_LOGIN', 'Authentication', `Logged in as ${found.name} (${found.role})`);
+    if (authResult.success && authResult.user) {
+      const user = authResult.user;
+      loginUser(user);
+      logActivity('USER_LOGIN', 'Authentication', `Logged in as ${user.displayName} (${user.role})`);
       addNotification({
         title: 'Authentication Successful',
-        message: `Welcome back, ${found.name}! Active portal set to ${found.role}.`,
+        message: `Welcome back, ${user.displayName}! Portal set to ${user.role}.`,
         type: 'success',
         module: 'Auth'
       });
-      setLoginMessage({ type: 'success', text: `🟢 Authenticated successfully as ${found.name} (${found.role})!` });
+
+      setLoginMessage({
+        type: 'success',
+        text: `🟢 Successfully authenticated as ${user.displayName} (${user.role})!`
+      });
+
       setTimeout(() => {
         setLoginMessage(null);
         onClose();
       }, 1000);
+    } else {
+      setLoginMessage({
+        type: 'error',
+        text: `🔴 ${authResult.message}`
+      });
+    }
+  };
+
+  const handleQuickLogin = (account: UserAccount) => {
+    setUsernameInput(account.username);
+    setPasswordInput(account.currentPassword);
+    loginUser(account);
+    logActivity('QUICK_LOGIN', 'Authentication', `Quick logged in as ${account.displayName} (${account.role})`);
+    addNotification({
+      title: 'Portal Switched',
+      message: `Signed in as ${account.displayName} (${account.role}).`,
+      type: 'success',
+      module: 'Auth'
+    });
+
+    setLoginMessage({
+      type: 'success',
+      text: `🟢 Switched to ${account.displayName} (${account.role})!`
+    });
+
+    setTimeout(() => {
+      setLoginMessage(null);
+      onClose();
+    }, 900);
+  };
+
+  const handleChangePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanTarget = normalizeUsername(targetUsername);
+    const targetAcc = allAccounts.find((a) => a.username === cleanTarget);
+
+    if (!targetAcc) {
+      setLoginMessage({ type: 'error', text: `🔴 User ID "${targetUsername}" not found in school records.` });
       return;
     }
 
-    // 2. Case-insensitive user match check to give accurate password hints
-    const userMatch = credentials.find((c) => c.username.toLowerCase() === cleanUser);
-    if (userMatch) {
+    const cleanOld = oldPassword.trim();
+    const isOldCorrect =
+      cleanOld === targetAcc.currentPassword ||
+      cleanOld === targetAcc.defaultPassword ||
+      cleanOld.toLowerCase().replace(/\s+/g, '') === targetAcc.currentPassword.toLowerCase().replace(/\s+/g, '');
+
+    if (!isOldCorrect) {
       setLoginMessage({
         type: 'error',
-        text: `🔴 Incorrect password for ${userMatch.username}. (Default password is: ${userMatch.password})`
+        text: `🔴 Current / Old password does not match records for ${targetAcc.username}. (Default password: "${targetAcc.defaultPassword}")`
       });
       return;
     }
 
-    // 3. Keyword based role detection for general logins (e.g. "student", "teacher", "admin", "parent")
-    if (cleanUser.includes('student') || cleanUser.startsWith('std') || cleanUser.startsWith('2025')) {
-      const stdCred = credentials.find((c) => c.role === 'Student') || DEFAULT_CREDENTIALS[0];
-      setActiveRole('Student');
-      logActivity('USER_LOGIN', 'Authentication', `Logged in as Student (${cleanUser})`);
-      setLoginMessage({ type: 'success', text: `🟢 Logged in to Student Portal as ${stdCred.name}!` });
-      setTimeout(() => {
-        setLoginMessage(null);
-        onClose();
-      }, 1000);
+    if (newPassword.trim().length < 4) {
+      setLoginMessage({ type: 'error', text: '🔴 New password must contain at least 4 characters.' });
       return;
     }
 
-    if (cleanUser.includes('teacher') || cleanUser.startsWith('tch') || cleanUser.startsWith('emp')) {
-      const tchCred = credentials.find((c) => c.role === 'Teacher') || DEFAULT_CREDENTIALS[1];
-      setActiveRole('Teacher');
-      logActivity('USER_LOGIN', 'Authentication', `Logged in as Teacher (${cleanUser})`);
-      setLoginMessage({ type: 'success', text: `🟢 Logged in to Teacher Portal as ${tchCred.name}!` });
-      setTimeout(() => {
-        setLoginMessage(null);
-        onClose();
-      }, 1000);
-      return;
-    }
-
-    if (cleanUser.includes('admin') || cleanUser.includes('principal')) {
-      const admCred = credentials.find((c) => c.role === 'Super Admin') || DEFAULT_CREDENTIALS[2];
-      setActiveRole('Super Admin');
-      logActivity('USER_LOGIN', 'Authentication', `Logged in as Super Admin (${cleanUser})`);
-      setLoginMessage({ type: 'success', text: `🟢 Logged in to Super Admin Portal as ${admCred.name}!` });
-      setTimeout(() => {
-        setLoginMessage(null);
-        onClose();
-      }, 1000);
-      return;
-    }
-
-    setLoginMessage({
-      type: 'error',
-      text: '🔴 Invalid credentials. Please use default usernames (student / teacher1 / admin / parent) or click 1-Click Quick Login.'
-    });
-  };
-
-  const handleResetCredentials = () => {
-    setCredentials(DEFAULT_CREDENTIALS);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_CREDENTIALS));
-    setLoginMessage({ type: 'success', text: '🟢 Default credentials restored successfully!' });
-    setTimeout(() => setLoginMessage(null), 2000);
-  };
-
-  const handleQuickLogin = (preset: UserCredential) => {
-    setUsernameInput(preset.username);
-    setPasswordInput(preset.password);
-    setActiveRole(preset.role);
-    logActivity('QUICK_LOGIN', 'Authentication', `Quick logged in as ${preset.name} (${preset.role})`);
-    setLoginMessage({ type: 'success', text: `🟢 Switched to ${preset.role} portal (${preset.username})!` });
-    setTimeout(() => {
-      setLoginMessage(null);
-      onClose();
-    }, 1000);
-  };
-
-  const handleChangePassword = (e: React.FormEvent) => {
-    e.preventDefault();
-    const userIndex = credentials.findIndex((c) => c.username.toLowerCase() === targetUsername.toLowerCase());
-
-    if (userIndex === -1) {
-      setLoginMessage({ type: 'error', text: '🔴 Account not found for selected user.' });
-      return;
-    }
-
-    if (credentials[userIndex].password !== oldPassword) {
-      setLoginMessage({ type: 'error', text: '🔴 Old password does not match current records.' });
-      return;
-    }
-
-    if (newPassword.length < 4) {
-      setLoginMessage({ type: 'error', text: '🔴 New password must be at least 4 characters long.' });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
+    if (newPassword.trim() !== confirmPassword.trim()) {
       setLoginMessage({ type: 'error', text: '🔴 New password and confirmation do not match.' });
       return;
     }
 
-    const updated = [...credentials];
-    updated[userIndex].password = newPassword;
-    setCredentials(updated);
+    const ok = updateUserPassword(targetAcc.username, newPassword.trim());
+    if (ok) {
+      setAccountsRefreshKey((k) => k + 1);
+      logActivity('CHANGE_PASSWORD', 'Authentication', `Updated password for ${targetAcc.username}`);
+      setLoginMessage({
+        type: 'success',
+        text: `🟢 Password for "${targetAcc.username}" changed successfully! Use your new password on next login.`
+      });
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => {
+        setLoginMessage(null);
+        setActiveTab('login');
+        setUsernameInput(targetAcc.username);
+        setPasswordInput(newPassword.trim());
+      }, 2000);
+    } else {
+      setLoginMessage({ type: 'error', text: '🔴 Failed to persist updated password.' });
+    }
+  };
 
-    logActivity('CHANGE_PASSWORD', 'Authentication', `Updated password for user ${targetUsername}`);
-    setLoginMessage({ type: 'success', text: `🟢 Password for "${targetUsername}" changed successfully!` });
-    setOldPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setTimeout(() => {
-      setActiveTab('login');
-      setLoginMessage(null);
-    }, 1500);
+  const handleResetToDefault = (account: UserAccount) => {
+    resetUserPasswordToDefault(account.username);
+    setAccountsRefreshKey((k) => k + 1);
+    setLoginMessage({
+      type: 'success',
+      text: `🟢 Password for ${account.username} reset to default ("${account.defaultPassword}")`
+    });
+    setTimeout(() => setLoginMessage(null), 2500);
+  };
+
+  const handleCopyCredentialsList = () => {
+    let text = `=====================================================\n`;
+    text += `SCHOOL ERP - USER CREDENTIALS & LOGIN ROSTER\n`;
+    text += `School: St. Xavier Higher Secondary School / GD Goenka\n`;
+    text += `Generated on: ${new Date().toLocaleString()}\n`;
+    text += `=====================================================\n\n`;
+
+    filteredAccounts.forEach((acc) => {
+      text += `Username: ${acc.username} | Default Password: ${acc.defaultPassword} | Current: ${acc.currentPassword} | Role: ${acc.role} | Name: ${acc.displayName}\n`;
+    });
+
+    navigator.clipboard.writeText(text);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2500);
+  };
+
+  const handleDownloadExcel = (targetCategory?: 'teacher' | 'student' | 'admin_staff' | 'all') => {
+    const listToExport = targetCategory && targetCategory !== 'all' 
+      ? allAccounts.filter((a) => a.category === targetCategory) 
+      : targetCategory === 'all' 
+        ? allAccounts 
+        : filteredAccounts;
+
+    const headers = [
+      'User ID',
+      'Full Name',
+      'Role / Category',
+      'Class / Department',
+      'Default Password',
+      'Current Password',
+      'Password Status',
+      'Official Email',
+      'Designation / Role Details'
+    ];
+
+    const rows = listToExport.map((a) => [
+      a.username,
+      `"${a.displayName.replace(/"/g, '""')}"`,
+      `"${a.role}"`,
+      `"${a.classAssigned || a.department || ''}"`,
+      `"${a.defaultPassword}"`,
+      `"${a.currentPassword}"`,
+      a.isPasswordChanged ? 'Customized Password' : 'Default Password',
+      a.email,
+      `"${(a.designation || '').replace(/"/g, '""')}"`
+    ]);
+
+    // Include UTF-8 BOM (\uFEFF) so Microsoft Excel opens it directly with correct columns
+    const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const filenamePrefix = targetCategory ? `school_${targetCategory}_accounts` : `school_credentials_${directoryFilter}`;
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${filenamePrefix}_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 relative animate-scaleUp">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-extrabold shadow-md">
-              <ShieldCheck className="w-5 h-5" />
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-4xl rounded-3xl p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 relative max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-600 to-blue-600 flex items-center justify-center text-white font-black shadow-lg">
+              <Key className="w-6 h-6" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
-                School ERP Portal Login
-              </h3>
-              <p className="text-[11px] text-slate-500">
-                Current Role: <span className="font-bold text-indigo-600 dark:text-indigo-400">{activeRole}</span>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  User Authentication & Credentials Hub
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  1,273 Users Active
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Log in as Teacher (1-70), Admin, Timetable, Reception, or Student (1-1200) with default passwords.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+            className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Tab Controls */}
-        <div className="flex rounded-xl bg-slate-100 dark:bg-slate-800 p-1 text-xs font-bold">
-          <button
-            onClick={() => {
-              setActiveTab('login');
-              setLoginMessage(null);
-            }}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'login'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Portal Login</span>
-          </button>
+        {/* Tab Navigation */}
+        <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 flex-wrap">
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl">
+            <button
+              onClick={() => {
+                setActiveTab('login');
+                setLoginMessage(null);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'login'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Login to Account</span>
+            </button>
 
-          <button
-            onClick={() => {
-              setActiveTab('change_password');
-              setLoginMessage(null);
-            }}
-            className={`flex-1 py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === 'change_password'
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-            }`}
-          >
-            <Key className="w-3.5 h-3.5" />
-            <span>Change Password</span>
-          </button>
+            <button
+              onClick={() => {
+                setActiveTab('change_password');
+                setLoginMessage(null);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'change_password'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Lock className="w-4 h-4" />
+              <span>Change Password</span>
+            </button>
+
+            <button
+              onClick={() => {
+                setActiveTab('directory');
+                setLoginMessage(null);
+              }}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'directory'
+                  ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>User Roster & Passwords</span>
+            </button>
+          </div>
+
+          {/* Current Logged In Profile Pill */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-xs">
+            <span className="text-slate-500 font-medium">Active User:</span>
+            <span className="font-bold text-slate-900 dark:text-white">{currentUser.name}</span>
+            <span className="px-2 py-0.5 rounded-md bg-indigo-500 text-white font-extrabold text-[10px]">
+              {activeRole}
+            </span>
+          </div>
         </div>
 
-        {/* Feedback Banner */}
+        {/* Message Banner */}
         {loginMessage && (
           <div
-            className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm ${
+            className={`p-3.5 rounded-2xl text-xs font-bold flex items-center gap-2 border ${
               loginMessage.type === 'success'
-                ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700'
-                : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-300 dark:border-rose-700'
+                ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-300 border-emerald-500/30'
+                : 'bg-rose-500/10 text-rose-600 dark:text-rose-300 border-rose-500/30'
             }`}
           >
+            {loginMessage.type === 'success' ? (
+              <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            ) : (
+              <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" />
+            )}
             <span>{loginMessage.text}</span>
           </div>
         )}
 
-        {/* LOGIN TAB CONTENT */}
+        {/* TAB 1: LOGIN FORM */}
         {activeTab === 'login' && (
-          <div className="space-y-4">
-            {/* Quick Login Buttons */}
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-2">
-                ⚡ 1-Click Quick Login Credentials:
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {credentials.map((c) => (
-                  <button
-                    key={c.username}
-                    onClick={() => handleQuickLogin(c)}
-                    className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 hover:bg-indigo-50 dark:hover:bg-indigo-950/50 hover:border-indigo-300 text-left cursor-pointer transition-all active:scale-95 group"
-                  >
-                    <span className="block text-[11px] font-black text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
-                      {c.role}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 overflow-y-auto pr-1">
+            <div className="md:col-span-7 space-y-4">
+              <form onSubmit={handleLoginSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    User ID / Username
+                  </label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="e.g. teacher1, teacher12, admin, timetable, reception, student1, student45"
+                      value={usernameInput}
+                      onChange={(e) => setUsernameInput(e.target.value)}
+                      className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Supports <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">teacher 1 to 70</code>, <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">admin</code>, <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">timetable</code>, <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">reception</code>, and <code className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">student 1 to 1200</code>.
+                  </p>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
+                      Password
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTab('change_password');
+                        if (usernameInput) setTargetUsername(usernameInput);
+                      }}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Change my password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Enter password..."
+                      value={passwordInput}
+                      onChange={(e) => setPasswordInput(e.target.value)}
+                      className="w-full pl-9 pr-10 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold focus:outline-hidden focus:ring-2 focus:ring-indigo-500 text-slate-900 dark:text-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Default Password Hints */}
+                <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 space-y-1.5 text-xs text-indigo-900 dark:text-indigo-200">
+                  <div className="font-extrabold flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+                      <Key className="w-3.5 h-3.5" /> Default Password Reference:
                     </span>
-                    <span className="block text-[10px] text-slate-500 font-mono">
-                      {c.username}
-                    </span>
-                  </button>
-                ))}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('directory')}
+                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Download className="w-3 h-3" /> Download Excel Sheet →
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Teachers 1 to 70:</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">teacher1</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Students 1 to 1200:</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">student1</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Timetable & Reception:</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">gdigonika</span>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
+                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Super Administrator:</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">admin</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 text-sm"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Log In to School Portal</span>
+                </button>
+              </form>
+            </div>
+
+            {/* Quick 1-Click Fast Logins & Access Scope */}
+            <div className="md:col-span-5 space-y-4">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    1-Click Test Logins
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-bold">Instant switch</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  {[
+                    { u: 'teacher1', label: 'Teacher #1 (Maths)', role: 'Teacher', pass: 'teacher1', cat: 'teacher' },
+                    { u: 'teacher15', label: 'Teacher #15 (Physics)', role: 'Teacher', pass: 'teacher1', cat: 'teacher' },
+                    { u: 'timetable', label: 'Timetable Incharge', role: 'Timetable Incharge', pass: 'gdigonika', cat: 'admin_staff' },
+                    { u: 'reception', label: 'Front Desk Reception', role: 'Reception', pass: 'gdigonika', cat: 'admin_staff' },
+                    { u: 'admin', label: 'Super Administrator', role: 'Super Admin', pass: 'admin', cat: 'admin_staff' },
+                    { u: 'student1', label: 'Student #1 (Class 1-A)', role: 'Student', pass: 'student1', cat: 'student' },
+                    { u: 'student45', label: 'Student #45 (Class 10-A)', role: 'Student', pass: 'student1', cat: 'student' }
+                  ].map((preset) => {
+                    const acc = allAccounts.find((a) => a.username === preset.u);
+                    return (
+                      <button
+                        key={preset.u}
+                        type="button"
+                        onClick={() => acc && handleQuickLogin(acc)}
+                        className="w-full flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-700/80 hover:border-indigo-400 dark:hover:border-indigo-500 transition-all text-left group cursor-pointer shadow-2xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-xs font-black text-indigo-600 dark:text-indigo-400">{preset.u}</span>
+                            <span className="text-[10px] font-bold text-slate-600 dark:text-slate-300">({preset.label})</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400">Pass: {acc?.currentPassword || preset.pass}</span>
+                        </div>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                          Login →
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Scope Checklist Box */}
+              <div className="p-3.5 rounded-2xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/40 text-xs space-y-1.5">
+                <div className="font-extrabold text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                  Role Access Privileges:
+                </div>
+                <ul className="text-[11px] text-blue-800 dark:text-blue-300 space-y-1 pl-1">
+                  <li>• <strong>Teachers (1-70)</strong>: Marking attendance, entering marks, report creation, student profile lookup, timetable, staff profile, digital communication.</li>
+                  <li>• <strong>Students (1-1200)</strong>: Dedicated student section (My profile, attendance, timetable, exam marks & grades, library, noticeboard, smart ID card).</li>
+                  <li>• <strong>Admin / Staff</strong>: Super Admin full control, Timetable engine management, Reception visitor desk.</li>
+                </ul>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-              <span className="flex-shrink mx-3 text-[10px] font-bold text-slate-400 uppercase">Or Enter Details</span>
-              <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+        {/* TAB 2: CHANGE PASSWORD FORM */}
+        {activeTab === 'change_password' && (
+          <div className="max-w-xl mx-auto w-full py-2 space-y-5">
+            <div className="text-center space-y-1">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">Change Account Password</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Update password for any teacher (1-70), student (1-1200), or staff member.
+              </p>
             </div>
 
-            {/* Login Form */}
-            <form onSubmit={handleLoginSubmit} className="space-y-3">
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4 bg-slate-50 dark:bg-slate-800/60 p-6 rounded-3xl border border-slate-200 dark:border-slate-700/60">
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                  Username ID:
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Target User ID / Username
                 </label>
                 <div className="relative">
-                  <User className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <User className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    required
-                    value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
-                    placeholder="e.g. teacher1 or student or admin"
-                    className="w-full pl-9 pr-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    value={targetUsername}
+                    onChange={(e) => setTargetUsername(e.target.value)}
+                    placeholder="e.g. teacher1, student45, admin"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                  Password:
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Old / Current Password
                 </label>
                 <div className="relative">
-                  <Lock className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
-                    type={showPassword ? 'text' : 'password'}
-                    required
-                    value={passwordInput}
-                    onChange={(e) => setPasswordInput(e.target.value)}
-                    placeholder="Enter password..."
-                    className="w-full pl-9 pr-9 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                    type="text"
+                    value={oldPassword}
+                    onChange={(e) => setOldPassword(e.target.value)}
+                    placeholder="Enter current password (e.g. gdigonika or student one)"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  New Password
+                </label>
+                <div className="relative">
+                  <Key className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter new strong password"
+                    className="w-full pl-9 pr-10 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white"
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    onClick={() => setShowNewPass(!showNewPass)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showNewPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Confirm New Password
+                </label>
+                <div className="relative">
+                  <Check className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type={showNewPass ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Re-enter new password to confirm"
+                    className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white"
+                  />
                 </div>
               </div>
 
               <button
                 type="submit"
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
+                className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2 text-sm"
               >
-                <LogIn className="w-4 h-4" />
-                <span>Sign In to School ERP</span>
+                <Key className="w-4 h-4" />
+                <span>Update Password & Save</span>
               </button>
             </form>
           </div>
         )}
 
-        {/* CHANGE PASSWORD TAB CONTENT */}
-        {activeTab === 'change_password' && (
-          <form onSubmit={handleChangePassword} className="space-y-3">
-            <div>
-              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                Select User Account:
-              </label>
-              <select
-                value={targetUsername}
-                onChange={(e) => setTargetUsername(e.target.value)}
-                className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white cursor-pointer"
-              >
-                {credentials.map((c) => (
-                  <option key={c.username} value={c.username}>
-                    {c.name} ({c.username})
-                  </option>
+        {/* TAB 3: CREDENTIALS DIRECTORY */}
+        {activeTab === 'directory' && (
+          <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 flex-wrap">
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex-wrap">
+                {[
+                  { id: 'teacher', label: 'Teachers (1-70)', count: 70 },
+                  { id: 'admin_staff', label: 'Admin & Staff', count: 3 },
+                  { id: 'student', label: 'Students (1-1200)', count: 1200 },
+                  { id: 'all', label: 'All Users', count: 1273 }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setDirectoryFilter(tab.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      directoryFilter === tab.id
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
                 ))}
-              </select>
+              </div>
+
+              {/* Export & Copy Actions */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  onClick={handleCopyCredentialsList}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-colors cursor-pointer"
+                  title="Copy formatted credentials roster to clipboard to pass on to teachers and students"
+                >
+                  {copySuccess ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copySuccess ? 'Copied Roster!' : 'Copy Roster'}</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadExcel()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors shadow-xs cursor-pointer"
+                  title="Download Excel spreadsheet of active view"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Excel Sheet</span>
+                </button>
+
+                <button
+                  onClick={() => handleDownloadExcel('all')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 rounded-lg transition-colors cursor-pointer"
+                  title="Download All 1,273 accounts into a single Excel file"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>All Users (Master Excel)</span>
+                </button>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                Current / Old Password:
-              </label>
+            {/* Quick How-To Process Card */}
+            <div className="p-3 rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/50 flex items-start gap-3 text-xs text-emerald-950 dark:text-emerald-200">
+              <div className="p-2 rounded-xl bg-emerald-600 text-white font-black shrink-0 shadow-xs">
+                <Download className="w-4 h-4" />
+              </div>
+              <div className="space-y-0.5">
+                <div className="font-extrabold text-emerald-900 dark:text-emerald-300 flex items-center gap-1.5">
+                  <span>How to Download & Open in Excel:</span>
+                </div>
+                <p className="text-[11px] text-emerald-800 dark:text-emerald-300/90 leading-relaxed">
+                  <strong>1.</strong> Select the category tab above (<strong>Teachers 1-70</strong>, <strong>Students 1-1200</strong>, or <strong>All Users</strong>).<br />
+                  <strong>2.</strong> Click <strong>Download Excel Sheet</strong>. A formatted <code className="font-mono font-bold bg-white/60 dark:bg-black/30 px-1 py-0.5 rounded">.csv</code> file with UTF-8 encoding will automatically download.<br />
+                  <strong>3.</strong> Double-click the file to open directly in <strong>Microsoft Excel</strong>, <strong>Google Sheets</strong>, or <strong>Apple Numbers</strong>. All User IDs, full names, classes/subjects, and passwords are separated cleanly into columns!
+                </p>
+              </div>
+            </div>
+
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
-                type="password"
-                required
-                value={oldPassword}
-                onChange={(e) => setOldPassword(e.target.value)}
-                placeholder="Enter old password..."
-                className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                type="text"
+                value={directorySearch}
+                onChange={(e) => setDirectorySearch(e.target.value)}
+                placeholder={`Search among ${filteredAccounts.length} accounts by username, name, role...`}
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                New Password:
-              </label>
-              <input
-                type="password"
-                required
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter new password (min 4 chars)..."
-                className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-              />
-            </div>
+            {/* Accounts Table */}
+            <div className="flex-1 overflow-y-auto border border-slate-200 dark:border-slate-800 rounded-2xl">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-100 dark:bg-slate-800/90 sticky top-0 z-10 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px]">
+                  <tr>
+                    <th className="py-2.5 px-3">User ID</th>
+                    <th className="py-2.5 px-3">Name / Subject / Class</th>
+                    <th className="py-2.5 px-3">Role</th>
+                    <th className="py-2.5 px-3">Default Pass</th>
+                    <th className="py-2.5 px-3">Current Pass</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
+                  {filteredAccounts.slice(0, 100).map((acc) => (
+                    <tr key={acc.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <td className="py-2 px-3">
+                        <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                          {acc.username}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3">
+                        <div className="font-bold text-slate-900 dark:text-white">{acc.displayName}</div>
+                        {acc.designation && (
+                          <div className="text-[10px] text-slate-500 dark:text-slate-400">{acc.designation}</div>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                          {acc.role}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 font-mono text-slate-500">
+                        {acc.defaultPassword}
+                      </td>
+                      <td className="py-2 px-3">
+                        {acc.isPasswordChanged ? (
+                          <span className="px-2 py-0.5 rounded-md bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 font-mono font-bold text-[10px]">
+                            {acc.currentPassword} (Changed)
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 font-mono font-bold text-[10px]">
+                            {acc.defaultPassword} (Default)
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3 text-right space-x-1.5">
+                        <button
+                          onClick={() => handleQuickLogin(acc)}
+                          className="px-2.5 py-1 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold cursor-pointer transition-colors"
+                        >
+                          Login
+                        </button>
+                        {acc.isPasswordChanged && (
+                          <button
+                            onClick={() => handleResetToDefault(acc)}
+                            className="px-2 py-1 rounded-md bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-700 dark:text-slate-200 text-[10px] font-bold cursor-pointer"
+                            title="Reset back to default password"
+                          >
+                            Reset
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
-            <div>
-              <label className="block text-xs font-extrabold text-slate-700 dark:text-slate-300 mb-1">
-                Confirm New Password:
-              </label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Confirm new password..."
-                className="w-full px-3 py-2 text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
-              />
+              {filteredAccounts.length > 100 && (
+                <div className="p-2.5 text-center text-xs text-slate-500 bg-slate-50 dark:bg-slate-800/40 border-t border-slate-200 dark:border-slate-800">
+                  Showing first 100 of {filteredAccounts.length} matching accounts. Use search to filter down.
+                </div>
+              )}
             </div>
-
-            <button
-              type="submit"
-              className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl shadow-md cursor-pointer transition-all active:scale-95 flex items-center justify-center gap-2 mt-2"
-            >
-              <Key className="w-4 h-4" />
-              <span>Update Password</span>
-            </button>
-          </form>
+          </div>
         )}
-
-        {/* Modal Footer Info */}
-        <div className="pt-2 text-[10px] text-slate-400 text-center border-t border-slate-200 dark:border-slate-800 space-y-1.5">
-          <div>
-            Default Passwords: Student (<code>student</code> / <code>Student 123</code>) • Teacher (<code>teacher1</code> / <code>Teacher 123</code>) • Principal (<code>principal</code> / <code>Principal 123</code>) • Admin (<code>admin</code> / <code>Admin 123</code>)
-          </div>
-          <div>
-            <button
-              onClick={handleResetCredentials}
-              className="text-indigo-600 dark:text-indigo-400 hover:underline font-bold inline-flex items-center gap-1 cursor-pointer"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Reset Passwords to Defaults
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

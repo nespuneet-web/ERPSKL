@@ -275,7 +275,11 @@ export function useOtherModulesStore() {
     } catch (e) {
       console.error(e);
     }
-    window.dispatchEvent(new CustomEvent('schoolerp_staff_updated', { detail: newList }));
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('schoolerp_staff_updated', { detail: newList }));
+      }, 0);
+    }
   };
 
   const addStaffMember = async (newStaff: Omit<StaffMember, 'id'>) => {
