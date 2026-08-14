@@ -472,7 +472,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
                     </div>
                     <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
                       <span className="font-bold text-slate-700 dark:text-slate-300 block">Super Administrator:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">admin</span>
+                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">admin@123</span>
                     </div>
                   </div>
                 </div>
@@ -504,7 +504,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
                     { u: 'teacher15', label: 'Teacher #15 (Physics)', role: 'Teacher', pass: 'teacher1', cat: 'teacher' },
                     { u: 'timetable', label: 'Timetable Incharge', role: 'Timetable Incharge', pass: 'gdigonika', cat: 'admin_staff' },
                     { u: 'reception', label: 'Front Desk Reception', role: 'Reception', pass: 'gdigonika', cat: 'admin_staff' },
-                    { u: 'admin', label: 'Super Administrator', role: 'Super Admin', pass: 'admin', cat: 'admin_staff' },
+                    { u: 'admin', label: 'Super Administrator', role: 'Super Admin', pass: 'admin@123', cat: 'admin_staff' },
                     { u: 'student1', label: 'Student #1 (Class 1-A)', role: 'Student', pass: 'student1', cat: 'student' },
                     { u: 'student45', label: 'Student #45 (Class 10-A)', role: 'Student', pass: 'student1', cat: 'student' }
                   ].map((preset) => {

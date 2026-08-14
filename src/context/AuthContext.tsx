@@ -59,6 +59,11 @@ interface AuthContextType {
   setCurrentUser: (user: UserSession) => void;
   loginUser: (account: UserAccount) => void;
   logout: () => void;
+  isAuthenticated: boolean;
+  setIsAuthenticated: (val: boolean) => void;
+  viewMode: 'mobile' | 'desktop';
+  setViewMode: (mode: 'mobile' | 'desktop') => void;
+  toggleViewMode: () => void;
   activeRole: UserRole;
   setActiveRole: (role: UserRole) => void;
   academicSessions: AcademicSession[];
@@ -85,7 +90,7 @@ interface AuthContextType {
 const DEFAULT_USER: UserSession = {
   id: 'usr-admin-1',
   name: 'Dr. V. K. Sharma (Super Admin)',
-  email: 'admin@gdgoenka.edu',
+  email: 'admin@goingkapublicschool.edu',
   role: 'Super Admin',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
   department: 'Administration'
@@ -107,6 +112,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     return DEFAULT_USER;
   });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    const saved = getSavedActiveSession();
+    return Boolean(saved);
+  });
+
+  const [viewMode, setViewModeState] = useState<'mobile' | 'desktop'>(() => {
+    try {
+      const saved = localStorage.getItem('goingka_erp_view_mode');
+      if (saved === 'desktop' || saved === 'mobile') return saved;
+    } catch (e) {
+      console.error(e);
+    }
+    return 'mobile'; // Default to Android mobile view as requested
+  });
+
+  const setViewMode = (mode: 'mobile' | 'desktop') => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem('goingka_erp_view_mode', mode);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const toggleViewMode = () => {
+    setViewMode(viewMode === 'mobile' ? 'desktop' : 'mobile');
+  };
 
   const [activeRole, setActiveRoleState] = useState<UserRole>(() => {
     const saved = getSavedActiveSession();
@@ -170,23 +203,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const session = toUserSession(account);
     setCurrentUserState(session);
     setActiveRoleState(account.role);
+    setIsAuthenticated(true);
     saveActiveSession(account);
   };
 
   const logout = () => {
+    setIsAuthenticated(false);
+    try {
+      localStorage.removeItem('schoolerp_active_user_session_v2');
+    } catch (e) {
+      console.error('Error clearing session:', e);
+    }
     setCurrentUserState(DEFAULT_USER);
     setActiveRoleState('Super Admin');
-    saveActiveSession({
-      id: 'usr-admin-1',
-      username: 'admin',
-      displayName: 'Dr. V. K. Sharma (Super Admin)',
-      role: 'Super Admin',
-      defaultPassword: 'admin',
-      currentPassword: 'admin',
-      isPasswordChanged: false,
-      category: 'admin_staff',
-      email: 'admin@gdgoenka.edu'
-    });
   };
 
   const setCurrentUser = (user: UserSession) => {
@@ -265,6 +294,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentUser,
         loginUser,
         logout,
+        isAuthenticated,
+        setIsAuthenticated,
+        viewMode,
+        setViewMode,
+        toggleViewMode,
         activeRole,
         setActiveRole,
         academicSessions,

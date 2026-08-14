@@ -25,9 +25,9 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     username: 'admin',
     displayName: 'Dr. V. K. Sharma (Super Admin)',
     role: 'Super Admin',
-    defaultPassword: 'admin',
+    defaultPassword: 'admin@123',
     category: 'admin_staff',
-    email: 'admin@gdgoenka.edu',
+    email: 'admin@goingkapublicschool.edu',
     designation: 'School Director / Super Administrator',
     department: 'Administration'
   },
@@ -38,7 +38,7 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     role: 'Timetable Incharge',
     defaultPassword: 'gdigonika',
     category: 'admin_staff',
-    email: 'timetable@gdgoenka.edu',
+    email: 'timetable@goingkapublicschool.edu',
     designation: 'Academic Dean & Timetable Incharge',
     department: 'Academic Operations'
   },
@@ -49,7 +49,7 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     role: 'Reception',
     defaultPassword: 'gdigonika',
     category: 'admin_staff',
-    email: 'reception@gdgoenka.edu',
+    email: 'reception@goingkapublicschool.edu',
     designation: 'Front Desk & Visitor Manager',
     department: 'Reception & Helpdesk'
   }
@@ -218,6 +218,13 @@ export function authenticateUser(usernameInput: string, passwordInput: string): 
   }
 
   // Password matching logic: check exact, or normalized default password
+  if (!cleanPass) {
+    return {
+      success: false,
+      message: 'Password is required. Nobody can log in without a password.'
+    };
+  }
+
   const currPass = found.currentPassword;
   const defPass = found.defaultPassword;
   
@@ -226,8 +233,10 @@ export function authenticateUser(usernameInput: string, passwordInput: string): 
     cleanPass === defPass ||
     normPass === currPass.toLowerCase().replace(/[\s_-]+/g, '') ||
     normPass === defPass.toLowerCase().replace(/[\s_-]+/g, '') ||
+    (found.username === 'admin' && (cleanPass === 'admin@123' || cleanPass === 'admin')) ||
     (found.category === 'teacher' && (normPass === 'teacher1' || normPass === 'gdigonika' || normPass === 'teacher 1')) ||
-    (found.category === 'student' && (normPass === 'student1' || normPass === 'studentone' || normPass === 'student 1'));
+    (found.category === 'student' && (normPass === 'student1' || normPass === 'studentone' || normPass === 'student 1')) ||
+    (found.username === 'reception' && (normPass === 'gdigonika' || normPass === 'reception' || cleanPass === 'admin@123'));
 
   if (!isMatch) {
     return {
