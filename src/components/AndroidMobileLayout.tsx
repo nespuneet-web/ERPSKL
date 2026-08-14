@@ -23,9 +23,14 @@ import {
   Building2,
   Lock,
   Layers,
-  RotateCcw
+  RotateCcw,
+  BookOpen,
+  FileText,
+  Ticket,
+  Clock
 } from 'lucide-react';
 import { ALL_TILES } from './TileGridView';
+import { StudentPortalView } from '../modules/sis/StudentPortalView';
 
 interface AndroidMobileLayoutProps {
   activeModule: string;
@@ -54,6 +59,9 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
     isModuleAllowed,
     currentAcademicSession
   } = useAuth();
+
+  const isStudent = activeRole === 'Student';
+  const [studentTab, setStudentTab] = useState<'overview' | 'homework' | 'attendance' | 'report_card' | 'admit_card' | 'timetable' | 'profile'>('overview');
 
   const [currentTime, setCurrentTime] = useState('09:41');
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
@@ -99,21 +107,23 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
       {/* 2. Android App Top Bar */}
       <header className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 text-white px-3.5 py-2.5 shadow-md flex items-center justify-between shrink-0 z-40">
         <div className="flex items-center gap-2.5">
-          {activeModule !== 'home_tiles' ? (
-            <button
-              onClick={() => setActiveModule('home_tiles')}
-              className="p-1.5 -ml-1 rounded-full hover:bg-white/20 active:scale-90 transition-all text-white cursor-pointer"
-              title="Back to All Sections"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-          ) : (
-            <button
-              onClick={() => setIsDrawerOpen(true)}
-              className="p-1.5 -ml-1 rounded-xl hover:bg-white/20 active:scale-90 transition-all text-white cursor-pointer"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
+          {!isStudent && (
+            activeModule !== 'home_tiles' ? (
+              <button
+                onClick={() => setActiveModule('home_tiles')}
+                className="p-1.5 -ml-1 rounded-full hover:bg-white/20 active:scale-90 transition-all text-white cursor-pointer"
+                title="Back to All Sections"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => setIsDrawerOpen(true)}
+                className="p-1.5 -ml-1 rounded-xl hover:bg-white/20 active:scale-90 transition-all text-white cursor-pointer"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+            )
           )}
 
           <div className="flex items-center gap-2">
@@ -121,11 +131,11 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
               G
             </div>
             <div>
-              <h1 className="text-xs sm:text-sm font-black text-white leading-tight tracking-tight">
-                {activeModule === 'home_tiles' ? 'Goingka Public School' : (currentTile?.name || 'Goingka ERP')}
+              <h1 className="text-xs sm:text-sm font-black text-white leading-tight tracking-tight uppercase">
+                {isStudent ? 'GOENKA PUBLIC SCHOOL AGRA' : (activeModule === 'home_tiles' ? 'GOENKA PUBLIC SCHOOL' : (currentTile?.name || 'GOENKA ERP'))}
               </h1>
               <p className="text-[10px] text-indigo-200 font-semibold leading-tight">
-                Agra • {activeRole}
+                {isStudent ? `Student Portal • ${currentUser.name}` : `Agra • ${activeRole}`}
               </p>
             </div>
           </div>
@@ -143,11 +153,17 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
             <span>Desktop</span>
           </button>
 
-          {/* User Profile Avatar Trigger */}
+          {/* User Profile Avatar Trigger / Sign Out */}
           <button
-            onClick={onOpenUserModal}
+            onClick={() => {
+              if (isStudent) {
+                setStudentTab('profile');
+              } else {
+                onOpenUserModal();
+              }
+            }}
             className="flex items-center gap-1 p-1 bg-indigo-700/80 hover:bg-indigo-600 rounded-xl border border-indigo-400/30 text-white cursor-pointer active:scale-95 transition-all"
-            title="Switch User / View Credentials"
+            title={isStudent ? 'View Profile' : 'Switch User / View Credentials'}
           >
             <div className="w-6 h-6 rounded-lg bg-indigo-500 flex items-center justify-center font-bold text-[10px]">
               {currentUser.name.charAt(0)}
@@ -156,8 +172,8 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
         </div>
       </header>
 
-      {/* Stage Indicator when inside a specific module */}
-      {activeModule !== 'home_tiles' && (
+      {/* Stage Indicator when inside a specific module (Staff only) */}
+      {!isStudent && activeModule !== 'home_tiles' && (
         <div className="bg-indigo-50 dark:bg-indigo-950/60 border-b border-indigo-100 dark:border-indigo-900/60 px-3.5 py-1.5 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200 font-bold text-[11px]">
             <button
@@ -182,52 +198,88 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
 
       {/* 3. Main Stage Content Area */}
       <main className="flex-1 overflow-y-auto p-3.5 pb-20 scrollbar-none">
-        {renderActiveModule()}
+        {isStudent ? (
+          <StudentPortalView forcedTab={studentTab} />
+        ) : (
+          renderActiveModule()
+        )}
       </main>
 
       {/* 4. Android Bottom Navigation Bar */}
       <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto sm:max-w-none bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-2xl z-40">
-        {[
-          { id: 'home_tiles', label: 'All Tiles', icon: Layers },
-          { id: 'attendance', label: 'Attendance', icon: Calendar },
-          { id: 'examination', label: 'Exams/Marks', icon: Award },
-          { id: 'communication', label: 'Notices', icon: Bell, badge: unreadNotifs > 0 ? unreadNotifs : undefined },
-          { id: 'user_settings', label: 'Profile', icon: User, action: onOpenUserModal }
-        ].map((item) => {
-          const Icon = item.icon;
-          const isActive = activeModule === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (item.action) {
-                  item.action();
-                } else {
-                  handleNavClick(item.id);
-                }
-              }}
-              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all cursor-pointer relative ${
-                isActive
-                  ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
-                  : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
-              }`}
-            >
-              <div className={`p-1 rounded-xl relative ${isActive ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400' : ''}`}>
-                <Icon className="w-5 h-5" />
-                {item.badge && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
-            </button>
-          );
-        })}
+        {isStudent ? (
+          // Dedicated Student Bottom Nav
+          [
+            { id: 'overview', label: 'Dashboard', icon: BookOpen },
+            { id: 'homework', label: 'Homework', icon: FileText },
+            { id: 'attendance', label: 'Attendance', icon: Calendar },
+            { id: 'report_card', label: 'Marks', icon: Award },
+            { id: 'admit_card', label: 'Admit Card', icon: Ticket },
+            { id: 'profile', label: 'Profile', icon: User }
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = studentTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setStudentTab(item.id as any)}
+                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all cursor-pointer relative ${
+                  isActive
+                    ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                }`}
+              >
+                <div className={`p-1 rounded-xl relative ${isActive ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400' : ''}`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+              </button>
+            );
+          })
+        ) : (
+          // Staff / Admin Bottom Nav
+          [
+            { id: 'home_tiles', label: 'All Tiles', icon: Layers },
+            { id: 'attendance', label: 'Attendance', icon: Calendar },
+            { id: 'examination', label: 'Exams/Marks', icon: Award },
+            { id: 'communication', label: 'Notices', icon: Bell, badge: unreadNotifs > 0 ? unreadNotifs : undefined },
+            { id: 'user_settings', label: 'Profile', icon: User, action: onOpenUserModal }
+          ].map((item) => {
+            const Icon = item.icon;
+            const isActive = activeModule === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => {
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    handleNavClick(item.id);
+                  }
+                }}
+                className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all cursor-pointer relative ${
+                  isActive
+                    ? 'text-indigo-600 dark:text-indigo-400 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-900 dark:hover:text-slate-200 font-medium'
+                }`}
+              >
+                <div className={`p-1 rounded-xl relative ${isActive ? 'bg-indigo-50 dark:bg-indigo-950/80 text-indigo-600 dark:text-indigo-400' : ''}`}>
+                  <Icon className="w-5 h-5" />
+                  {item.badge && (
+                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white rounded-full text-[9px] font-black flex items-center justify-center">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] mt-0.5 tracking-tight">{item.label}</span>
+              </button>
+            );
+          })
+        )}
       </nav>
 
-      {/* 5. Android Navigation Drawer */}
-      {isDrawerOpen && (
+      {/* 5. Android Navigation Drawer (Staff only) */}
+      {!isStudent && isDrawerOpen && (
         <div className="fixed inset-0 z-50 flex">
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
@@ -241,7 +293,7 @@ export const AndroidMobileLayout: React.FC<AndroidMobileLayoutProps> = ({
                   G
                 </div>
                 <div>
-                  <h2 className="font-black text-sm text-white">Goingka Public School</h2>
+                  <h2 className="font-black text-sm text-white">GOENKA Public School</h2>
                   <p className="text-[10px] text-indigo-200 font-semibold">Agra • ERP Engine</p>
                 </div>
               </div>

@@ -85,12 +85,16 @@ interface AuthContextType {
   resetRolePermissions: () => void;
   isModuleAllowed: (moduleId: string, role?: UserRole) => boolean;
   getAllowedModules: (role?: UserRole) => string[];
+
+  // Student specific edit permission controlled by Admin
+  isStudentEditingAllowed: boolean;
+  setStudentEditingAllowed: (allowed: boolean) => void;
 }
 
 const DEFAULT_USER: UserSession = {
   id: 'usr-admin-1',
   name: 'Dr. V. K. Sharma (Super Admin)',
-  email: 'admin@goingkapublicschool.edu',
+  email: 'admin@gdgpsagra.edu',
   role: 'Super Admin',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100',
   department: 'Administration'
@@ -120,7 +124,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [viewMode, setViewModeState] = useState<'mobile' | 'desktop'>(() => {
     try {
-      const saved = localStorage.getItem('goingka_erp_view_mode');
+      const saved = localStorage.getItem('goenka_erp_view_mode');
       if (saved === 'desktop' || saved === 'mobile') return saved;
     } catch (e) {
       console.error(e);
@@ -131,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const setViewMode = (mode: 'mobile' | 'desktop') => {
     setViewModeState(mode);
     try {
-      localStorage.setItem('goingka_erp_view_mode', mode);
+      localStorage.setItem('goenka_erp_view_mode', mode);
     } catch (e) {
       console.error(e);
     }
@@ -255,6 +259,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity('ROLE_SWITCH', 'Auth', `Switched active view role to ${role}`);
   };
 
+  const [isStudentEditingAllowed, setIsStudentEditingAllowedState] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('schoolerp_student_editing_allowed');
+      return saved === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const setStudentEditingAllowed = (allowed: boolean) => {
+    setIsStudentEditingAllowedState(allowed);
+    try {
+      localStorage.setItem('schoolerp_student_editing_allowed', String(allowed));
+    } catch (e) {
+      console.error(e);
+    }
+    logActivity('PERMISSIONS_CHANGED', 'Access Control', `${allowed ? 'Enabled' : 'Restricted'} Student Profile Editing rights.`);
+  };
+
   const addNotification = (notif: Omit<SystemNotification, 'id' | 'timestamp' | 'read'>) => {
     const newNotif: SystemNotification = {
       ...notif,
@@ -317,7 +340,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         updateRolePermissions,
         resetRolePermissions,
         isModuleAllowed,
-        getAllowedModules
+        getAllowedModules,
+        isStudentEditingAllowed,
+        setStudentEditingAllowed
       }}
     >
       <div className={theme === 'dark' ? 'dark bg-slate-950 text-slate-100 min-h-screen' : 'bg-slate-50 text-slate-900 min-h-screen'}>

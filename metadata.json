@@ -1,6 +1,6 @@
 {
-  "name": "Goingka Public School, Agra",
-  "description": "Enterprise Android App & Web ERP for Goingka Public School, Agra. Featuring complete module tile grid, dedicated first screen login for Admin, Teacher, Student, Reception, and dual Android Mobile / Desktop modes.",
+  "name": "GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA",
+  "description": "GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA. Complete School ERP & Android Mobile/Desktop App with Role-Based Access for Admin, Teachers, and Students, View-Only Student Mode, Anyone's Timetable Viewer, Admin Password Reset to nespuneet@gmail.com, and Customizable Printable Reports with Dynamic Calculation Checkboxes.",
   "requestFramePermissions": ["geolocation", "camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

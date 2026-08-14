@@ -27,7 +27,7 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     role: 'Super Admin',
     defaultPassword: 'admin@123',
     category: 'admin_staff',
-    email: 'admin@goingkapublicschool.edu',
+    email: 'admin@gdgpsagra.edu',
     designation: 'School Director / Super Administrator',
     department: 'Administration'
   },
@@ -36,9 +36,9 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     username: 'timetable',
     displayName: 'Prof. Alok Mathur (Timetable Incharge)',
     role: 'Timetable Incharge',
-    defaultPassword: 'gdigonika',
+    defaultPassword: 'gdgoenka',
     category: 'admin_staff',
-    email: 'timetable@goingkapublicschool.edu',
+    email: 'timetable@gdgpsagra.edu',
     designation: 'Academic Dean & Timetable Incharge',
     department: 'Academic Operations'
   },
@@ -47,9 +47,9 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     username: 'reception',
     displayName: 'Mrs. Sunita Verma (Front Desk Reception)',
     role: 'Reception',
-    defaultPassword: 'gdigonika',
+    defaultPassword: 'gdgoenka',
     category: 'admin_staff',
-    email: 'reception@goingkapublicschool.edu',
+    email: 'reception@gdgpsagra.edu',
     designation: 'Front Desk & Visitor Manager',
     department: 'Reception & Helpdesk'
   }
@@ -234,9 +234,9 @@ export function authenticateUser(usernameInput: string, passwordInput: string): 
     normPass === currPass.toLowerCase().replace(/[\s_-]+/g, '') ||
     normPass === defPass.toLowerCase().replace(/[\s_-]+/g, '') ||
     (found.username === 'admin' && (cleanPass === 'admin@123' || cleanPass === 'admin')) ||
-    (found.category === 'teacher' && (normPass === 'teacher1' || normPass === 'gdigonika' || normPass === 'teacher 1')) ||
+    (found.category === 'teacher' && (normPass === 'teacher1' || normPass === 'gdgoenka' || normPass === 'teacher 1')) ||
     (found.category === 'student' && (normPass === 'student1' || normPass === 'studentone' || normPass === 'student 1')) ||
-    (found.username === 'reception' && (normPass === 'gdigonika' || normPass === 'reception' || cleanPass === 'admin@123'));
+    (found.username === 'reception' && (normPass === 'gdgoenka' || normPass === 'reception' || cleanPass === 'admin@123'));
 
   if (!isMatch) {
     return {

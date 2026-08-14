@@ -1,20 +1,38 @@
 import React, { useState } from 'react';
-import { BarChart3, Download, FileSpreadsheet, Calendar, Table, Sliders, Building2, CheckCircle2 } from 'lucide-react';
+import {
+  BarChart3,
+  Download,
+  FileSpreadsheet,
+  Calendar,
+  Table,
+  Sliders,
+  Building2,
+  CheckCircle2,
+  FileText,
+  Printer,
+  Sparkles,
+  Users,
+  Award,
+  BookOpen
+} from 'lucide-react';
 import { useAdmissionStore } from '../admission/admissionStore';
 import { useSisStore } from '../sis/sisStore';
 import { ALL_SCHOOL_CLASSES } from '../../types/admission';
+import { CustomizableStudentReport } from './CustomizableStudentReport';
+import { useAuth } from '../../context/AuthContext';
 
 export const ReportsModule: React.FC = () => {
   const { applications, seats } = useAdmissionStore();
   const { students } = useSisStore();
+  const { activeRole } = useAuth();
 
-  const [academicYear, setAcademicYear] = useState('2026-2027');
+  const [academicYear, setAcademicYear] = useState('2025-2026');
   const [selectedClassFilter, setSelectedClassFilter] = useState('All');
-  const [activeTab, setActiveTab] = useState<'seats' | 'monthly' | 'customizer'>('seats');
+  const [activeTab, setActiveTab] = useState<'customizable_student_report' | 'seats' | 'monthly' | 'customizer'>('customizable_student_report');
 
-  // ERP Customization State
-  const [schoolName, setSchoolName] = useState('St. Xavier International Academy');
-  const [schoolCode, setSchoolCode] = useState('SCH-ERP-9921');
+  // Institution Branding
+  const [schoolName, setSchoolName] = useState('GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA');
+  const [schoolCode, setSchoolCode] = useState('GDGPS-AGRA-CBSE-2130845');
 
   // Compute Seat Capacity & Pipeline Data
   const classReportRows = ALL_SCHOOL_CLASSES.map((clsName) => {
@@ -47,16 +65,16 @@ export const ReportsModule: React.FC = () => {
     ? classReportRows
     : classReportRows.filter((r) => r.className === selectedClassFilter);
 
-  // Month-Wise Cumulative Analytics (April 2026 - August 2026)
-  const monthList = ['April 2026', 'May 2026', 'June 2026', 'July 2026', 'August 2026'];
+  // Month-Wise Cumulative Analytics
+  const monthList = ['April 2025', 'May 2025', 'July 2025', 'October 2025', 'January 2026'];
   const monthlyData = monthList.map((month) => {
     const regCount = applications.filter((a) => a.status === 'Registration' || a.registrationFee > 0).length;
     const admCount = applications.filter((a) => a.status === 'Confirmed' || a.status === 'Admission Process').length;
 
     return {
       month,
-      registrations: Math.round(regCount * (0.15 + Math.random() * 0.2)),
-      admissions: Math.round(admCount * (0.15 + Math.random() * 0.2))
+      registrations: Math.max(12, Math.round(regCount * (0.2 + Math.random() * 0.3) + 15)),
+      admissions: Math.max(8, Math.round(admCount * (0.2 + Math.random() * 0.3) + 10))
     };
   });
 
@@ -65,28 +83,28 @@ export const ReportsModule: React.FC = () => {
     filteredReportRows.forEach((r) => {
       csv += `"${r.className}",${r.seatsAvailable},${r.seatsAllotted},${r.registrationPending},${r.inquiryPending}\n`;
     });
-    const blob = new Blob([csv], { type: 'text/csv' });
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${schoolName.replace(/\s+/g, '_')}_Admission_Seats_Report.csv`;
+    a.download = `GDGPS_Agra_Admission_Report_${academicYear}.csv`;
     a.click();
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & School ERP Header */}
+      {/* Top Banner */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <span className="px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
-            Customizable ERP Reporting Center
+            Reports & Student Analytics Hub
           </span>
-          <h2 className="text-xl font-extrabold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+          <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1 flex items-center gap-2">
             <BarChart3 className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
-            {schoolName} — Admission & Capacity Reports
+            {schoolName}
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            School Code: <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">{schoolCode}</span> | Academic Session: <span className="font-bold text-indigo-600">{academicYear}</span>
+            Institutional Code: <span className="font-mono text-slate-800 dark:text-slate-200 font-bold">{schoolCode}</span> | Academic Session: <span className="font-bold text-indigo-600">{academicYear}</span>
           </p>
         </div>
 
@@ -95,57 +113,76 @@ export const ReportsModule: React.FC = () => {
             onClick={exportReportCSV}
             className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow cursor-pointer transition-all"
           >
-            <FileSpreadsheet className="w-4 h-4" /> Export Excel / CSV
+            <FileSpreadsheet className="w-4 h-4" /> Export CSV / Excel
           </button>
           <button
             onClick={() => window.print()}
             className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
           >
-            <Download className="w-4 h-4" /> Print / PDF
+            <Download className="w-4 h-4" /> Print PDF
           </button>
         </div>
       </div>
 
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('customizable_student_report')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer shrink-0 ${
+            activeTab === 'customizable_student_report'
+              ? 'bg-indigo-600 text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }`}
+        >
+          <FileText className="w-4 h-4 text-amber-300" />
+          <span>1. Customizable Student Report (Calculations via Checkboxes)</span>
+        </button>
+
         <button
           onClick={() => setActiveTab('seats')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer shrink-0 ${
             activeTab === 'seats'
               ? 'bg-indigo-600 text-white shadow-md'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
           }`}
         >
           <Table className="w-4 h-4" />
-          <span>Class Seat Capacity & Pipeline Matrix</span>
+          <span>2. Class Seat Capacity & Student Counts</span>
         </button>
 
         <button
           onClick={() => setActiveTab('monthly')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer shrink-0 ${
             activeTab === 'monthly'
               ? 'bg-indigo-600 text-white shadow-md'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
           }`}
         >
           <Calendar className="w-4 h-4" />
-          <span>Month-Wise Cumulative Standard Report</span>
+          <span>3. Month-Wise Cumulative Admissions</span>
         </button>
 
-        <button
-          onClick={() => setActiveTab('customizer')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-            activeTab === 'customizer'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Sliders className="w-4 h-4" />
-          <span>ERP Onboarding & Report Setup</span>
-        </button>
+        {activeRole !== 'Teacher' && (
+          <button
+            onClick={() => setActiveTab('customizer')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'customizer'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Sliders className="w-4 h-4" />
+            <span>4. Institution Details Setup</span>
+          </button>
+        )}
       </div>
 
-      {/* TAB 1: SEAT CAPACITY & PIPELINE MATRIX */}
+      {/* TAB 1: CUSTOMIZABLE STUDENT REPORT WITH CHECKBOX CALCULATIONS */}
+      {activeTab === 'customizable_student_report' && (
+        <CustomizableStudentReport />
+      )}
+
+      {/* TAB 2: SEAT CAPACITY & PIPELINE MATRIX */}
       {activeTab === 'seats' && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -173,10 +210,10 @@ export const ReportsModule: React.FC = () => {
               <thead>
                 <tr className="bg-slate-100 dark:bg-slate-800/80 text-slate-700 dark:text-slate-300 font-extrabold border-b border-slate-200 dark:border-slate-700">
                   <th className="py-3 px-4">Class</th>
-                  <th className="py-3 px-4 text-center text-emerald-700 dark:text-emerald-400">Number of Seats Available</th>
-                  <th className="py-3 px-4 text-center text-indigo-700 dark:text-indigo-400">Number of Seats Allotted</th>
-                  <th className="py-3 px-4 text-center text-amber-700 dark:text-amber-400">Number of Registration Pending</th>
-                  <th className="py-3 px-4 text-center text-blue-700 dark:text-blue-400">Number of Inquiry Pending</th>
+                  <th className="py-3 px-4 text-center text-emerald-700 dark:text-emerald-400">Seats Available</th>
+                  <th className="py-3 px-4 text-center text-indigo-700 dark:text-indigo-400">Seats Allotted</th>
+                  <th className="py-3 px-4 text-center text-amber-700 dark:text-amber-400">Registration Pending</th>
+                  <th className="py-3 px-4 text-center text-blue-700 dark:text-blue-400">Inquiry Pending</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -220,7 +257,7 @@ export const ReportsModule: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 2: CUMULATIVE MONTH-WISE CLASS REPORT */}
+      {/* TAB 3: CUMULATIVE MONTH-WISE CLASS REPORT */}
       {activeTab === 'monthly' && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
@@ -260,15 +297,15 @@ export const ReportsModule: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: ERP ONBOARDING & REPORT CUSTOMIZER */}
-      {activeTab === 'customizer' && (
+      {/* TAB 4: ERP ONBOARDING & REPORT CUSTOMIZER */}
+      {activeTab === 'customizer' && activeRole !== 'Teacher' && (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 space-y-5">
           <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
             <h3 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-              <Sliders className="w-5 h-5 text-indigo-600" /> ERP School Onboarding & Customization Settings
+              <Sliders className="w-5 h-5 text-indigo-600" /> Institution Customization & Header Setup
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Customize the ERP configuration for any onboarded institution.
+              Configure institution branding for all generated student reports and certificates.
             </p>
           </div>
 
@@ -284,7 +321,7 @@ export const ReportsModule: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">School ERP Registration Code *</label>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">School Affiliation & Registration Code *</label>
               <input
                 type="text"
                 value={schoolCode}
@@ -310,7 +347,7 @@ export const ReportsModule: React.FC = () => {
           <div className="p-4 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
             <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
             <p className="text-xs text-emerald-900 dark:text-emerald-200 font-medium">
-              ERP Setup Ready: Settings updated instantly across all reports, offer letters, and student directory headers.
+              Institutional Settings Active: Configured for {schoolName}.
             </p>
           </div>
         </div>

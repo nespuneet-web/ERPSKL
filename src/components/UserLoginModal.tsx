@@ -443,46 +443,12 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
                   </div>
                 </div>
 
-                {/* Default Password Hints */}
-                <div className="p-3.5 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 space-y-1.5 text-xs text-indigo-900 dark:text-indigo-200">
-                  <div className="font-extrabold flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
-                      <Key className="w-3.5 h-3.5" /> Default Password Reference:
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('directory')}
-                      className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer flex items-center gap-1"
-                    >
-                      <Download className="w-3 h-3" /> Download Excel Sheet →
-                    </button>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Teachers 1 to 70:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">teacher1</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Students 1 to 1200:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">student1</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Timetable & Reception:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">gdigonika</span>
-                    </div>
-                    <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-indigo-200/60 dark:border-indigo-800/60">
-                      <span className="font-bold text-slate-700 dark:text-slate-300 block">Super Administrator:</span>
-                      <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">admin@123</span>
-                    </div>
-                  </div>
-                </div>
-
                 <button
                   type="submit"
                   className="w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold rounded-xl shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 text-sm"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>Log In to School Portal</span>
+                  <span>Proceed / Login</span>
                 </button>
               </form>
             </div>
@@ -502,8 +468,8 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
                   {[
                     { u: 'teacher1', label: 'Teacher #1 (Maths)', role: 'Teacher', pass: 'teacher1', cat: 'teacher' },
                     { u: 'teacher15', label: 'Teacher #15 (Physics)', role: 'Teacher', pass: 'teacher1', cat: 'teacher' },
-                    { u: 'timetable', label: 'Timetable Incharge', role: 'Timetable Incharge', pass: 'gdigonika', cat: 'admin_staff' },
-                    { u: 'reception', label: 'Front Desk Reception', role: 'Reception', pass: 'gdigonika', cat: 'admin_staff' },
+                    { u: 'timetable', label: 'Timetable Incharge', role: 'Timetable Incharge', pass: 'gdgoenka', cat: 'admin_staff' },
+                    { u: 'reception', label: 'Front Desk Reception', role: 'Reception', pass: 'gdgoenka', cat: 'admin_staff' },
                     { u: 'admin', label: 'Super Administrator', role: 'Super Admin', pass: 'admin@123', cat: 'admin_staff' },
                     { u: 'student1', label: 'Student #1 (Class 1-A)', role: 'Student', pass: 'student1', cat: 'student' },
                     { u: 'student45', label: 'Student #45 (Class 10-A)', role: 'Student', pass: 'student1', cat: 'student' }
@@ -585,7 +551,7 @@ export const UserLoginModal: React.FC<UserLoginModalProps> = ({ isOpen, onClose 
                     type="text"
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
-                    placeholder="Enter current password (e.g. gdigonika or student one)"
+                    placeholder="Enter current password (e.g. gdgoenka or student1)"
                     className="w-full pl-9 pr-4 py-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-sm font-semibold text-slate-900 dark:text-white"
                   />
                 </div>

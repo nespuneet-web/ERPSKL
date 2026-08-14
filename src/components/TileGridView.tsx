@@ -292,7 +292,7 @@ export const TileGridView: React.FC<TileGridViewProps> = ({ onSelectModule, isMo
           <div>
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-amber-300 text-xs font-black mb-2 border border-white/10">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>Goingka Public School, Agra • ERP Portal</span>
+              <span>GOENKA Public School, Agra • ERP Portal</span>
             </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
               Welcome, {currentUser.name}
