@@ -505,53 +505,91 @@ export function useLessonPlanStore() {
     periodsRequired: number,
     updatedBy: string,
     remarks?: string
-  ) => {
+  ): Promise<LessonPlan | null> => {
     let updatedPlan: LessonPlan | null = null;
-    setPlans((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          updatedPlan = {
-            ...p,
-            status,
-            periodsRequired,
-            periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : p.periodsCompleted,
-            lastUpdatedBy: updatedBy,
-            lastUpdatedAt: new Date().toISOString(),
-            remarks: remarks !== undefined ? remarks : p.remarks
-          };
-          return updatedPlan;
-        }
-        return p;
-      })
-    );
+    setPlans((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1) return prev;
+      const target = prev[idx];
+      updatedPlan = {
+        ...target,
+        status,
+        periodsRequired,
+        periodsCompleted:
+          status === 'COMPLETED_ON_TIME'
+            ? periodsRequired
+            : status === 'IN_PROGRESS'
+            ? Math.max(1, Math.floor(periodsRequired / 2))
+            : target.periodsCompleted,
+        lastUpdatedBy: updatedBy,
+        lastUpdatedAt: new Date().toISOString(),
+        remarks: remarks !== undefined ? remarks : target.remarks
+      };
+      const next = [...prev];
+      next[idx] = updatedPlan;
+      return next;
+    });
+
+    if (!updatedPlan) {
+      const target = plans.find((p) => p.id === id);
+      if (target) {
+        updatedPlan = {
+          ...target,
+          status,
+          periodsRequired,
+          periodsCompleted:
+            status === 'COMPLETED_ON_TIME'
+              ? periodsRequired
+              : status === 'IN_PROGRESS'
+              ? Math.max(1, Math.floor(periodsRequired / 2))
+              : target.periodsCompleted,
+          lastUpdatedBy: updatedBy,
+          lastUpdatedAt: new Date().toISOString(),
+          remarks: remarks !== undefined ? remarks : target.remarks
+        };
+      }
+    }
 
     if (updatedPlan) {
       await syncLessonPlanToSupabase(updatedPlan);
     }
+    return updatedPlan;
   };
 
-  const updateLessonPlan = async (id: string, fields: Partial<LessonPlan>) => {
+  const updateLessonPlan = async (id: string, fields: Partial<LessonPlan>): Promise<LessonPlan | null> => {
     let updatedPlan: LessonPlan | null = null;
-    setPlans((prev) =>
-      prev.map((p) => {
-        if (p.id === id) {
-          updatedPlan = {
-            ...p,
-            ...fields,
-            lastUpdatedAt: new Date().toISOString()
-          };
-          return updatedPlan;
-        }
-        return p;
-      })
-    );
+    setPlans((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx === -1) return prev;
+      const target = prev[idx];
+      updatedPlan = {
+        ...target,
+        ...fields,
+        lastUpdatedAt: new Date().toISOString()
+      };
+      const next = [...prev];
+      next[idx] = updatedPlan;
+      return next;
+    });
+
+    if (!updatedPlan) {
+      const target = plans.find((p) => p.id === id);
+      if (target) {
+        updatedPlan = {
+          ...target,
+          ...fields,
+          lastUpdatedAt: new Date().toISOString()
+        };
+      }
+    }
 
     if (updatedPlan) {
       await syncLessonPlanToSupabase(updatedPlan);
     }
+    return updatedPlan;
   };
 
-  const addLessonPlan = async (newPlan: Omit<LessonPlan, 'id' | 'lastUpdatedAt'>) => {
+  const addLessonPlan = async (newPlan: Omit<LessonPlan, 'id' | 'lastUpdatedAt'>): Promise<LessonPlan> => {
     const created: LessonPlan = {
       ...newPlan,
       id: `lp-${Date.now()}`,
@@ -559,6 +597,7 @@ export function useLessonPlanStore() {
     };
     setPlans((prev) => [created, ...prev]);
     await syncLessonPlanToSupabase(created);
+    return created;
   };
 
   const sendAlertToTeacher = async (

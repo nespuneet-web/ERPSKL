@@ -72,7 +72,7 @@ export interface Student {
   religion: string;
   caste?: string;
   category: 'General' | 'OBC' | 'SC' | 'ST' | 'EWS' | 'Other';
-  studentCategory?: 'Staff Ward' | 'Normal Child' | 'Management Child' | 'Government-Funded Student';
+  studentCategory?: 'Day Scholar' | 'Hosteler' | 'Staff Ward' | 'Normal Child' | 'Management Child' | 'Government-Funded Student';
   nationality: string;
   motherTongue: string;
   photoUrl: string;
@@ -80,12 +80,17 @@ export interface Student {
 
   // Academic Details
   admissionDate: string;
+  dateOfJoining?: string;
+  feeApplicableFromMonth?: string;
+  admissionRemarks?: string;
+  specialDiscountNotes?: string;
   admissionClass: string;
   currentClass: string;
   section: string;
   rollNo: number;
   house: string; // Customizable House Name
   previousSchool?: string;
+  previousSchoolClass?: string;
   tcNumber?: string;
 
   // Sibling & Other School Info

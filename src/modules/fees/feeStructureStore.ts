@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ALL_SCHOOL_CLASSES } from '../../types/admission';
+import { ALL_SCHOOL_CLASSES, calculateFeeForStartMonth } from '../../types/admission';
 import {
   syncClassFeeStructureToSupabase,
   fetchClassFeeStructuresFromSupabase,
@@ -172,6 +172,39 @@ export function getClassFeeStructure(className: string): ClassFeeStructure {
       commitmentFee: 5000
     }
   );
+}
+
+export function calculateClassTuitionForMonth(
+  className: string,
+  startMonth: string = 'April'
+): {
+  structure: ClassFeeStructure;
+  tuitionFeeCalculated: number;
+  monthsCharged: number;
+  fractionLabel: string;
+  totalAdmissionEstimate: number;
+} {
+  const structure = getClassFeeStructure(className);
+  const { tuitionFee, monthsCharged, fractionLabel } = calculateFeeForStartMonth(
+    structure.tuitionFeeAnnual,
+    startMonth
+  );
+
+  const totalAdmissionEstimate =
+    structure.registrationFee +
+    structure.admissionFee +
+    tuitionFee +
+    structure.transportFee +
+    structure.commitmentFee +
+    structure.labFee;
+
+  return {
+    structure,
+    tuitionFeeCalculated: tuitionFee,
+    monthsCharged,
+    fractionLabel,
+    totalAdmissionEstimate
+  };
 }
 
 export function useFeeStructureStore() {

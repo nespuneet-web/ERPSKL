@@ -11,6 +11,31 @@
  * - Higher Classes (Class 2..12): 5 + Class Number (e.g., Class 2 = 7 yrs, Class 10 = 15 yrs)
  */
 
+export interface AgeCriteriaDetail {
+  minAgeYears: number;
+  maxAgeYears: number;
+  recommendedClass: string;
+}
+
+export const AGE_CRITERIA_MAP: Record<string, AgeCriteriaDetail> = {
+  'Playgroup': { minAgeYears: 2, maxAgeYears: 3, recommendedClass: 'Playgroup' },
+  'Nursery': { minAgeYears: 3, maxAgeYears: 4, recommendedClass: 'Nursery' },
+  'LKG': { minAgeYears: 4, maxAgeYears: 5, recommendedClass: 'LKG' },
+  'UKG': { minAgeYears: 5, maxAgeYears: 6, recommendedClass: 'UKG' },
+  'Class 1': { minAgeYears: 6, maxAgeYears: 7, recommendedClass: 'Class 1' },
+  'Class 2': { minAgeYears: 7, maxAgeYears: 8, recommendedClass: 'Class 2' },
+  'Class 3': { minAgeYears: 8, maxAgeYears: 9, recommendedClass: 'Class 3' },
+  'Class 4': { minAgeYears: 9, maxAgeYears: 10, recommendedClass: 'Class 4' },
+  'Class 5': { minAgeYears: 10, maxAgeYears: 11, recommendedClass: 'Class 5' },
+  'Class 6': { minAgeYears: 11, maxAgeYears: 12, recommendedClass: 'Class 6' },
+  'Class 7': { minAgeYears: 12, maxAgeYears: 13, recommendedClass: 'Class 7' },
+  'Class 8': { minAgeYears: 13, maxAgeYears: 14, recommendedClass: 'Class 8' },
+  'Class 9': { minAgeYears: 14, maxAgeYears: 15, recommendedClass: 'Class 9' },
+  'Class 10': { minAgeYears: 15, maxAgeYears: 16, recommendedClass: 'Class 10' },
+  'Class 11': { minAgeYears: 16, maxAgeYears: 17, recommendedClass: 'Class 11' },
+  'Class 12': { minAgeYears: 17, maxAgeYears: 18, recommendedClass: 'Class 12' }
+};
+
 export interface AgeEligibilityResult {
   isEligible: boolean;
   calculatedYears: number;

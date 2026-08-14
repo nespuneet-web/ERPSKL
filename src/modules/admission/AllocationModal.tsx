@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AdmissionApplication } from '../../types/admission';
 import { useSisStore } from '../sis/sisStore';
+import { autoSyncAppToSis } from './admissionStore';
 import { ALL_SCHOOL_CLASSES, GROUP_A_INDOOR_ACTIVITIES, GROUP_B_OUTDOOR_ACTIVITIES } from '../../data/mockData';
 import { X, CheckCircle, Shield, Award, Users, Layers, Sparkles } from 'lucide-react';
 
@@ -27,81 +28,13 @@ export const AllocationModal: React.FC<AllocationModalProps> = ({
   const handleConfirmAllocation = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check if student already exists in SIS
-    const existing = students.find((s) => s.fullName.toLowerCase() === application.studentName.toLowerCase());
-
-    if (!existing) {
-      // Create new student in master SIS roster
-      addStudent({
-        admissionNo: application.applicationNo.includes('ADM') ? application.applicationNo : `ADM-2026-${Math.floor(100 + Math.random() * 900)}`,
-        registrationNo: `REG-${Math.floor(10000 + Math.random() * 90000)}`,
-        scholarNo: `SCH-${Math.floor(1000 + Math.random() * 9000)}`,
-        penNo: `PEN-${Math.floor(1000000000 + Math.random() * 9000000000)}`,
-        apaarId: `APAAR-${Math.floor(100000000000 + Math.random() * 900000000000)}`,
-        aadhaarNo: '7812 9012 3456',
-        fullName: application.studentName,
-        gender: application.gender || 'Male',
-        dob: application.dob || '2019-05-10',
-        bloodGroup: 'O+',
-        religion: application.religion || 'Hinduism',
-        caste: application.caste || '',
-        category: application.category || 'General',
-        studentCategory: application.studentCategory || 'Normal Child',
-        nationality: 'Indian',
-        motherTongue: 'Hindi',
-        photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-        admissionDate: new Date().toISOString().split('T')[0],
-        admissionClass: application.applyingClass,
-        currentClass: application.applyingClass,
-        section: section,
-        rollNo: students.length + 1,
-        house: selectedHouse,
-        clubName: selectedClub,
-        groupAActivity: selectedIndoor,
-        groupBActivity: selectedOutdoor,
-        previousSchool: application.previousSchool || 'None',
-        transportRequired: true,
-        busRouteNo: 'Route 1 - Civil Lines Metro',
-        hostelRequired: false,
-        hasSiblingInSchool: Boolean(application.hasSiblingInSchool),
-        appliedOtherSchool: Boolean(application.appliedOtherSchool),
-        otherSchoolDetails: application.otherSchoolDetails || '',
-        forceAdmission: application.forceAdmission,
-        forceAdmissionReason: application.forceAdmissionReason,
-        forceAdmissionAuthorizedBy: application.forceAdmissionAuthorizedBy,
-        forceAdmissionTimestamp: application.forceAdmissionTimestamp,
-        parents: {
-          fatherName: application.parentName,
-          fatherMobile: application.contactNumber,
-          fatherEmail: application.email || 'parent@example.com',
-          fatherOccupation: application.parentOccupation || 'Doctor / Engineer',
-          fatherIncome: '18,00,000 PA',
-          fatherQualification: 'Graduate',
-          motherName: application.motherName || 'Mother',
-          motherOccupation: application.motherOccupation || 'Educator',
-          motherMobile: application.contactNumber,
-          motherEmail: application.email || 'mother@example.com',
-          address: application.address || 'Main Town, Delhi NCR',
-          emergencyContact: application.contactNumber
-        },
-        medical: { bloodGroup: 'O+', disability: false },
-        documents: [],
-        siblings: (application.siblingsList || []).map((s, idx) => ({
-          id: `sib-${idx}`,
-          name: s.name,
-          classSection: s.className,
-          admissionNo: s.admissionNo,
-          relation: s.relation === 'Sister' ? 'Sister' : 'Brother'
-        })),
-        promotions: [],
-        status: 'Active'
-      });
-    }
-
     const updatedApp: AdmissionApplication = {
       ...application,
       status: 'Confirmed'
     };
+
+    // Synchronize to centralized SIS store
+    autoSyncAppToSis(updatedApp, section, selectedHouse, selectedClub);
 
     setBanner(`Successfully allocated Section ${section}, ${selectedHouse}, ${selectedClub}, ${selectedIndoor} & ${selectedOutdoor} for ${application.studentName}! Registered into Master SIS Roster.`);
 

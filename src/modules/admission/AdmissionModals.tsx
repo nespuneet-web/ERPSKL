@@ -4,10 +4,17 @@ import {
   AdmissionSiblingRecord,
   StudentCategoryType,
   ALL_SCHOOL_CLASSES,
-  PARENT_OCCUPATION_CATEGORIES
+  PREVIOUS_SCHOOL_CLASSES,
+  ACADEMIC_MONTHS,
+  PARENT_OCCUPATION_CATEGORIES,
+  calculateFeeForStartMonth
 } from '../../types/admission';
-import { getClassFeeStructure } from '../fees/feeStructureStore';
-import { checkAgeEligibility } from '../../utils/ageEligibility';
+import { getClassFeeStructure, calculateClassTuitionForMonth } from '../fees/feeStructureStore';
+import { checkAgeEligibility, AGE_CRITERIA_MAP } from '../../utils/ageEligibility';
+import {
+  peekNextNumber,
+  SchoolNumberingSettings
+} from './admissionNumberConfig';
 import {
   X,
   CheckCircle,
@@ -26,7 +33,17 @@ import {
   UserCheck,
   AlertTriangle,
   Heart,
-  FileText
+  FileText,
+  Calendar,
+  Award,
+  Hash,
+  Settings,
+  Percent,
+  Sliders,
+  Check,
+  Send,
+  Eye,
+  Edit3
 } from 'lucide-react';
 
 /* ==================================================================== */
@@ -50,9 +67,16 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
   const [email, setEmail] = useState('');
   const [address, setAddress] = useState('');
   const [previousSchool, setPreviousSchool] = useState('');
+  const [previousSchoolClass, setPreviousSchoolClass] = useState<string>('Playgroup (PG)');
+  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>('Day Scholar');
+  const [dateOfJoining, setDateOfJoining] = useState(new Date().toISOString().split('T')[0]);
+  const [feeApplicableFromMonth, setFeeApplicableFromMonth] = useState('April');
+  const [admissionRemarks, setAdmissionRemarks] = useState('');
   const [inquirySource, setInquirySource] = useState<'Walk-in' | 'Website' | 'Referral' | 'Social Media' | 'Newspaper Ad'>('Walk-in');
 
-  // Age Eligibility & Force Admission state
+  const nextInqNo = peekNextNumber('inquiry');
+  const feeCalc = calculateClassTuitionForMonth(applyingClass, feeApplicableFromMonth);
+
   const ageEligibility = checkAgeEligibility(dob, applyingClass);
   const [forceAdmission, setForceAdmission] = useState(false);
   const [forceAdmissionReason, setForceAdmissionReason] = useState('');
@@ -80,6 +104,11 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
       email,
       address,
       previousSchool: previousSchool || 'None',
+      previousSchoolClass,
+      studentCategory,
+      dateOfJoining,
+      feeApplicableFromMonth,
+      admissionRemarks,
       inquirySource,
       documentsUploaded: [],
       isAgeEligible: ageEligibility.isEligible,
@@ -93,19 +122,24 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
-        {/* HEADER */}
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-indigo-600" />
             <div>
-              <h3 className="text-base font-extrabold">New Inquiry Record</h3>
-              <p className="text-xs text-slate-500">Add candidate lead into Central Prospect Master</p>
+              <h3 className="text-base font-extrabold">New Inquiry Lead</h3>
+              <p className="text-xs text-slate-500">Record candidate inquiry into Central School Admission Pipeline</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-mono text-xs font-bold">
+              <Lock className="w-3 h-3 text-indigo-500" />
+              Auto ID: {nextInqNo}
+            </span>
+            <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* AGE ELIGIBILITY BANNER */}
@@ -180,9 +214,6 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
                       />
                     </div>
                   </div>
-                  <p className="text-[10px] text-amber-900 dark:text-amber-300 italic font-semibold">
-                    ⚠️ Override reason and authorizing official will be permanently logged in the audit trail.
-                  </p>
                 </div>
               )}
             </div>
@@ -251,6 +282,41 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
               </select>
             </div>
 
+            {/* STUDENT CATEGORY (Default: Day Scholar) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                Student Category (Default: Day Scholar) *
+              </label>
+              <select
+                value={studentCategory}
+                onChange={(e) => setStudentCategory(e.target.value as StudentCategoryType)}
+                className="w-full px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold text-indigo-900 dark:text-indigo-200 cursor-pointer"
+              >
+                <option value="Day Scholar">Day Scholar (Normal Standard Fee)</option>
+                <option value="Hosteler">Hosteler (Boarding)</option>
+                <option value="Staff Ward">Staff Ward (Employee Child)</option>
+                <option value="Management Child">Management Child (Discretionary)</option>
+                <option value="Government-Funded Student">Government-Funded / RTE Student</option>
+                <option value="Normal Child">Normal Child</option>
+              </select>
+            </div>
+
+            {/* DATE OF JOINING */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                Date of Joining *
+              </label>
+              <input
+                type="date"
+                required
+                value={dateOfJoining}
+                onChange={(e) => setDateOfJoining(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+              />
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
                 Father / Guardian Name *
@@ -311,14 +377,14 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
 
             <div>
               <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Contact Phone *
+                Contact Number *
               </label>
               <input
                 type="tel"
                 required
                 value={contactNumber}
                 onChange={(e) => setContactNumber(e.target.value)}
-                placeholder="e.g. 9876543210"
+                placeholder="e.g. +91 98765 43210"
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
               />
             </div>
@@ -331,7 +397,7 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="parent@example.com"
+                placeholder="e.g. parent@example.com"
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
               />
             </div>
@@ -344,55 +410,98 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
                 type="text"
                 value={previousSchool}
                 onChange={(e) => setPreviousSchool(e.target.value)}
-                placeholder="e.g. Little Angels Preschool"
+                placeholder="e.g. Delhi Public School or None (Fresher)"
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
               />
             </div>
 
+            {/* PREVIOUS SCHOOL CLASS DROPDOWN MENU */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Inquiry Source
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                Previous School Class *
               </label>
               <select
-                value={inquirySource}
-                onChange={(e) => setInquirySource(e.target.value as any)}
+                value={previousSchoolClass}
+                onChange={(e) => setPreviousSchoolClass(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
               >
-                <option value="Walk-in">Walk-in</option>
-                <option value="Website">Website</option>
-                <option value="Referral">Referral</option>
-                <option value="Social Media">Social Media</option>
-                <option value="Newspaper Ad">Newspaper Ad</option>
+                {PREVIOUS_SCHOOL_CLASSES.map((cls) => (
+                  <option key={cls} value={cls}>
+                    {cls}
+                  </option>
+                ))}
               </select>
+            </div>
+
+            {/* FEE APPLICABLE FROM MONTH (Proration Logic) */}
+            <div className="sm:col-span-2 p-3 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                    <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                    Fee Applicable Start Month
+                  </label>
+                  <p className="text-[11px] text-slate-500">
+                    Tuition is automatically prorated based on admission month (e.g. July/August entries).
+                  </p>
+                </div>
+                <select
+                  value={feeApplicableFromMonth}
+                  onChange={(e) => setFeeApplicableFromMonth(e.target.value)}
+                  className="px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-lg text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
+                >
+                  {ACADEMIC_MONTHS.map((m) => (
+                    <option key={m.month} value={m.month}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-700 text-xs">
+                <span className="text-slate-600 dark:text-slate-400">
+                  Calculated Tuition for {applyingClass} ({feeCalc.fractionLabel}):
+                </span>
+                <span className="font-mono font-extrabold text-emerald-600 dark:text-emerald-400 text-sm">
+                  ₹{feeCalc.tuitionFeeCalculated.toLocaleString()}
+                  <span className="text-[10px] text-slate-500 font-normal ml-1">
+                    (Annual base: ₹{feeCalc.structure.tuitionFeeAnnual.toLocaleString()})
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* ADMISSION REMARK / SPECIAL DISCOUNT / REFERENCE */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-slate-500" />
+                Admission Remarks / Special Reference / Concession Notes
+              </label>
+              <textarea
+                rows={2}
+                value={admissionRemarks}
+                onChange={(e) => setAdmissionRemarks(e.target.value)}
+                placeholder="e.g. Special reference by Director; 10% sibling concession approved; transfer case from Bangalore"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white"
+              />
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Residential Address
-            </label>
-            <input
-              type="text"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              placeholder="e.g. House No 42, Sector 15, New Delhi"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-            />
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer flex items-center gap-2"
             >
-              <CheckCircle className="w-4 h-4" /> Save Inquiry Record
+              <Check className="w-4 h-4" />
+              Save Inquiry Lead
             </button>
           </div>
         </form>
@@ -401,395 +510,54 @@ export const AddInquiryModal: React.FC<AddInquiryModalProps> = ({ onClose, onSub
   );
 };
 
-
 /* ==================================================================== */
-/* 2. ADD REGISTRATION MODAL                                           */
+/* 2. ADD REGISTRATION MODAL                                            */
 /* ==================================================================== */
 interface AddRegistrationModalProps {
   inquiries: AdmissionApplication[];
   onClose: () => void;
-  onSubmit: (inquiryId: string, overrideFee: number, details: Partial<AdmissionApplication>) => void;
+  onSubmit: (inquiryId: string, regFee: number, details: Partial<AdmissionApplication>) => void;
 }
 
-export const AddRegistrationModal: React.FC<AddRegistrationModalProps> = ({ inquiries, onClose, onSubmit }) => {
+export const AddRegistrationModal: React.FC<AddRegistrationModalProps> = ({
+  inquiries,
+  onClose,
+  onSubmit
+}) => {
   const [selectedInquiryId, setSelectedInquiryId] = useState(inquiries[0]?.id || '');
-  const [caste, setCaste] = useState('');
-  const [category, setCategory] = useState<'General' | 'SC' | 'ST' | 'OBC' | 'Other'>('General');
-  const [religion, setReligion] = useState('Hinduism');
-  const [previousSchool, setPreviousSchool] = useState('');
-  
-  // Sibling info
-  const [hasSiblingInSchool, setHasSiblingInSchool] = useState(false);
-  const [siblingsList, setSiblingsList] = useState<AdmissionSiblingRecord[]>([
-    { name: '', className: 'Class 5-A', admissionNo: '', relation: 'Brother' }
-  ]);
+  const [registrationFee, setRegistrationFee] = useState(1500);
+  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>('Day Scholar');
+  const [dateOfJoining, setDateOfJoining] = useState(new Date().toISOString().split('T')[0]);
+  const [feeApplicableFromMonth, setFeeApplicableFromMonth] = useState('April');
+  const [previousSchoolClass, setPreviousSchoolClass] = useState('Playgroup (PG)');
+  const [admissionRemarks, setAdmissionRemarks] = useState('');
 
-  // Other school info
-  const [appliedOtherSchool, setAppliedOtherSchool] = useState(false);
-  const [otherSchoolDetails, setOtherSchoolDetails] = useState('');
-
+  const nextRegNo = peekNextNumber('registration');
   const selectedInquiry = inquiries.find((i) => i.id === selectedInquiryId);
-  const applyingClass = selectedInquiry?.applyingClass || 'Class 1';
-  const liveClassFee = getClassFeeStructure(applyingClass);
-  const [regFeeAmount, setRegFeeAmount] = useState(liveClassFee.registrationFee);
 
   useEffect(() => {
     if (selectedInquiry) {
-      const fees = getClassFeeStructure(selectedInquiry.applyingClass);
-      setRegFeeAmount(fees.registrationFee);
-      if (selectedInquiry.previousSchool && selectedInquiry.previousSchool !== 'None') {
-        setPreviousSchool(selectedInquiry.previousSchool);
-      }
+      const clsFee = getClassFeeStructure(selectedInquiry.applyingClass);
+      setRegistrationFee(clsFee.registrationFee);
+      if (selectedInquiry.studentCategory) setStudentCategory(selectedInquiry.studentCategory);
+      if (selectedInquiry.dateOfJoining) setDateOfJoining(selectedInquiry.dateOfJoining);
+      if (selectedInquiry.feeApplicableFromMonth) setFeeApplicableFromMonth(selectedInquiry.feeApplicableFromMonth);
+      if (selectedInquiry.previousSchoolClass) setPreviousSchoolClass(selectedInquiry.previousSchoolClass);
+      if (selectedInquiry.admissionRemarks) setAdmissionRemarks(selectedInquiry.admissionRemarks);
     }
   }, [selectedInquiryId, selectedInquiry]);
-
-  const handleAddSibling = () => {
-    if (siblingsList.length >= 3) return;
-    setSiblingsList([...siblingsList, { name: '', className: 'Class 1-A', admissionNo: '', relation: 'Brother' }]);
-  };
-
-  const handleRemoveSibling = (index: number) => {
-    setSiblingsList(siblingsList.filter((_, idx) => idx !== index));
-  };
-
-  const handleSiblingChange = (index: number, field: keyof AdmissionSiblingRecord, value: string) => {
-    const updated = [...siblingsList];
-    updated[index] = { ...updated[index], [field]: value };
-    setSiblingsList(updated);
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedInquiryId) return;
 
-    onSubmit(selectedInquiryId, regFeeAmount, {
-      caste,
-      category,
-      religion,
-      previousSchool: previousSchool || selectedInquiry?.previousSchool || 'None',
-      hasSiblingInSchool,
-      siblingsList: hasSiblingInSchool ? siblingsList.filter((s) => s.name.trim() !== '') : [],
-      appliedOtherSchool,
-      otherSchoolDetails: appliedOtherSchool ? otherSchoolDetails : undefined
+    onSubmit(selectedInquiryId, registrationFee, {
+      studentCategory,
+      dateOfJoining,
+      feeApplicableFromMonth,
+      previousSchoolClass,
+      admissionRemarks
     });
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-indigo-600" />
-            <div>
-              <h3 className="text-base font-extrabold">Student Registration Form</h3>
-              <p className="text-xs text-slate-500">Capture social, sibling, previous school & centralized fee records</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* CANDIDATE SELECTION */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Select Inquiry Prospect Candidate *
-            </label>
-            <select
-              value={selectedInquiryId}
-              onChange={(e) => setSelectedInquiryId(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
-            >
-              {inquiries.map((inq, idx) => (
-                <option key={`${inq.id}-${idx}`} value={inq.id}>
-                  {inq.studentName} ({inq.applyingClass}) — Parent: {inq.parentName} [{inq.applicationNo}]
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* SOCIAL / PERSONAL INFO */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <h4 className="text-xs font-extrabold uppercase text-indigo-700 dark:text-indigo-400">
-              Social & Personal Information
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Category *</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value as any)}
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
-                >
-                  <option value="General">General</option>
-                  <option value="SC">SC (Scheduled Caste)</option>
-                  <option value="ST">ST (Scheduled Tribe)</option>
-                  <option value="OBC">OBC (Other Backward Class)</option>
-                  <option value="Other">Other Category</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Caste Name</label>
-                <input
-                  type="text"
-                  value={caste}
-                  onChange={(e) => setCaste(e.target.value)}
-                  placeholder="e.g. General / Brahmin / Yadav"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">Religion</label>
-                <input
-                  type="text"
-                  value={religion}
-                  onChange={(e) => setReligion(e.target.value)}
-                  placeholder="e.g. Hinduism, Sikhism, Islam"
-                  className="w-full px-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* PREVIOUS SCHOOL */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Previous School Name
-            </label>
-            <input
-              type="text"
-              value={previousSchool}
-              onChange={(e) => setPreviousSchool(e.target.value)}
-              placeholder="e.g. St. Xavier Senior Secondary School"
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
-            />
-          </div>
-
-          {/* SIBLING INFORMATION (UP TO 3) */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-extrabold uppercase text-indigo-700 dark:text-indigo-400">
-                  Sibling Information (Up to 3 Siblings)
-                </h4>
-                <p className="text-[10px] text-slate-500">Is any sibling currently studying in this school?</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1 text-xs font-bold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="hasSibling"
-                    checked={hasSiblingInSchool}
-                    onChange={() => setHasSiblingInSchool(true)}
-                  />
-                  <span>Yes</span>
-                </label>
-                <label className="flex items-center gap-1 text-xs font-bold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="hasSibling"
-                    checked={!hasSiblingInSchool}
-                    onChange={() => setHasSiblingInSchool(false)}
-                  />
-                  <span>No</span>
-                </label>
-              </div>
-            </div>
-
-            {hasSiblingInSchool && (
-              <div className="space-y-3 pt-2">
-                {siblingsList.map((sib, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
-                    <div className="flex items-center justify-between text-xs font-extrabold text-slate-600 dark:text-slate-400">
-                      <span>Sibling #{idx + 1}</span>
-                      {siblingsList.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveSibling(idx)}
-                          className="text-rose-500 hover:text-rose-700 cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
-                      <input
-                        type="text"
-                        placeholder="Sibling Full Name"
-                        value={sib.name}
-                        onChange={(e) => handleSiblingChange(idx, 'name', e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Class & Section (e.g. 5-A)"
-                        value={sib.className}
-                        onChange={(e) => handleSiblingChange(idx, 'className', e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold"
-                      />
-                      <input
-                        type="text"
-                        placeholder="Admission / Student No"
-                        value={sib.admissionNo}
-                        onChange={(e) => handleSiblingChange(idx, 'admissionNo', e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold"
-                      />
-                      <select
-                        value={sib.relation}
-                        onChange={(e) => handleSiblingChange(idx, 'relation', e.target.value)}
-                        className="px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-slate-800 border rounded-lg font-bold cursor-pointer"
-                      >
-                        <option value="Brother">Brother</option>
-                        <option value="Sister">Sister</option>
-                      </select>
-                    </div>
-                  </div>
-                ))}
-
-                {siblingsList.length < 3 && (
-                  <button
-                    type="button"
-                    onClick={handleAddSibling}
-                    className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Add Sibling (#{siblingsList.length + 1})
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* OTHER SCHOOL ADMISSION INFORMATION */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-extrabold uppercase text-indigo-700 dark:text-indigo-400">
-                  Other School Admission Information
-                </h4>
-                <p className="text-[10px] text-slate-500">Is the child taking or admitted to admission in another school?</p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1 text-xs font-bold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="appliedOtherSchool"
-                    checked={appliedOtherSchool}
-                    onChange={() => setAppliedOtherSchool(true)}
-                  />
-                  <span>Yes</span>
-                </label>
-                <label className="flex items-center gap-1 text-xs font-bold cursor-pointer">
-                  <input
-                    type="radio"
-                    name="appliedOtherSchool"
-                    checked={!appliedOtherSchool}
-                    onChange={() => setAppliedOtherSchool(false)}
-                  />
-                  <span>No</span>
-                </label>
-              </div>
-            </div>
-
-            {appliedOtherSchool && (
-              <div>
-                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                  Other School Details & Status
-                </label>
-                <textarea
-                  rows={2}
-                  value={otherSchoolDetails}
-                  onChange={(e) => setOtherSchoolDetails(e.target.value)}
-                  placeholder="Provide school name, branch, class applied for, and status"
-                  className="w-full p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium"
-                />
-              </div>
-            )}
-          </div>
-
-          {/* CENTRALIZED FEE ASSIGNMENT DISPLAY */}
-          <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl space-y-2">
-            <div className="flex items-center justify-between font-extrabold text-xs text-indigo-950 dark:text-indigo-200">
-              <span className="flex items-center gap-1.5">
-                <DollarSign className="w-4 h-4 text-indigo-600" />
-                Master Fee Structure for {applyingClass}
-              </span>
-              <span className="font-mono text-indigo-700 dark:text-indigo-300">
-                Annual Tuition: ₹{liveClassFee.tuitionFeeAnnual.toLocaleString()}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-[11px]">
-              <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border">
-                <span className="text-slate-500 block text-[10px]">Registration Fee</span>
-                <span className="font-bold">₹{regFeeAmount}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border">
-                <span className="text-slate-500 block text-[10px]">Admission Fee</span>
-                <span className="font-bold">₹{liveClassFee.admissionFee.toLocaleString()}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border">
-                <span className="text-slate-500 block text-[10px]">Quarterly Tuition</span>
-                <span className="font-bold">₹{liveClassFee.tuitionFeeQuarterly.toLocaleString()}</span>
-              </div>
-              <div className="bg-white dark:bg-slate-900 p-2 rounded-lg border">
-                <span className="text-slate-500 block text-[10px]">Transport / Lab</span>
-                <span className="font-bold">₹{liveClassFee.transportFee + liveClassFee.labFee}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
-            >
-              <CheckCircle className="w-4 h-4" /> Save Registration & Fee Record
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-
-/* ==================================================================== */
-/* 3. ADD ADMISSION PROCESS MODAL                                      */
-/* ==================================================================== */
-interface AddAdmissionStepModalProps {
-  registeredCandidates: AdmissionApplication[];
-  onClose: () => void;
-  onSubmit: (registrationId: string, studentCategory: StudentCategoryType) => void;
-}
-
-export const AddAdmissionStepModal: React.FC<AddAdmissionStepModalProps> = ({
-  registeredCandidates,
-  onClose,
-  onSubmit
-}) => {
-  const [selectedId, setSelectedId] = useState(registeredCandidates[0]?.id || '');
-  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>('Normal Child');
-
-  const selectedCandidate = registeredCandidates.find((r) => r.id === selectedId);
-  const applyingClass = selectedCandidate?.applyingClass || 'Class 1';
-  const liveClassFee = getClassFeeStructure(applyingClass);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedId) return;
-    onSubmit(selectedId, studentCategory);
   };
 
   return (
@@ -797,10 +565,497 @@ export const AddAdmissionStepModal: React.FC<AddAdmissionStepModalProps> = ({
       <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-base font-extrabold">Register Inquiry Candidate (Step 2)</h3>
+              <p className="text-xs text-slate-500">Collect Registration Fee & Assign Registration No</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 font-mono text-xs font-bold">
+              <Lock className="w-3 h-3 text-indigo-500" />
+              Auto Reg: {nextRegNo}
+            </span>
+            <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {inquiries.length === 0 ? (
+          <div className="p-8 text-center space-y-3">
+            <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+            <h4 className="text-sm font-extrabold">No Pending Inquiries Found</h4>
+            <p className="text-xs text-slate-500">
+              Please create an inquiry lead first from Step 1 before issuing a registration.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Select Inquiry Candidate *
+              </label>
+              <select
+                value={selectedInquiryId}
+                onChange={(e) => setSelectedInquiryId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+              >
+                {inquiries.map((inq) => (
+                  <option key={inq.id} value={inq.id}>
+                    {inq.studentName} ({inq.applyingClass}) - ID: {inq.applicationNo} - Parent: {inq.parentName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                  Student Category (Default: Day Scholar)
+                </label>
+                <select
+                  value={studentCategory}
+                  onChange={(e) => setStudentCategory(e.target.value as StudentCategoryType)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold cursor-pointer"
+                >
+                  <option value="Day Scholar">Day Scholar (Normal Standard Fee)</option>
+                  <option value="Hosteler">Hosteler (Boarding)</option>
+                  <option value="Staff Ward">Staff Ward (Employee Child)</option>
+                  <option value="Management Child">Management Child (Discretionary)</option>
+                  <option value="Government-Funded Student">Government-Funded / RTE Student</option>
+                  <option value="Normal Child">Normal Child</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                  Registration Fee (₹) *
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  required
+                  value={registrationFee}
+                  onChange={(e) => setRegistrationFee(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                  Date of Joining
+                </label>
+                <input
+                  type="date"
+                  value={dateOfJoining}
+                  onChange={(e) => setDateOfJoining(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                  Previous School Class
+                </label>
+                <select
+                  value={previousSchoolClass}
+                  onChange={(e) => setPreviousSchoolClass(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  {PREVIOUS_SCHOOL_CLASSES.map((cls) => (
+                    <option key={cls} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Fee Applicable From Month
+                </label>
+                <select
+                  value={feeApplicableFromMonth}
+                  onChange={(e) => setFeeApplicableFromMonth(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  {ACADEMIC_MONTHS.map((m) => (
+                    <option key={m.month} value={m.month}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  Admission Remarks / Special Discount / Reference Note
+                </label>
+                <textarea
+                  rows={2}
+                  value={admissionRemarks}
+                  onChange={(e) => setAdmissionRemarks(e.target.value)}
+                  placeholder="Special instructions or discount notes..."
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold shadow-md flex items-center gap-2 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                Complete Registration (₹{registrationFee})
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ==================================================================== */
+/* 3. ADD ADMISSION STEP MODAL (Step 3 - Final Admission Pipeline)      */
+/* ==================================================================== */
+interface AddAdmissionStepModalProps {
+  registrations: AdmissionApplication[];
+  onClose: () => void;
+  onSubmit: (regId: string, studentCategory: StudentCategoryType, details: Partial<AdmissionApplication>) => void;
+  onOpenTestModal?: (app: AdmissionApplication) => void;
+}
+
+export const AddAdmissionStepModal: React.FC<AddAdmissionStepModalProps> = ({
+  registrations,
+  onClose,
+  onSubmit,
+  onOpenTestModal
+}) => {
+  const [selectedRegId, setSelectedRegId] = useState(registrations[0]?.id || '');
+  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>('Day Scholar');
+  const [dateOfJoining, setDateOfJoining] = useState(new Date().toISOString().split('T')[0]);
+  const [feeApplicableFromMonth, setFeeApplicableFromMonth] = useState('April');
+  const [admissionRemarks, setAdmissionRemarks] = useState('');
+  const [previousSchoolClass, setPreviousSchoolClass] = useState('Playgroup (PG)');
+
+  const nextAdmNo = peekNextNumber('admission');
+  const selectedReg = registrations.find((r) => r.id === selectedRegId);
+
+  useEffect(() => {
+    if (selectedReg) {
+      if (selectedReg.studentCategory) setStudentCategory(selectedReg.studentCategory);
+      if (selectedReg.dateOfJoining) setDateOfJoining(selectedReg.dateOfJoining);
+      if (selectedReg.feeApplicableFromMonth) setFeeApplicableFromMonth(selectedReg.feeApplicableFromMonth);
+      if (selectedReg.previousSchoolClass) setPreviousSchoolClass(selectedReg.previousSchoolClass);
+      if (selectedReg.admissionRemarks) setAdmissionRemarks(selectedReg.admissionRemarks);
+    }
+  }, [selectedRegId, selectedReg]);
+
+  const feeCalc = selectedReg
+    ? calculateClassTuitionForMonth(selectedReg.applyingClass, feeApplicableFromMonth)
+    : calculateClassTuitionForMonth('Class 1', feeApplicableFromMonth);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRegId) return;
+
+    onSubmit(selectedRegId, studentCategory, {
+      dateOfJoining,
+      feeApplicableFromMonth,
+      previousSchoolClass,
+      admissionRemarks
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
             <UserCheck className="w-5 h-5 text-indigo-600" />
             <div>
-              <h3 className="text-base font-extrabold">Final Admission Approval</h3>
-              <p className="text-xs text-slate-500">Require Mandatory Student Category & Central Fee Schedule</p>
+              <h3 className="text-base font-extrabold">Final Admission Process (Step 3)</h3>
+              <p className="text-xs text-slate-500">Calculate month-prorated fee, record entrance test, and allocate student</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 font-mono text-xs font-bold">
+              <Lock className="w-3 h-3 text-emerald-500" />
+              Auto Adm: {nextAdmNo}
+            </span>
+            <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {registrations.length === 0 ? (
+          <div className="p-8 text-center space-y-3">
+            <AlertCircle className="w-10 h-10 text-amber-500 mx-auto" />
+            <h4 className="text-sm font-extrabold">No Registered Candidates Ready</h4>
+            <p className="text-xs text-slate-500">
+              Please register an inquiry first from Step 2 before initiating the final admission step.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Select Registered Candidate *
+              </label>
+              <select
+                value={selectedRegId}
+                onChange={(e) => setSelectedRegId(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+              >
+                {registrations.map((reg) => (
+                  <option key={reg.id} value={reg.id}>
+                    {reg.studentName} ({reg.applyingClass}) - Reg: {reg.applicationNo} - Parent: {reg.parentName}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* TEST SCORE BADGE & QUICK TRIGGER */}
+            {selectedReg && (
+              <div className="p-3 bg-indigo-50/60 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Award className="w-4 h-4 text-indigo-600" />
+                  <div>
+                    <span className="font-bold text-indigo-950 dark:text-indigo-200">
+                      Entrance Test Score:{' '}
+                      {selectedReg.entranceTestScore !== undefined
+                        ? `${selectedReg.entranceTestScore} / ${selectedReg.entranceTestMaxMarks || 40} (${selectedReg.entranceTestStatus || 'Evaluated'})`
+                        : 'Not Yet Recorded (Optional / Pending)'}
+                    </span>
+                  </div>
+                </div>
+                {onOpenTestModal && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenTestModal(selectedReg);
+                    }}
+                    className="px-3 py-1 bg-indigo-600 text-white rounded-lg font-extrabold hover:bg-indigo-700 cursor-pointer"
+                  >
+                    {selectedReg.entranceTestScore !== undefined ? 'Edit Test Marks' : 'Enter Test Score'}
+                  </button>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <UserCheck className="w-3.5 h-3.5 text-indigo-500" />
+                  Student Category (Default: Day Scholar) *
+                </label>
+                <select
+                  value={studentCategory}
+                  onChange={(e) => setStudentCategory(e.target.value as StudentCategoryType)}
+                  className="w-full px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold cursor-pointer"
+                >
+                  <option value="Day Scholar">Day Scholar (Normal Standard Fee)</option>
+                  <option value="Hosteler">Hosteler (Boarding)</option>
+                  <option value="Staff Ward">Staff Ward (Employee Child)</option>
+                  <option value="Management Child">Management Child (Discretionary)</option>
+                  <option value="Government-Funded Student">Government-Funded / RTE Student</option>
+                  <option value="Normal Child">Normal Child</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                  Date of Joining *
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={dateOfJoining}
+                  onChange={(e) => setDateOfJoining(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <BookOpen className="w-3.5 h-3.5 text-indigo-500" />
+                  Previous School Class
+                </label>
+                <select
+                  value={previousSchoolClass}
+                  onChange={(e) => setPreviousSchoolClass(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  {PREVIOUS_SCHOOL_CLASSES.map((cls) => (
+                    <option key={cls} value={cls}>
+                      {cls}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center gap-1.5">
+                  <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
+                  Fee Applicable Start Month
+                </label>
+                <select
+                  value={feeApplicableFromMonth}
+                  onChange={(e) => setFeeApplicableFromMonth(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold cursor-pointer"
+                >
+                  {ACADEMIC_MONTHS.map((m) => (
+                    <option key={m.month} value={m.month}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* MONTH PRORATION BREAKDOWN DISPLAY */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+              <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200">
+                <span>Prorated Fee Breakdown ({feeApplicableFromMonth} Start):</span>
+                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold text-sm">
+                  ₹{feeCalc.totalAdmissionEstimate.toLocaleString()} Total
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px] text-slate-600 dark:text-slate-400 pt-2 border-t border-slate-200 dark:border-slate-700">
+                <div>Registration Fee: <span className="font-bold text-slate-900 dark:text-white">₹{feeCalc.structure.registrationFee}</span></div>
+                <div>Admission Fee: <span className="font-bold text-slate-900 dark:text-white">₹{feeCalc.structure.admissionFee}</span></div>
+                <div>Prorated Tuition ({feeCalc.monthsCharged}/12 mos): <span className="font-bold text-emerald-600">₹{feeCalc.tuitionFeeCalculated}</span></div>
+                <div>Transport: <span className="font-bold text-slate-900 dark:text-white">₹{studentCategory === 'Hosteler' ? 0 : feeCalc.structure.transportFee}</span></div>
+                <div>Lab & Dev: <span className="font-bold text-slate-900 dark:text-white">₹{feeCalc.structure.labFee}</span></div>
+                <div>Commitment: <span className="font-bold text-slate-900 dark:text-white">₹{feeCalc.structure.commitmentFee}</span></div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Admission Remarks / Special Discount / Reference Note
+              </label>
+              <textarea
+                rows={2}
+                value={admissionRemarks}
+                onChange={(e) => setAdmissionRemarks(e.target.value)}
+                placeholder="e.g. Special reference by Director; 10% sibling concession approved; transfer case from Bangalore"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-extrabold shadow-md flex items-center gap-2 cursor-pointer"
+              >
+                <Check className="w-4 h-4" />
+                Confirm & Allocate Student
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ==================================================================== */
+/* 4. ENTRANCE TEST RESULT MODAL                                        */
+/* ==================================================================== */
+interface EntranceTestResultModalProps {
+  application: AdmissionApplication;
+  onClose: () => void;
+  onSave: (applicationId: string, testData: {
+    score: number;
+    maxMarks: number;
+    status?: 'Passed' | 'Merit' | 'Needs Improvement' | 'Rejected';
+    remarks?: string;
+  }) => void;
+  onProceedToOfferLetter?: (app: AdmissionApplication) => void;
+}
+
+export const EntranceTestResultModal: React.FC<EntranceTestResultModalProps> = ({
+  application,
+  onClose,
+  onSave,
+  onProceedToOfferLetter
+}) => {
+  const isPrimary = ['Nursery', 'KG', 'Class 1', 'Class 2', 'Class 3', 'Class 4', 'Class 5'].includes(application.applyingClass);
+  const defaultMax = application.entranceTestMaxMarks || (isPrimary ? 40 : 100);
+
+  const [maxMarksPreset, setMaxMarksPreset] = useState<string>(String(defaultMax));
+  const [customMaxMarks, setCustomMaxMarks] = useState<number>(defaultMax);
+  const [score, setScore] = useState<number>(application.entranceTestScore ?? (isPrimary ? 34 : 82));
+  const [remarks, setRemarks] = useState(application.interviewRemarks || 'Demonstrates strong conceptual aptitude and verbal fluency.');
+
+  const effectiveMaxMarks = maxMarksPreset === 'custom' ? customMaxMarks : Number(maxMarksPreset);
+  const percentage = effectiveMaxMarks > 0 ? Math.round((score / effectiveMaxMarks) * 100) : 0;
+
+  let testStatus: 'Merit' | 'Passed' | 'Needs Improvement' | 'Rejected' = 'Passed';
+  if (percentage >= 85) testStatus = 'Merit';
+  else if (percentage >= 40) testStatus = 'Passed';
+  else if (percentage >= 33) testStatus = 'Needs Improvement';
+  else testStatus = 'Rejected';
+
+  const handleSave = (proceedToOffer = false) => {
+    if (score < 0 || score > effectiveMaxMarks) {
+      alert(`Score must be between 0 and ${effectiveMaxMarks}`);
+      return;
+    }
+
+    onSave(application.id, {
+      score,
+      maxMarks: effectiveMaxMarks,
+      status: testStatus,
+      remarks
+    });
+
+    if (proceedToOffer && onProceedToOfferLetter) {
+      onProceedToOfferLetter({
+        ...application,
+        entranceTestScore: score,
+        entranceTestMaxMarks: effectiveMaxMarks,
+        entranceTestStatus: testStatus,
+        interviewRemarks: remarks
+      });
+    }
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-base font-extrabold">Entrance Evaluation Score</h3>
+              <p className="text-xs text-slate-500">Record entrance test performance before admission confirmation</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -808,92 +1063,463 @@ export const AddAdmissionStepModal: React.FC<AddAdmissionStepModalProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
           <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Select Registered Candidate *
-            </label>
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white cursor-pointer"
-            >
-              {registeredCandidates.map((cand, idx) => (
-                <option key={`${cand.id}-${idx}`} value={cand.id}>
-                  {cand.studentName} ({cand.applyingClass}) — [{cand.applicationNo}]
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* MANDATORY STUDENT CATEGORY */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl space-y-2">
-            <label className="block text-xs font-extrabold uppercase text-indigo-700 dark:text-indigo-400">
-              Mandatory Student Category Assignment *
-            </label>
-            <p className="text-[11px] text-slate-500">
-              Stored in Centralized Student Master and available to all modules.
+            <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400">Candidate</span>
+            <h4 className="text-sm font-extrabold">{application.studentName}</h4>
+            <p className="text-xs text-slate-500">
+              Applying for <span className="font-bold text-slate-700 dark:text-slate-300">{application.applyingClass}</span>
             </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              {(['Normal Child', 'Staff Ward', 'Management Child', 'Government-Funded Student'] as StudentCategoryType[]).map((cat) => (
+          </div>
+          <div className="text-right">
+            <span className="text-[10px] font-black uppercase text-slate-400">App No</span>
+            <p className="font-mono text-xs font-bold text-slate-700 dark:text-slate-300">{application.applicationNo}</p>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+              Maximum Test Marks Scale (Class-Wise Customizable)
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {['40', '50', '80', '100'].map((preset) => (
                 <button
-                  key={cat}
+                  key={preset}
                   type="button"
-                  onClick={() => setStudentCategory(cat)}
-                  className={`p-2.5 rounded-xl text-xs font-extrabold border text-left cursor-pointer transition-all ${
-                    studentCategory === cat
-                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                      : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                  onClick={() => setMaxMarksPreset(preset)}
+                  className={`py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                    maxMarksPreset === preset
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-300 dark:ring-indigo-800'
+                      : 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
                   }`}
                 >
-                  {cat}
+                  Out of {preset}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* FEE BREAKDOWN SUMMARY */}
-          <div className="p-4 bg-emerald-50/70 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-700 rounded-xl text-xs space-y-1">
-            <span className="font-extrabold text-emerald-950 dark:text-emerald-200">
-              Fee Schedule for {applyingClass}:
-            </span>
-            <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
-              <div>Admission Fee: <strong>₹{liveClassFee.admissionFee.toLocaleString()}</strong></div>
-              <div>Quarterly Tuition: <strong>₹{liveClassFee.tuitionFeeQuarterly.toLocaleString()}</strong></div>
-              <div>Transport Fee: <strong>₹{liveClassFee.transportFee.toLocaleString()}</strong></div>
-              <div>Commitment/Lab Fee: <strong>₹{liveClassFee.commitmentFee + liveClassFee.labFee}</strong></div>
+          {maxMarksPreset === 'custom' && (
+            <div>
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Custom Max Marks:
+              </label>
+              <input
+                type="number"
+                min={10}
+                max={500}
+                value={customMaxMarks}
+                onChange={(e) => setCustomMaxMarks(Number(e.target.value))}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold"
+              />
+            </div>
+          )}
+
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Marks Obtained *
+              </label>
+              <span className="text-xs font-bold text-slate-500">
+                Out of {effectiveMaxMarks}
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                type="number"
+                min={0}
+                max={effectiveMaxMarks}
+                value={score}
+                onChange={(e) => setScore(Number(e.target.value))}
+                className="w-full px-3 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-base font-extrabold text-slate-900 dark:text-white"
+              />
+              <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">
+                / {effectiveMaxMarks}
+              </span>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+            <div>
+              <span className="text-[10px] font-black uppercase text-slate-400">Performance Rating</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
+                  testStatus === 'Merit'
+                    ? 'bg-purple-100 text-purple-700 border border-purple-300'
+                    : testStatus === 'Passed'
+                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                    : testStatus === 'Needs Improvement'
+                    ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                    : 'bg-rose-100 text-rose-700 border border-rose-300'
+                }`}>
+                  {testStatus}
+                </span>
+                <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  {percentage}% Aggregate
+                </span>
+              </div>
+            </div>
+            <div className="text-right">
+              <span className="text-[10px] font-black uppercase text-slate-400">Offer Status</span>
+              <p className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">
+                {percentage >= 40 ? 'Eligible for Offer Letter' : 'Requires Principal Review'}
+              </p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Assessment Remarks & Evaluation Notes
+            </label>
+            <textarea
+              rows={2}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder="Candidate feedback, academic readiness notes..."
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 cursor-pointer"
+          >
+            Cancel
+          </button>
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+              onClick={() => handleSave(false)}
+              className="px-4 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-white rounded-xl text-xs font-extrabold cursor-pointer"
             >
-              Cancel
+              Save Result
             </button>
             <button
-              type="submit"
-              className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+              type="button"
+              onClick={() => handleSave(true)}
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md flex items-center gap-1.5 cursor-pointer"
             >
-              <CheckCircle className="w-4 h-4" /> Initiate Admission & Allocation
+              <Send className="w-3.5 h-3.5" />
+              Save & Send Offer Letter
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
 };
 
+/* ==================================================================== */
+/* 5. ADMIN NUMBERING CONFIG MODAL                                      */
+/* ==================================================================== */
+interface AdminNumberingConfigModalProps {
+  onClose: () => void;
+  settings: SchoolNumberingSettings;
+  onSaveAdmissionSeries: (cfg: Partial<SchoolNumberingSettings['admissionSeries']>) => void;
+  onSaveRegistrationSeries: (cfg: Partial<SchoolNumberingSettings['registrationSeries']>) => void;
+  onSaveInquirySeries: (cfg: Partial<SchoolNumberingSettings['inquirySeries']>) => void;
+  onReset: () => void;
+}
+
+export const AdminNumberingConfigModal: React.FC<AdminNumberingConfigModalProps> = ({
+  onClose,
+  settings,
+  onSaveAdmissionSeries,
+  onSaveRegistrationSeries,
+  onSaveInquirySeries,
+  onReset
+}) => {
+  const [activeTab, setActiveTab] = useState<'admission' | 'registration' | 'inquiry'>('admission');
+  const currentConfig =
+    activeTab === 'admission'
+      ? settings.admissionSeries
+      : activeTab === 'registration'
+      ? settings.registrationSeries
+      : settings.inquirySeries;
+
+  const [prefix, setPrefix] = useState(currentConfig.prefix);
+  const [includeYear, setIncludeYear] = useState(currentConfig.includeYear);
+  const [yearFormat, setYearFormat] = useState<'YYYY' | 'YY'>(currentConfig.yearFormat);
+  const [yearPosition, setYearPosition] = useState<'Prefix' | 'Middle' | 'Suffix' | 'None'>(currentConfig.yearPosition);
+  const [separator, setSeparator] = useState<'-' | '/' | '.' | '' | '_'>(currentConfig.separator);
+  const [sequencePadding, setSequencePadding] = useState(currentConfig.sequencePadding);
+  const [nextSequence, setNextSequence] = useState(currentConfig.nextSequence);
+
+  useEffect(() => {
+    const cfg =
+      activeTab === 'admission'
+        ? settings.admissionSeries
+        : activeTab === 'registration'
+        ? settings.registrationSeries
+        : settings.inquirySeries;
+    setPrefix(cfg.prefix);
+    setIncludeYear(cfg.includeYear);
+    setYearFormat(cfg.yearFormat);
+    setYearPosition(cfg.yearPosition);
+    setSeparator(cfg.separator);
+    setSequencePadding(cfg.sequencePadding);
+    setNextSequence(cfg.nextSequence);
+  }, [activeTab, settings]);
+
+  const handleSaveCurrent = () => {
+    const updated = {
+      prefix,
+      includeYear,
+      yearFormat,
+      yearPosition,
+      separator,
+      sequencePadding,
+      nextSequence
+    };
+
+    if (activeTab === 'admission') onSaveAdmissionSeries(updated);
+    else if (activeTab === 'registration') onSaveRegistrationSeries(updated);
+    else onSaveInquirySeries(updated);
+
+    alert(`Saved custom numbering sequence for ${activeTab.toUpperCase()} series! Standard users cannot edit generated IDs directly.`);
+  };
+
+  const currentYear = new Date().getFullYear();
+  const yearStr = yearFormat === 'YY' ? String(currentYear).slice(-2) : String(currentYear);
+  const paddedSeq = String(nextSequence).padStart(sequencePadding, '0');
+  let preview = '';
+  if (!includeYear || yearPosition === 'None') {
+    preview = prefix ? `${prefix}${separator}${paddedSeq}` : paddedSeq;
+  } else if (yearPosition === 'Prefix') {
+    preview = prefix ? `${yearStr}${separator}${prefix}${separator}${paddedSeq}` : `${yearStr}${separator}${paddedSeq}`;
+  } else if (yearPosition === 'Middle') {
+    preview = prefix ? `${prefix}${separator}${yearStr}${separator}${paddedSeq}` : `${yearStr}${separator}${paddedSeq}`;
+  } else {
+    preview = prefix ? `${prefix}${separator}${paddedSeq}${separator}${yearStr}` : `${paddedSeq}${separator}${yearStr}`;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <Hash className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-base font-extrabold">Custom ID & Numbering Series Setup</h3>
+              <p className="text-xs text-slate-500">Admin-only configuration for Admission, Registration, and Inquiry IDs</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-950/60 rounded-xl border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 text-xs">
+          <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>
+            <strong>Protected Series:</strong> Generated numbers are automatic and non-editable by standard admission operators. Only School Admins can alter format rules.
+          </span>
+        </div>
+
+        <div className="flex border-b border-slate-200 dark:border-slate-800 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab('admission')}
+            className={`px-4 py-2 text-xs font-extrabold border-b-2 cursor-pointer transition-all ${
+              activeTab === 'admission'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Admission Number Series
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('registration')}
+            className={`px-4 py-2 text-xs font-extrabold border-b-2 cursor-pointer transition-all ${
+              activeTab === 'registration'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Registration Number Series
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('inquiry')}
+            className={`px-4 py-2 text-xs font-extrabold border-b-2 cursor-pointer transition-all ${
+              activeTab === 'inquiry'
+                ? 'border-indigo-600 text-indigo-600 dark:text-indigo-400'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            Inquiry Number Series
+          </button>
+        </div>
+
+        <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300">Live Generated ID Preview</span>
+            <p className="font-mono text-lg font-black text-indigo-950 dark:text-indigo-100 tracking-wider">
+              {preview}
+            </p>
+          </div>
+          <span className="px-3 py-1 bg-white dark:bg-slate-800 rounded-lg border border-indigo-200 dark:border-indigo-700 text-xs font-bold text-slate-600 dark:text-slate-300">
+            Next: #{nextSequence}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Series Prefix Code (e.g. ADM, SCH, DPS)
+            </label>
+            <input
+              type="text"
+              value={prefix}
+              onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold"
+              placeholder="e.g. ADM"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Starting Counter Sequence
+            </label>
+            <input
+              type="number"
+              min={1}
+              value={nextSequence}
+              onChange={(e) => setNextSequence(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-mono font-bold"
+            />
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Include Academic Year
+            </label>
+            <div className="flex items-center gap-3 mt-1">
+              <label className="flex items-center gap-1.5 cursor-pointer font-medium">
+                <input
+                  type="checkbox"
+                  checked={includeYear}
+                  onChange={(e) => setIncludeYear(e.target.checked)}
+                  className="rounded text-indigo-600"
+                />
+                Embed Year in ID
+              </label>
+              {includeYear && (
+                <select
+                  value={yearFormat}
+                  onChange={(e) => setYearFormat(e.target.value as any)}
+                  className="px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 rounded-lg text-xs font-bold"
+                >
+                  <option value="YYYY">4-Digit (2026)</option>
+                  <option value="YY">2-Digit (26)</option>
+                </select>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Year Position
+            </label>
+            <select
+              value={yearPosition}
+              disabled={!includeYear}
+              onChange={(e) => setYearPosition(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold disabled:opacity-50"
+            >
+              <option value="Prefix">Year at Start (e.g. 2026-ADM-0001)</option>
+              <option value="Middle">Year in Middle (e.g. ADM-2026-0001)</option>
+              <option value="Suffix">Year at End (e.g. ADM-0001-2026)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Separator Character
+            </label>
+            <select
+              value={separator}
+              onChange={(e) => setSeparator(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+            >
+              <option value="-">Hyphen (-)</option>
+              <option value="/">Slash (/)</option>
+              <option value=".">Dot (.)</option>
+              <option value="_">Underscore (_)</option>
+              <option value="">None (No separator)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Sequence Digits (Zero Padding)
+            </label>
+            <select
+              value={sequencePadding}
+              onChange={(e) => setSequencePadding(Number(e.target.value))}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+            >
+              <option value={3}>3 Digits (e.g. 001)</option>
+              <option value={4}>4 Digits (e.g. 0001)</option>
+              <option value={5}>5 Digits (e.g. 00001)</option>
+              <option value={6}>6 Digits (e.g. 000001)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-3 border-t border-slate-200 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={onReset}
+            className="px-3 py-2 text-xs font-bold text-rose-600 hover:text-rose-700 dark:text-rose-400 cursor-pointer"
+          >
+            Reset Defaults
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 cursor-pointer"
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveCurrent}
+              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md cursor-pointer"
+            >
+              Save {activeTab.toUpperCase()} Format
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 /* ==================================================================== */
-/* 4. EDIT RECORD & POST-ADMISSION APPROVAL MODAL                       */
+/* 6. EDIT APPLICATION MODAL (With Audit Log Approval)                   */
 /* ==================================================================== */
 interface EditApplicationModalProps {
   application: AdmissionApplication;
   onClose: () => void;
-  onSave: (updated: AdmissionApplication, auditLog?: { requestedBy: string; fieldChanged: string; previousValue: string; newValue: string; approvedBy: string; reason?: string }) => void;
+  onSave: (
+    applicationId: string,
+    logData: {
+      requestedBy: string;
+      fieldChanged: string;
+      previousValue: string;
+      newValue: string;
+      approvedBy: string;
+      reason?: string;
+    },
+    updatedFields?: Partial<AdmissionApplication>
+  ) => void;
 }
 
 export const EditApplicationModal: React.FC<EditApplicationModalProps> = ({
@@ -901,255 +1527,261 @@ export const EditApplicationModal: React.FC<EditApplicationModalProps> = ({
   onClose,
   onSave
 }) => {
-  const isAdmitted = application.status === 'Confirmed' || application.status === 'Offered';
-
   const [studentName, setStudentName] = useState(application.studentName);
   const [applyingClass, setApplyingClass] = useState(application.applyingClass);
-  const [dob, setDob] = useState(application.dob);
-  const [gender, setGender] = useState(application.gender);
   const [parentName, setParentName] = useState(application.parentName);
-  const [motherName, setMotherName] = useState(application.motherName || '');
   const [contactNumber, setContactNumber] = useState(application.contactNumber);
-  const [email, setEmail] = useState(application.email || '');
-  const [previousSchool, setPreviousSchool] = useState(application.previousSchool || '');
-  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>(application.studentCategory || 'Normal Child');
-  const [caste, setCaste] = useState(application.caste || '');
-  const [category, setCategory] = useState(application.category || 'General');
+  const [email, setEmail] = useState(application.email);
+  const [studentCategory, setStudentCategory] = useState<StudentCategoryType>(application.studentCategory || 'Day Scholar');
+  const [dateOfJoining, setDateOfJoining] = useState(application.dateOfJoining || new Date().toISOString().split('T')[0]);
+  const [feeApplicableFromMonth, setFeeApplicableFromMonth] = useState(application.feeApplicableFromMonth || 'April');
+  const [previousSchoolClass, setPreviousSchoolClass] = useState(application.previousSchoolClass || 'Playgroup (PG)');
+  const [admissionRemarks, setAdmissionRemarks] = useState(application.admissionRemarks || '');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [approvedBy, setApprovedBy] = useState('Director / Principal');
+  const [reason, setReason] = useState('');
 
-  // Post-admission approval fields
-  const [approvalRequestedBy, setApprovalRequestedBy] = useState('Admission Officer / Staff');
-  const [approverRole, setApproverRole] = useState<'Principal' | 'Super Admin'>('Principal');
-  const [approverName, setApproverName] = useState('Principal Dr. S. Radhakrishnan');
-  const [approvalReason, setApprovalReason] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-
-    let auditLog: any = undefined;
-
-    if (isAdmitted) {
-      if (!approvalReason.trim()) {
-        alert('Editing an admitted student requires specifying the reason for change and approval details.');
-        return;
-      }
-      auditLog = {
-        requestedBy: approvalRequestedBy,
-        fieldChanged: `Full Profile Update (${application.studentName} -> ${studentName}, ${application.applyingClass} -> ${applyingClass})`,
-        previousValue: `Name: ${application.parentName}, Class: ${application.applyingClass}, DOB: ${application.dob}`,
-        newValue: `Name: ${parentName}, Class: ${applyingClass}, DOB: ${dob}, Cat: ${studentCategory}`,
-        approvedBy: `${approverRole}: ${approverName}`,
-        reason: approvalReason
-      };
+    if (!adminPassword) {
+      alert('Please enter Admin Authorization PIN to confirm record update.');
+      return;
     }
 
-    const updated: AdmissionApplication = {
-      ...application,
-      studentName,
-      applyingClass,
-      dob,
-      gender,
-      parentName,
-      motherName,
-      contactNumber,
-      email,
-      previousSchool,
-      studentCategory,
-      caste,
-      category
-    };
-
-    onSave(updated, auditLog);
+    onSave(
+      application.id,
+      {
+        requestedBy: 'Admission Desk Operator',
+        fieldChanged: 'Student Record & Joining/Fee Parameters',
+        previousValue: `${application.studentName} | ${application.studentCategory || 'Day Scholar'} | ${application.dateOfJoining || 'N/A'}`,
+        newValue: `${studentName} | ${studentCategory} | ${dateOfJoining}`,
+        approvedBy,
+        reason: reason || 'Verified by School Admin'
+      },
+      {
+        studentName,
+        applyingClass,
+        parentName,
+        contactNumber,
+        email,
+        studentCategory,
+        dateOfJoining,
+        feeApplicableFromMonth,
+        previousSchoolClass,
+        admissionRemarks
+      }
+    );
+    onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
-          <div>
-            <h3 className="text-base font-extrabold flex items-center gap-2">
-              <FileText className="w-5 h-5 text-indigo-600" />
-              Edit Record: {application.studentName}
-            </h3>
-            <p className="text-xs text-slate-500">
-              Stage: <span className="font-bold text-indigo-600">{application.status}</span> • ID: {application.applicationNo}
-            </p>
+          <div className="flex items-center gap-2">
+            <Edit3 className="w-5 h-5 text-indigo-600" />
+            <div>
+              <h3 className="text-base font-extrabold">Edit Admission Record: {application.applicationNo}</h3>
+              <p className="text-xs text-slate-500">Protected modification with mandatory audit logging</p>
+            </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* POST-ADMISSION EDIT CONTROL BANNER */}
-        {isAdmitted && (
-          <div className="p-4 bg-rose-50 dark:bg-rose-950/80 border border-rose-300 dark:border-rose-700 rounded-xl space-y-2 text-xs">
-            <div className="flex items-center gap-2 font-extrabold text-rose-900 dark:text-rose-200">
-              <Lock className="w-4 h-4 text-rose-600" />
-              <span>Protected Admitted Record — Authorization Required</span>
-            </div>
-            <p className="text-[11px] text-rose-800 dark:text-rose-300">
-              After a student is admitted, modifying information requires formal authorization from <strong>Principal</strong> or <strong>Super Admin</strong>.
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-rose-200 dark:border-rose-800">
-              <div>
-                <label className="block text-[10px] font-black uppercase text-rose-900 dark:text-rose-200 mb-0.5">
-                  Approver Authority *
-                </label>
-                <select
-                  value={approverRole}
-                  onChange={(e) => {
-                    const r = e.target.value as any;
-                    setApproverRole(r);
-                    setApproverName(r === 'Principal' ? 'Principal Dr. S. Radhakrishnan' : 'Super Admin / Director');
-                  }}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-bold"
-                >
-                  <option value="Principal">Principal</option>
-                  <option value="Super Admin">Super Admin</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[10px] font-black uppercase text-rose-900 dark:text-rose-200 mb-0.5">
-                  Approver Name *
-                </label>
-                <input
-                  type="text"
-                  value={approverName}
-                  onChange={(e) => setApproverName(e.target.value)}
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-bold"
-                />
-              </div>
-
-              <div className="sm:col-span-2">
-                <label className="block text-[10px] font-black uppercase text-rose-900 dark:text-rose-200 mb-0.5">
-                  Mandatory Reason for Editing Admitted Record *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={approvalReason}
-                  onChange={(e) => setApprovalReason(e.target.value)}
-                  placeholder="e.g. Corrected spelling per Aadhaar card / Updated contact details"
-                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border rounded-lg text-xs font-bold"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSave} className="space-y-4 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Student Full Name</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Student Full Name *
+              </label>
               <input
                 type="text"
                 required
                 value={studentName}
                 onChange={(e) => setStudentName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Class</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Class *
+              </label>
               <select
                 value={applyingClass}
                 onChange={(e) => setApplyingClass(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold cursor-pointer"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
               >
-                {ALL_SCHOOL_CLASSES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                {ALL_SCHOOL_CLASSES.map((cls) => (
+                  <option key={cls} value={cls}>{cls}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Date of Birth</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Student Category *
+              </label>
+              <select
+                value={studentCategory}
+                onChange={(e) => setStudentCategory(e.target.value as StudentCategoryType)}
+                className="w-full px-3 py-2 bg-indigo-50/50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-xl font-bold"
+              >
+                <option value="Day Scholar">Day Scholar (Normal Standard Fee)</option>
+                <option value="Hosteler">Hosteler (Boarding)</option>
+                <option value="Staff Ward">Staff Ward (Employee Child)</option>
+                <option value="Management Child">Management Child (Discretionary)</option>
+                <option value="Government-Funded Student">Government-Funded / RTE Student</option>
+                <option value="Normal Child">Normal Child</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Date of Joining *
+              </label>
               <input
                 type="date"
                 required
-                value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold"
+                value={dateOfJoining}
+                onChange={(e) => setDateOfJoining(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Father Name</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Previous School Class
+              </label>
+              <select
+                value={previousSchoolClass}
+                onChange={(e) => setPreviousSchoolClass(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+              >
+                {PREVIOUS_SCHOOL_CLASSES.map((cls) => (
+                  <option key={cls} value={cls}>{cls}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Fee Applicable Start Month
+              </label>
+              <select
+                value={feeApplicableFromMonth}
+                onChange={(e) => setFeeApplicableFromMonth(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
+              >
+                {ACADEMIC_MONTHS.map((m) => (
+                  <option key={m.month} value={m.month}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Parent / Guardian Name *
+              </label>
               <input
                 type="text"
                 required
                 value={parentName}
                 onChange={(e) => setParentName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Mother Name</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Contact Mobile *
+              </label>
               <input
-                type="text"
-                value={motherName}
-                onChange={(e) => setMotherName(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Contact Phone</label>
-              <input
-                type="text"
+                type="tel"
                 required
                 value={contactNumber}
                 onChange={(e) => setContactNumber(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold"
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl font-bold"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Student Category</label>
-              <select
-                value={studentCategory}
-                onChange={(e) => setStudentCategory(e.target.value as any)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold cursor-pointer"
-              >
-                <option value="Normal Child">Normal Child</option>
-                <option value="Staff Ward">Staff Ward</option>
-                <option value="Management Child">Management Child</option>
-                <option value="Government-Funded Student">Government-Funded Student</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">Social Category</label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as any)}
-                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-xs font-bold cursor-pointer"
-              >
-                <option value="General">General</option>
-                <option value="SC">SC</option>
-                <option value="ST">ST</option>
-                <option value="OBC">OBC</option>
-                <option value="Other">Other</option>
-              </select>
+            <div className="sm:col-span-2">
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Admission Remarks / Special Discount Notes
+              </label>
+              <textarea
+                rows={2}
+                value={admissionRemarks}
+                onChange={(e) => setAdmissionRemarks(e.target.value)}
+                className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl"
+              />
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+          {/* ADMIN APPROVAL SECTION */}
+          <div className="p-4 bg-amber-50 dark:bg-amber-950/60 rounded-xl border border-amber-300 dark:border-amber-700 space-y-3">
+            <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+              <ShieldAlert className="w-4 h-4 text-amber-600" />
+              <span>Admin Authorization & Reason for Modification</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label className="block text-[10px] font-bold text-amber-900 dark:text-amber-200 mb-0.5">
+                  Approving Official *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={approvedBy}
+                  onChange={(e) => setApprovedBy(e.target.value)}
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg font-bold text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-amber-900 dark:text-amber-200 mb-0.5">
+                  Reason for Change *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="e.g., Parent requested class change"
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg font-bold text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-amber-900 dark:text-amber-200 mb-0.5">
+                  Admin PIN / Password *
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Enter PIN"
+                  className="w-full px-2.5 py-1.5 bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 rounded-lg font-bold text-xs"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl cursor-pointer"
+              className="px-4 py-2 font-bold text-slate-600 hover:text-slate-800 dark:text-slate-400 cursor-pointer"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer flex items-center gap-1.5"
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-extrabold shadow-md cursor-pointer flex items-center gap-1.5"
             >
-              <CheckCircle className="w-4 h-4" /> Save Record Changes
+              <Check className="w-4 h-4" />
+              Save Authorized Changes
             </button>
           </div>
         </form>
@@ -1158,39 +1790,23 @@ export const EditApplicationModal: React.FC<EditApplicationModalProps> = ({
   );
 };
 
-
 /* ==================================================================== */
-/* 5. AGE CRITERIA MATRIX MODAL                                        */
+/* 7. AGE CRITERIA MATRIX MODAL                                         */
 /* ==================================================================== */
 interface AgeCriteriaMatrixModalProps {
   onClose: () => void;
 }
 
 export const AgeCriteriaMatrixModal: React.FC<AgeCriteriaMatrixModalProps> = ({ onClose }) => {
-  const [testDob, setTestDob] = useState('2020-03-15');
-  const [testClass, setTestClass] = useState('Class 1');
-
-  const testResult = checkAgeEligibility(testDob, testClass);
-
-  const criteriaList = [
-    { class: 'Playgroup (PG)', minAge: '2 Years', birthRange: 'Born on or before 1 April 2024', desc: 'Toddler development & social play' },
-    { class: 'Nursery', minAge: '3 Years', birthRange: 'Born on or before 1 April 2023', desc: 'Pre-primary foundational learning' },
-    { class: 'Lower KG (LKG)', minAge: '4 Years', birthRange: 'Born on or before 1 April 2022', desc: 'Kindergarten level 1 phonics & numbers' },
-    { class: 'Upper KG (UKG)', minAge: '5 Years', birthRange: 'Born on or before 1 April 2021', desc: 'Kindergarten level 2 literacy & math' },
-    { class: 'Class 1 (Grade 1)', minAge: '6 Years', birthRange: 'Born on or before 1 April 2020', desc: 'Primary formal education entry' },
-    { class: 'Class 2', minAge: '7 Years', birthRange: 'Born on or before 1 April 2019', desc: '5 Years + Class Number rule (5+2=7)' },
-    { class: 'Class 3 to 12', minAge: '5 + Class No.', birthRange: 'Increments by 1 year per class', desc: 'e.g. Class 10 requires 15 Years minimum' }
-  ];
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 space-y-5 my-8">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-5 h-5 text-indigo-600" />
+            <Calendar className="w-5 h-5 text-indigo-600" />
             <div>
-              <h3 className="text-base font-extrabold">Class Age Criteria & Cutoff Matrix</h3>
-              <p className="text-xs text-slate-500">Official NEP/ERP Age Rules as of 1 April of Academic Session (2026-04-01)</p>
+              <h3 className="text-base font-extrabold">CBSE & NEP 2020 Age Criteria Matrix</h3>
+              <p className="text-xs text-slate-500">Benchmark minimum & maximum age cutoffs as of 1st April 2026</p>
             </div>
           </div>
           <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
@@ -1198,91 +1814,37 @@ export const AgeCriteriaMatrixModal: React.FC<AgeCriteriaMatrixModalProps> = ({ 
           </button>
         </div>
 
-        {/* MATRIX TABLE */}
-        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px]">
+        <div className="max-h-[60vh] overflow-y-auto">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold uppercase text-[10px] sticky top-0">
               <tr>
-                <th className="py-2.5 px-3">Target Class</th>
-                <th className="py-2.5 px-3">Min Age Required</th>
-                <th className="py-2.5 px-3">Eligibility Cutoff Rule (as of 1 April 2026)</th>
-                <th className="py-2.5 px-3">Description</th>
+                <th className="p-2.5 rounded-l-lg">Class / Grade</th>
+                <th className="p-2.5">Min Age (Years)</th>
+                <th className="p-2.5">Max Age (Years)</th>
+                <th className="p-2.5 rounded-r-lg">Eligible Birth Range (2026 Session)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 font-medium">
-              {criteriaList.map((row, idx) => (
-                <tr key={idx} className={row.class.includes('Class 1') ? 'bg-indigo-50/70 dark:bg-indigo-950/50 font-bold' : ''}>
-                  <td className="py-2.5 px-3 flex items-center gap-1.5 text-slate-900 dark:text-white font-bold">
-                    {row.class.includes('Class 1') && <Sparkles className="w-3.5 h-3.5 text-indigo-600" />}
-                    {row.class}
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+              {Object.entries(AGE_CRITERIA_MAP).map(([cls, criteria]) => (
+                <tr key={cls} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                  <td className="p-2.5 font-bold text-indigo-600 dark:text-indigo-400">{cls}</td>
+                  <td className="p-2.5">{criteria.minAgeYears} Years</td>
+                  <td className="p-2.5">{criteria.maxAgeYears} Years</td>
+                  <td className="p-2.5 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                    {`Born ${2026 - criteria.maxAgeYears} to ${2026 - criteria.minAgeYears}`}
                   </td>
-                  <td className="py-2.5 px-3">
-                    <span className="px-2 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200 font-bold">
-                      {row.minAge}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-mono text-[11px]">{row.birthRange}</td>
-                  <td className="py-2.5 px-3 text-slate-500 text-[11px]">{row.desc}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
-        {/* SIMULATOR / TESTER PANEL */}
-        <div className="p-4 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 space-y-3">
-          <h4 className="text-xs font-extrabold uppercase text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-            <AlertCircle className="w-4 h-4" /> Interactive Age Eligibility Tester
-          </h4>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Candidate Birth Date
-              </label>
-              <input
-                type="date"
-                value={testDob}
-                onChange={(e) => setTestDob(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Applying Class
-              </label>
-              <select
-                value={testClass}
-                onChange={(e) => setTestClass(e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-slate-900 border rounded-xl text-xs font-bold cursor-pointer"
-              >
-                {ALL_SCHOOL_CLASSES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className={`p-3 rounded-xl border text-xs font-bold ${
-            testResult.isEligible
-              ? 'bg-emerald-50 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200'
-              : 'bg-amber-50 dark:bg-amber-950/80 border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200'
-          }`}>
-            <div className="flex items-center justify-between">
-              <span>Status: {testResult.isEligible ? '✅ ELIGIBLE' : '⚠️ AGE DEFICIT (REQUIRES OVERRIDE)'}</span>
-              <span className="font-mono">{testResult.formattedCalculatedAge} as of 01-Apr-2026</span>
-            </div>
-            <p className="text-[11px] font-normal mt-1">{testResult.message}</p>
-          </div>
-        </div>
-
-        <div className="flex justify-end pt-2 border-t border-slate-200 dark:border-slate-800">
+        <div className="flex justify-end pt-3 border-t border-slate-200 dark:border-slate-800">
           <button
             onClick={onClose}
-            className="px-5 py-2 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer"
+            className="px-5 py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 text-slate-800 dark:text-white rounded-xl text-xs font-extrabold cursor-pointer"
           >
-            Close Matrix View
+            Close Matrix
           </button>
         </div>
       </div>

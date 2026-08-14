@@ -5,12 +5,13 @@ import { Calendar, CheckCircle2, XCircle, Clock, Bus, ShieldCheck, UserCheck, Sa
 import { BusSeatingView } from './BusSeatingView';
 import { GateScanView } from './GateScanView';
 import { StudentAttendanceCalendarView } from './StudentAttendanceCalendarView';
+import { StaffAttendanceRegisterView } from '../staff/StaffAttendanceRegisterView';
 
 export const AttendanceModule: React.FC = () => {
   const { attendance, markAttendance, routes } = useOtherModulesStore();
   const { students } = useSisStore();
 
-  const [activeMode, setActiveMode] = useState<'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry'>('calendar');
+  const [activeMode, setActiveMode] = useState<'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry' | 'staff_attendance'>('calendar');
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedRouteId, setSelectedRouteId] = useState(routes[0]?.id || 'rt-1');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
@@ -266,6 +267,17 @@ export const AttendanceModule: React.FC = () => {
         >
           <ShieldCheck className="w-4 h-4 text-emerald-300" /> Gate Arrival Duty
         </button>
+
+        <button
+          onClick={() => setActiveMode('staff_attendance')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+            activeMode === 'staff_attendance'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+          }`}
+        >
+          <UserCheck className="w-4 h-4 text-indigo-400" /> Faculty / Staff Attendance
+        </button>
       </div>
 
       {/* MODE 0: MONTHLY ATTENDANCE CALENDAR VIEW */}
@@ -427,6 +439,11 @@ export const AttendanceModule: React.FC = () => {
           }}
           onSaveGateAttendance={handleSaveGateEntryAttendance}
         />
+      )}
+
+      {/* MODE 4: FACULTY & STAFF ATTENDANCE REGISTER */}
+      {activeMode === 'staff_attendance' && (
+        <StaffAttendanceRegisterView />
       )}
     </div>
   );

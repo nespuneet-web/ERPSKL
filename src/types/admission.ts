@@ -1,6 +1,6 @@
 export type AdmissionStage = 'Inquiry' | 'Registration' | 'Admission Process' | 'Offered' | 'Confirmed' | 'Waitlisted' | 'Rejected';
 
-export type StudentCategoryType = 'Staff Ward' | 'Normal Child' | 'Management Child' | 'Government-Funded Student';
+export type StudentCategoryType = 'Day Scholar' | 'Hosteler' | 'Normal Child' | 'Staff Ward' | 'Management Child' | 'Government-Funded Student';
 
 export interface AdmissionSiblingRecord {
   name: string;
@@ -28,11 +28,16 @@ export interface AdmissionFeeBreakdown {
   commitmentFee: number;
   labFee: number;
   totalFee: number;
+  annualTuitionFull?: number;
+  feeStartMonth?: string;
+  monthsCharged?: number;
 }
 
 export interface AdmissionApplication {
   id: string;
   applicationNo: string;
+  registrationNo?: string;
+  inquiryNo?: string;
   studentName: string;
   applyingClass: string;
   gender: 'Male' | 'Female' | 'Other';
@@ -45,11 +50,17 @@ export interface AdmissionApplication {
   email: string;
   address?: string;
   previousSchool: string;
+  previousSchoolClass?: string;
+  dateOfJoining?: string;
+  feeApplicableFromMonth?: string;
+  admissionRemarks?: string;
+  specialDiscountNotes?: string;
   applicationDate: string;
   inquirySource?: 'Walk-in' | 'Website' | 'Referral' | 'Social Media' | 'Newspaper Ad';
   status: AdmissionStage;
   entranceTestScore?: number;
   entranceTestMaxMarks?: number;
+  entranceTestStatus?: 'Pending' | 'Passed' | 'Merit' | 'Needs Improvement' | 'Rejected';
   interviewRemarks?: string;
   feePaid: boolean;
   registrationFee: number;
@@ -59,6 +70,14 @@ export interface AdmissionApplication {
   offerLetterSavedAt?: string;
   parentPhotoUrl?: string;
   emergencyPassCode?: string;
+
+  // Optional Student Identifiers & Profile
+  scholarNo?: string;
+  penNo?: string;
+  apaarId?: string;
+  aadhaarNo?: string;
+  bloodGroup?: string;
+  photoUrl?: string;
 
   // Additional Registration & Social Fields
   caste?: string;
@@ -73,7 +92,7 @@ export interface AdmissionApplication {
   appliedOtherSchool?: boolean;
   otherSchoolDetails?: string;
 
-  // Mandatory Student Category
+  // Mandatory Student Category (Default: Day Scholar)
   studentCategory?: StudentCategoryType;
 
   // Age Eligibility & Force Admission
@@ -117,6 +136,55 @@ export const ALL_SCHOOL_CLASSES = [
   'Class 12 Arts'
 ] as const;
 
+export const PREVIOUS_SCHOOL_CLASSES = [
+  'Fresher / Direct Entry (No Prior School)',
+  'Playgroup (PG)',
+  'Nursery',
+  'Lower KG (LKG)',
+  'Upper KG (UKG) / KG',
+  'Class 1',
+  'Class 2',
+  'Class 3',
+  'Class 4',
+  'Class 5',
+  'Class 6',
+  'Class 7',
+  'Class 8',
+  'Class 9',
+  'Class 10',
+  'Class 11',
+  'Class 12'
+] as const;
+
+export const ACADEMIC_MONTHS = [
+  { month: 'April', remainingMonths: 12, label: 'April (Full Session - 12 Months Charged)' },
+  { month: 'May', remainingMonths: 11, label: 'May (11 Months Charged)' },
+  { month: 'June', remainingMonths: 10, label: 'June (10 Months Charged)' },
+  { month: 'July', remainingMonths: 9, label: 'July (From Quarter 2 - 9 Months Charged)' },
+  { month: 'August', remainingMonths: 8, label: 'August (Mid-Year Entry - 8 Months Charged)' },
+  { month: 'September', remainingMonths: 7, label: 'September (7 Months Charged)' },
+  { month: 'October', remainingMonths: 6, label: 'October (Half-Yearly Entry - 6 Months Charged)' },
+  { month: 'November', remainingMonths: 5, label: 'November (5 Months Charged)' },
+  { month: 'December', remainingMonths: 4, label: 'December (4 Months Charged)' },
+  { month: 'January', remainingMonths: 3, label: 'January (Quarter 4 Entry - 3 Months Charged)' },
+  { month: 'February', remainingMonths: 2, label: 'February (2 Months Charged)' },
+  { month: 'March', remainingMonths: 1, label: 'March (1 Month Charged)' },
+] as const;
+
+export function calculateFeeForStartMonth(
+  annualTuition: number,
+  startMonth: string = 'April'
+): { tuitionFee: number; monthsCharged: number; fractionLabel: string } {
+  const match = ACADEMIC_MONTHS.find((m) => m.month.toLowerCase() === startMonth.toLowerCase()) || ACADEMIC_MONTHS[0];
+  const monthlyRate = Math.round(annualTuition / 12);
+  const tuitionFee = Math.round((annualTuition * match.remainingMonths) / 12);
+  return {
+    tuitionFee,
+    monthsCharged: match.remainingMonths,
+    fractionLabel: `${match.remainingMonths}/12 months (${match.month} to March)`
+  };
+}
+
 export const PARENT_OCCUPATION_CATEGORIES = [
   'Doctor / Surgeon / Medical Specialist',
   'Software Engineer / IT Professional',
@@ -136,4 +204,5 @@ export const PARENT_OCCUPATION_CATEGORIES = [
   'Corporate Executive / Management',
   'Other Professional'
 ] as const;
+
 

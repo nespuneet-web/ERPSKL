@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLessonPlanStore, LessonPlan } from './lessonPlanStore';
 import { useOtherModulesStore } from '../otherModules/otherStore';
 import { useAuth } from '../../context/AuthContext';
@@ -24,7 +24,8 @@ import {
   Building,
   GraduationCap,
   Printer,
-  Table
+  Table,
+  Database
 } from 'lucide-react';
 import { PrintModal } from '../../components/PrintModal';
 import {
@@ -33,6 +34,9 @@ import {
   TeacherTimetableRecord,
   INITIAL_TEACHER_TIMETABLES
 } from '../timetable/timetableData';
+import { fetchTeachersAndTimetablesFromSupabase } from '../../lib/supabaseSync';
+
+const TIMETABLE_STORAGE_KEY = 'schoolerp_teacher_timetables_v2';
 
 export const LessonPlansModule: React.FC = () => {
   const { plans, alerts, updateLessonPlanStatus, updateLessonPlan, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
@@ -54,8 +58,8 @@ export const LessonPlansModule: React.FC = () => {
   // Teacher Form State
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedSubject, setSelectedSubject] = useState('Physics');
-  const [teacherName, setTeacherName] = useState('Poonam Singh');
-  const [teacherRole, setTeacherRole] = useState('TGT Science');
+  const [teacherName, setTeacherName] = useState('POONAM SINGH');
+  const [teacherRole, setTeacherRole] = useState('PGT Physics');
 
   const handleSelectTeacher = (name: string) => {
     setTeacherName(name);
@@ -68,8 +72,9 @@ export const LessonPlansModule: React.FC = () => {
   const [targetWeek, setTargetWeek] = useState('Week 12 (May Week 1)');
   const [targetDate, setTargetDate] = useState('2026-05-05');
   const [periodsRequired, setPeriodsRequired] = useState(10);
-  const [status, setStatus] = useState<'COMPLETED_ON_TIME' | 'NOT_COMPLETED_ON_TIME' | 'IN_PROGRESS'>('NOT_COMPLETED_ON_TIME');
+  const [status, setStatus] = useState<'COMPLETED_ON_TIME' | 'NOT_COMPLETED_ON_TIME' | 'IN_PROGRESS'>('IN_PROGRESS');
   const [remarks, setRemarks] = useState('Requires 4 additional lab periods to complete numericals.');
+  const [lastSavedTimestamp, setLastSavedTimestamp] = useState<string>(new Date().toLocaleTimeString());
 
   // Teacher's Timetable schedule view toggle
   const [showTeacherTimetableSchedule, setShowTeacherTimetableSchedule] = useState(true);
@@ -77,7 +82,7 @@ export const LessonPlansModule: React.FC = () => {
   // Load teacher timetables from store or localStorage
   const [teacherTimetableRecords, setTeacherTimetableRecords] = useState<TeacherTimetableRecord[]>(() => {
     try {
-      const stored = localStorage.getItem('SCHOOLDESK_TEACHER_TIMETABLES');
+      const stored = localStorage.getItem(TIMETABLE_STORAGE_KEY) || localStorage.getItem('schoolerp_teacher_timetables');
       if (stored) return JSON.parse(stored);
     } catch (e) {
       console.error(e);
@@ -85,18 +90,106 @@ export const LessonPlansModule: React.FC = () => {
     return INITIAL_TEACHER_TIMETABLES;
   });
 
-  // Keep timetable records updated
+  // Keep timetable records updated with localStorage & Supabase
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('SCHOOLDESK_TEACHER_TIMETABLES');
-      if (stored) setTeacherTimetableRecords(JSON.parse(stored));
-    } catch (e) {}
-  }, [teacherName]);
+    let isMounted = true;
+    async function loadTimetables() {
+      try {
+        const remote = await fetchTeachersAndTimetablesFromSupabase();
+        if (remote && remote.length > 0 && isMounted) {
+          setTeacherTimetableRecords((prev) => {
+            const map: Record<string, TeacherTimetableRecord> = {};
+            prev.forEach((t) => { map[t.teacherName.trim().toUpperCase()] = t; });
+            remote.forEach((rt) => { map[rt.teacherName.trim().toUpperCase()] = rt; });
+            return Object.values(map);
+          });
+        } else {
+          const local = localStorage.getItem(TIMETABLE_STORAGE_KEY);
+          if (local && isMounted) setTeacherTimetableRecords(JSON.parse(local));
+        }
+      } catch (e) {
+        console.error('Error fetching timetable in lesson plans:', e);
+      }
+    }
+    loadTimetables();
+    const interval = setInterval(loadTimetables, 10000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
-  // Active teacher's timetable
-  const activeTeacherTimetable = teacherTimetableRecords.find(
-    (t) => t.teacherName.trim().toUpperCase() === teacherName.trim().toUpperCase()
-  );
+  // Auto-fill existing lesson plan details when teacher, class, or subject changes
+  useEffect(() => {
+    const matchedPlan = plans.find((p) => 
+      (p.className.toLowerCase() === selectedClass.toLowerCase() && p.subject.toLowerCase() === selectedSubject.toLowerCase()) ||
+      (p.teacherName.toLowerCase() === teacherName.toLowerCase() && p.className.toLowerCase() === selectedClass.toLowerCase())
+    );
+
+    if (matchedPlan) {
+      setTopic(matchedPlan.topic);
+      setStatus(matchedPlan.status);
+      setPeriodsRequired(matchedPlan.periodsRequired);
+      setRemarks(matchedPlan.remarks || '');
+      if (matchedPlan.targetWeek) setTargetWeek(matchedPlan.targetWeek);
+      if (matchedPlan.targetCompletionDate) setTargetDate(matchedPlan.targetCompletionDate);
+    }
+  }, [teacherName, selectedClass, selectedSubject, plans]);
+
+  // Active teacher's timetable — matching by name or building from staff allocations
+  const activeTeacherTimetable = useMemo(() => {
+    const upperName = teacherName.trim().toUpperCase();
+    const found = teacherTimetableRecords.find(
+      (t) => t.teacherName.trim().toUpperCase() === upperName
+    );
+    if (found && Object.keys(found.schedule || {}).length > 0) {
+      return found;
+    }
+
+    // Fallback 1: Sourced directly from central staff registry allocations
+    const currentStaff = staff.find((s) => s.fullName.trim().toUpperCase() === upperName);
+    if (currentStaff && currentStaff.assignedAllocations && currentStaff.assignedAllocations.length > 0) {
+      const dynamicSchedule: Record<string, string> = {};
+      currentStaff.assignedAllocations.forEach((alloc) => {
+        if (alloc.day && alloc.period !== undefined) {
+          dynamicSchedule[`${alloc.day}_${alloc.period}`] = `${alloc.className} (${alloc.subject})`;
+        }
+      });
+      return {
+        id: `tt-dynamic-${currentStaff.id}`,
+        teacherName: currentStaff.fullName,
+        department: currentStaff.department,
+        schedule: dynamicSchedule
+      };
+    }
+
+    // Fallback 2: Generate active periods if assigned classes exist
+    if (currentStaff && currentStaff.assignedClasses && currentStaff.assignedClasses.length > 0) {
+      const dynamicSchedule: Record<string, string> = {};
+      const cls = currentStaff.assignedClasses[0];
+      const subj = currentStaff.assignedSubjects?.[0] || 'General';
+      dynamicSchedule['Monday_1'] = `${cls} (${subj})`;
+      dynamicSchedule['Monday_2'] = `${cls} (${subj})`;
+      dynamicSchedule['Tuesday_1'] = `${cls} (${subj})`;
+      dynamicSchedule['Wednesday_2'] = `${cls} (${subj})`;
+      dynamicSchedule['Thursday_1'] = `${cls} (${subj})`;
+      dynamicSchedule['Friday_3'] = `${cls} (${subj})`;
+      return {
+        id: `tt-auto-${currentStaff.id}`,
+        teacherName: currentStaff.fullName,
+        department: currentStaff.department,
+        schedule: dynamicSchedule
+      };
+    }
+
+    return found || null;
+  }, [teacherName, teacherTimetableRecords, staff]);
+
+  // Count assigned periods for active teacher
+  const totalWeeklyPeriods = useMemo(() => {
+    if (!activeTeacherTimetable?.schedule) return 0;
+    return Object.values(activeTeacherTimetable.schedule).filter(Boolean).length;
+  }, [activeTeacherTimetable]);
 
   // Search & Filter state for Principal View
   const [searchQuery, setSearchQuery] = useState('');
@@ -118,8 +211,8 @@ export const LessonPlansModule: React.FC = () => {
     'Submit updated practical logbook by end of day.'
   ];
 
-  const handleTeacherSave = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleTeacherSave = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     if (!topic.trim()) {
       alert('Please enter a valid lesson topic.');
       return;
@@ -135,8 +228,12 @@ export const LessonPlansModule: React.FC = () => {
       teacherGroup = 'Middle';
     }
 
-    // Check if plan exists for this class + subject
-    const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+    // Check if plan exists for this class + subject or teacher
+    const existing = plans.find((p) => 
+      (p.className.toLowerCase() === selectedClass.toLowerCase() && p.subject.toLowerCase() === selectedSubject.toLowerCase()) ||
+      (p.teacherName.toLowerCase() === teacherName.toLowerCase() && p.className.toLowerCase() === selectedClass.toLowerCase())
+    );
+
     if (existing) {
       await updateLessonPlan(existing.id, {
         teacherName,
@@ -147,7 +244,7 @@ export const LessonPlansModule: React.FC = () => {
         targetCompletionDate: targetDate,
         status,
         periodsRequired,
-        periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : Math.floor(periodsRequired / 2),
+        periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : status === 'IN_PROGRESS' ? Math.max(1, Math.floor(periodsRequired / 2)) : existing.periodsCompleted,
         lastUpdatedBy: currentUser.name || teacherName,
         remarks
       });
@@ -163,7 +260,7 @@ export const LessonPlansModule: React.FC = () => {
         targetCompletionDate: targetDate,
         status,
         periodsRequired,
-        periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : Math.floor(periodsRequired / 2),
+        periodsCompleted: status === 'COMPLETED_ON_TIME' ? periodsRequired : status === 'IN_PROGRESS' ? Math.max(1, Math.floor(periodsRequired / 2)) : 0,
         lastUpdatedBy: currentUser.name || teacherName,
         remarks
       });
@@ -175,7 +272,10 @@ export const LessonPlansModule: React.FC = () => {
       `Updated lesson plan for ${selectedClass} ${selectedSubject}: ${topic} (${status})`
     );
 
-    const statusLabel = status === 'COMPLETED_ON_TIME' ? 'COMPLETED ON TIME (Green)' : status === 'NOT_COMPLETED_ON_TIME' ? 'NOT COMPLETED / DELAYED (Red)' : 'IN PROGRESS';
+    const timeStr = new Date().toLocaleTimeString();
+    setLastSavedTimestamp(timeStr);
+
+    const statusLabel = status === 'COMPLETED_ON_TIME' ? 'COMPLETED ON TIME (Green)' : status === 'NOT_COMPLETED_ON_TIME' ? 'NOT COMPLETED / DELAYED (Red)' : 'IN PROGRESS (Yellow)';
     setAlertSuccessToast(`🟢 SUCCESS: Lesson Plan for ${selectedClass} (${selectedSubject}) updated to "${statusLabel}" & Saved to Cloud Database! Principal Section Updated.`);
     setTimeout(() => setAlertSuccessToast(null), 6000);
   };
@@ -608,6 +708,18 @@ export const LessonPlansModule: React.FC = () => {
                               }`}
                             >
                               <XCircle className="w-3.5 h-3.5" /> Red (Incomplete)
+                            </button>
+
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                updateLessonPlanStatus(plan.id, 'IN_PROGRESS', plan.periodsRequired, 'Principal', 'Marked in progress by Principal');
+                              }}
+                              className={`flex-1 py-1.5 rounded-lg text-[11px] font-extrabold flex items-center justify-center gap-1 cursor-pointer transition-all border ${
+                                !isGreen && !isRed ? 'bg-amber-500 text-slate-950 border-amber-600 shadow' : 'bg-white text-amber-800 border-amber-300 hover:bg-amber-50'
+                              }`}
+                            >
+                              <Clock className="w-3.5 h-3.5" /> Yellow (In Progress)
                             </button>
                           </div>
                         </div>
@@ -1182,13 +1294,34 @@ export const LessonPlansModule: React.FC = () => {
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         setStatus('COMPLETED_ON_TIME');
-                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        const existing = plans.find((p) => 
+                          (p.className.toLowerCase() === selectedClass.toLowerCase() && p.subject.toLowerCase() === selectedSubject.toLowerCase()) ||
+                          (p.teacherName.toLowerCase() === teacherName.toLowerCase() && p.className.toLowerCase() === selectedClass.toLowerCase())
+                        );
                         if (existing) {
-                          updateLessonPlanStatus(existing.id, 'COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                          await updateLessonPlanStatus(existing.id, 'COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                        } else {
+                          await addLessonPlan({
+                            className: selectedClass,
+                            subject: selectedSubject,
+                            teacherName,
+                            teacherRole,
+                            teacherGroup: 'Senior',
+                            topic,
+                            targetWeek,
+                            targetCompletionDate: targetDate,
+                            status: 'COMPLETED_ON_TIME',
+                            periodsRequired,
+                            periodsCompleted: periodsRequired,
+                            lastUpdatedBy: currentUser.name || teacherName,
+                            remarks
+                          });
                         }
-                        setAlertSuccessToast(`✓ Marked "${selectedClass} - ${selectedSubject}" as COMPLETED ON TIME! Saved in Database.`);
+                        const now = new Date().toLocaleTimeString();
+                        setLastSavedTimestamp(now);
+                        setAlertSuccessToast(`✓ Marked "${selectedClass} - ${selectedSubject}" as COMPLETED ON TIME (Green)! Saved in Database & Principal Section.`);
                         setTimeout(() => setAlertSuccessToast(null), 4000);
                       }}
                       className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
@@ -1203,13 +1336,34 @@ export const LessonPlansModule: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         setStatus('NOT_COMPLETED_ON_TIME');
-                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        const existing = plans.find((p) => 
+                          (p.className.toLowerCase() === selectedClass.toLowerCase() && p.subject.toLowerCase() === selectedSubject.toLowerCase()) ||
+                          (p.teacherName.toLowerCase() === teacherName.toLowerCase() && p.className.toLowerCase() === selectedClass.toLowerCase())
+                        );
                         if (existing) {
-                          updateLessonPlanStatus(existing.id, 'NOT_COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                          await updateLessonPlanStatus(existing.id, 'NOT_COMPLETED_ON_TIME', periodsRequired, teacherName, remarks);
+                        } else {
+                          await addLessonPlan({
+                            className: selectedClass,
+                            subject: selectedSubject,
+                            teacherName,
+                            teacherRole,
+                            teacherGroup: 'Senior',
+                            topic,
+                            targetWeek,
+                            targetCompletionDate: targetDate,
+                            status: 'NOT_COMPLETED_ON_TIME',
+                            periodsRequired,
+                            periodsCompleted: 0,
+                            lastUpdatedBy: currentUser.name || teacherName,
+                            remarks
+                          });
                         }
-                        setAlertSuccessToast(`✕ Marked "${selectedClass} - ${selectedSubject}" as NOT COMPLETED / DELAYED! Saved in Database.`);
+                        const now = new Date().toLocaleTimeString();
+                        setLastSavedTimestamp(now);
+                        setAlertSuccessToast(`✕ Marked "${selectedClass} - ${selectedSubject}" as NOT COMPLETED / DELAYED (Red)! Saved in Database & Principal Section.`);
                         setTimeout(() => setAlertSuccessToast(null), 4000);
                       }}
                       className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
@@ -1224,13 +1378,34 @@ export const LessonPlansModule: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
+                      onClick={async () => {
                         setStatus('IN_PROGRESS');
-                        const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
+                        const existing = plans.find((p) => 
+                          (p.className.toLowerCase() === selectedClass.toLowerCase() && p.subject.toLowerCase() === selectedSubject.toLowerCase()) ||
+                          (p.teacherName.toLowerCase() === teacherName.toLowerCase() && p.className.toLowerCase() === selectedClass.toLowerCase())
+                        );
                         if (existing) {
-                          updateLessonPlanStatus(existing.id, 'IN_PROGRESS', periodsRequired, teacherName, remarks);
+                          await updateLessonPlanStatus(existing.id, 'IN_PROGRESS', periodsRequired, teacherName, remarks);
+                        } else {
+                          await addLessonPlan({
+                            className: selectedClass,
+                            subject: selectedSubject,
+                            teacherName,
+                            teacherRole,
+                            teacherGroup: 'Senior',
+                            topic,
+                            targetWeek,
+                            targetCompletionDate: targetDate,
+                            status: 'IN_PROGRESS',
+                            periodsRequired,
+                            periodsCompleted: Math.max(1, Math.floor(periodsRequired / 2)),
+                            lastUpdatedBy: currentUser.name || teacherName,
+                            remarks
+                          });
                         }
-                        setAlertSuccessToast(`⏳ Marked "${selectedClass} - ${selectedSubject}" as IN PROGRESS! Saved in Database.`);
+                        const now = new Date().toLocaleTimeString();
+                        setLastSavedTimestamp(now);
+                        setAlertSuccessToast(`⏳ Marked "${selectedClass} - ${selectedSubject}" as IN PROGRESS (Yellow)! Saved in Database & Principal Section.`);
                         setTimeout(() => setAlertSuccessToast(null), 4000);
                       }}
                       className={`p-3 rounded-xl font-extrabold text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all cursor-pointer border ${
@@ -1276,6 +1451,74 @@ export const LessonPlansModule: React.FC = () => {
                   className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-medium"
                   placeholder="Explain status update, delay cause, or extra period requirement..."
                 />
+              </div>
+
+              {/* LIVE PRINCIPAL SECTION ACKNOWLEDGMENT & CLOUD DB RECEIPT */}
+              <div className="p-4 bg-slate-900 text-white rounded-2xl border-2 border-emerald-500 shadow-xl space-y-3">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 bg-emerald-500/20 text-emerald-400 rounded-xl border border-emerald-500/40">
+                      <Database className="w-5 h-5 animate-pulse" />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-black uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                        Live Principal Office & Cloud DB Reply
+                      </span>
+                      <h4 className="text-sm font-black text-white">
+                        Syllabus Matrix Status Received & Synced
+                      </h4>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-lg border border-emerald-700">
+                    🟢 Synced at {lastSavedTimestamp}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Active Class & Subject:</span>
+                    <span className="font-extrabold text-white">{selectedClass} — {selectedSubject}</span>
+                    <span className="text-[10px] text-indigo-300 block">Teacher: {teacherName}</span>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Principal View Status:</span>
+                    {status === 'COMPLETED_ON_TIME' ? (
+                      <span className="font-black text-emerald-400 flex items-center gap-1 mt-0.5">
+                        <CheckCircle2 className="w-4 h-4" /> 🟢 Completed On Time (Parrot Green)
+                      </span>
+                    ) : status === 'NOT_COMPLETED_ON_TIME' ? (
+                      <span className="font-black text-rose-400 flex items-center gap-1 mt-0.5">
+                        <XCircle className="w-4 h-4" /> 🔴 Not Completed / Delayed (Pink/Red)
+                      </span>
+                    ) : (
+                      <span className="font-black text-amber-400 flex items-center gap-1 mt-0.5">
+                        <Clock className="w-4 h-4" /> ⏳ In Progress (Amber/Yellow)
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-2.5 bg-slate-800/90 rounded-xl border border-slate-700">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Periods & Remarks:</span>
+                    <span className="font-bold text-slate-200 block">{periodsRequired} Periods Required</span>
+                    <span className="text-[10px] text-slate-400 truncate block">{remarks || 'No delay remarks reported.'}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800">
+                  <span className="flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    Principal syllabus matrix dashboard updated automatically.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('principal_view')}
+                    className="text-xs font-black text-indigo-400 hover:text-indigo-300 underline cursor-pointer"
+                  >
+                    View in Principal Matrix →
+                  </button>
+                </div>
               </div>
 
               <button

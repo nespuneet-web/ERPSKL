@@ -167,8 +167,24 @@ export function useOtherModulesStore() {
       if (remoteStaff && remoteStaff.length > 0 && active) {
         setStaff((prev) => {
           const map: Record<string, StaffMember> = {};
-          prev.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
-          remoteStaff.forEach((s) => { map[s.employeeCode || s.fullName.toUpperCase()] = s; });
+          // Populate with remote staff
+          remoteStaff.forEach((s) => { 
+            const key = (s.employeeCode || s.fullName).trim().toUpperCase();
+            map[key] = s; 
+          });
+          // Merge local modifications if present
+          prev.forEach((s) => { 
+            const key = (s.employeeCode || s.fullName).trim().toUpperCase();
+            if (map[key]) {
+              map[key] = {
+                ...map[key],
+                ...s,
+                status: s.status || map[key].status
+              };
+            } else {
+              map[key] = s;
+            }
+          });
           const merged = ensureUniqueStaffIds(Object.values(map));
           try { localStorage.setItem('schoolerp_staff_list_v1', JSON.stringify(merged)); } catch (e) {}
           return merged;
@@ -291,10 +307,19 @@ export function useOtherModulesStore() {
     }
   };
 
-  const updateStaffStatus = async (staffId: string, status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day') => {
+  const updateStaffStatus = async (
+    staffIdOrCode: string,
+    status: 'Active' | 'On Leave' | 'Absent' | 'In Interview' | 'Half Day' | 'Resigned'
+  ) => {
     let updatedStaffMember: StaffMember | null = null;
+    const cleanKey = (staffIdOrCode || '').trim().toUpperCase();
+
     const updatedList = staff.map((s) => {
-      if (s.id === staffId) {
+      const matchId = s.id === staffIdOrCode;
+      const matchCode = s.employeeCode && s.employeeCode.trim().toUpperCase() === cleanKey;
+      const matchName = s.fullName && s.fullName.trim().toUpperCase() === cleanKey;
+
+      if (matchId || matchCode || matchName) {
         updatedStaffMember = { ...s, status };
         return updatedStaffMember;
       }
@@ -305,7 +330,8 @@ export function useOtherModulesStore() {
     notifyStaffUpdated(updatedList);
 
     if (updatedStaffMember) {
-      await syncStaffToSupabase(updatedStaffMember);
+      const member = updatedStaffMember as StaffMember;
+      await syncStaffToSupabase(member);
     }
   };
 

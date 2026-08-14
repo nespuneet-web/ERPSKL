@@ -1,6 +1,24 @@
 import React, { useState } from 'react';
-import { AdmissionApplication } from '../../types/admission';
-import { X, Printer, CheckCircle, ShieldCheck, Save, DollarSign, FileCheck, QrCode } from 'lucide-react';
+import { AdmissionApplication, ACADEMIC_MONTHS } from '../../types/admission';
+import { useSisStore } from '../sis/sisStore';
+import { autoSyncAppToSis } from './admissionStore';
+import { calculateClassTuitionForMonth } from '../fees/feeStructureStore';
+import {
+  X,
+  Printer,
+  CheckCircle,
+  ShieldCheck,
+  Save,
+  DollarSign,
+  FileCheck,
+  QrCode,
+  UserPlus,
+  Calendar,
+  BookOpen,
+  Award,
+  FileText,
+  UserCheck
+} from 'lucide-react';
 
 interface AdmissionLetterModalProps {
   application: AdmissionApplication;
@@ -13,18 +31,34 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
   onClose,
   onSaveOfferLetter
 }) => {
+  const { addStudent, students } = useSisStore();
   const [isSaved, setIsSaved] = useState(application.offerLetterSaved || false);
   const [saveBanner, setSaveBanner] = useState<string | null>(null);
+  const [enrollInDirectory, setEnrollInDirectory] = useState(true);
+  const [startMonth, setStartMonth] = useState(application.feeApplicableFromMonth || 'April');
 
-  // Editable Fee Breakdown heads
+  // Prorated fee calculations
+  const feeCalc = calculateClassTuitionForMonth(application.applyingClass, startMonth);
+
+  // Editable Fee Breakdown heads initialized from application or class fee calculation
   const [feeHeads, setFeeHeads] = useState({
-    registrationFee: application.feeBreakdown?.registrationFee || application.registrationFee || 1500,
-    admissionFee: application.feeBreakdown?.admissionFee || 25000,
-    tuitionFee: application.feeBreakdown?.tuitionFee || 18000,
-    transportFee: application.feeBreakdown?.transportFee || 4500,
-    commitmentFee: application.feeBreakdown?.commitmentFee || 5000,
-    labFee: application.feeBreakdown?.labFee || 3000
+    registrationFee: application.feeBreakdown?.registrationFee || application.registrationFee || feeCalc.structure.registrationFee,
+    admissionFee: application.feeBreakdown?.admissionFee || feeCalc.structure.admissionFee,
+    tuitionFee: application.feeBreakdown?.tuitionFee || feeCalc.tuitionFeeCalculated,
+    transportFee: application.feeBreakdown?.transportFee || (application.studentCategory === 'Hosteler' ? 0 : feeCalc.structure.transportFee),
+    commitmentFee: application.feeBreakdown?.commitmentFee || feeCalc.structure.commitmentFee,
+    labFee: application.feeBreakdown?.labFee || feeCalc.structure.labFee
   });
+
+  // Recalculate tuition if startMonth changes
+  const handleStartMonthChange = (newMonth: string) => {
+    setStartMonth(newMonth);
+    const updatedCalc = calculateClassTuitionForMonth(application.applyingClass, newMonth);
+    setFeeHeads((prev) => ({
+      ...prev,
+      tuitionFee: updatedCalc.tuitionFeeCalculated
+    }));
+  };
 
   const totalCalculatedFee =
     feeHeads.registrationFee +
@@ -38,6 +72,7 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
     const updatedApp: AdmissionApplication = {
       ...application,
       status: 'Offered',
+      feeApplicableFromMonth: startMonth,
       offerLetterSaved: true,
       offerLetterSavedAt: new Date().toLocaleString(),
       feeBreakdown: {
@@ -46,18 +81,27 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
       }
     };
 
+    // If "Enroll in Student Information Directory" is checked, ensure candidate is directly in SIS
+    if (enrollInDirectory) {
+      autoSyncAppToSis(updatedApp);
+    }
+
     if (onSaveOfferLetter) {
       onSaveOfferLetter(updatedApp);
     }
 
     setIsSaved(true);
-    setSaveBanner('Offer letter successfully saved to school record system!');
+    setSaveBanner(
+      enrollInDirectory
+        ? 'Offer letter saved & candidate enrolled directly into Student Information Directory (SIS)!'
+        : 'Offer letter saved to school admission records!'
+    );
     setTimeout(() => setSaveBanner(null), 4000);
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 overflow-y-auto">
-      <div className="bg-white text-slate-900 rounded-2xl max-w-3xl w-full p-6 md:p-8 shadow-2xl relative my-8 space-y-6">
+      <div className="bg-white text-slate-900 rounded-2xl max-w-3xl w-full p-6 md:p-8 shadow-2xl relative my-8 space-y-6 max-h-[90vh] overflow-y-auto">
         
         {/* HEADER TOOLBAR */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4 print:hidden">
@@ -67,7 +111,7 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
             </div>
             <div>
               <h2 className="text-lg font-extrabold text-slate-900">Official Admission Offer Letter</h2>
-              <p className="text-xs text-slate-500">Ref: {application.applicationNo} • Student: {application.studentName}</p>
+              <p className="text-xs text-slate-500">Ref: {application.applicationNo} • Student: {application.studentName} ({application.applyingClass})</p>
             </div>
           </div>
 
@@ -76,7 +120,7 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
               onClick={handleSaveToSystem}
               className="flex items-center gap-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow cursor-pointer transition-all"
             >
-              <Save className="w-4 h-4" /> Save Offer Letter
+              <Save className="w-4 h-4" /> Save & Send Offer Letter
             </button>
 
             <button
@@ -104,11 +148,50 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
           </div>
         )}
 
-        {/* CUSTOMIZABLE FEE HEADS EDITOR (COLLAPSIBLE / EDITABLE FOR ADMIN) */}
+        {/* DIRECTORY SYNC OPTION BANNER (Triggered when sending offer letter) */}
+        <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between print:hidden text-xs">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-4 h-4 text-indigo-600" />
+            <div>
+              <span className="font-bold text-indigo-950">Student Information Directory (SIS) Synchronization</span>
+              <p className="text-[11px] text-slate-600">
+                Instantly populate this student into the Master Student Directory upon issuing the Offer Letter.
+              </p>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer font-bold text-indigo-900">
+            <input
+              type="checkbox"
+              checked={enrollInDirectory}
+              onChange={(e) => setEnrollInDirectory(e.target.checked)}
+              className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500"
+            />
+            Add to SIS Directory
+          </label>
+        </div>
+
+        {/* CUSTOMIZABLE FEE HEADS & MONTH PRORATION EDITOR */}
         <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 print:hidden">
-          <h4 className="text-xs font-extrabold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
-            <DollarSign className="w-4 h-4 text-emerald-600" /> Customizable Admission Fee Structure Heads
-          </h4>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-2">
+            <h4 className="text-xs font-extrabold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+              <DollarSign className="w-4 h-4 text-emerald-600" /> Customizable Admission Fee Structure & Proration
+            </h4>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-600">Fee Applicable From:</span>
+              <select
+                value={startMonth}
+                onChange={(e) => handleStartMonthChange(e.target.value)}
+                className="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900"
+              >
+                {ACADEMIC_MONTHS.map((m) => (
+                  <option key={m.month} value={m.month}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
           
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
             <div>
@@ -132,7 +215,9 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-600 mb-0.5">Tuition Fee 1st Term (₹)</label>
+              <label className="block text-[11px] font-bold text-slate-600 mb-0.5">
+                Tuition Fee ({feeCalc.monthsCharged}/12 mos) (₹)
+              </label>
               <input
                 type="number"
                 value={feeHeads.tuitionFee}
@@ -196,20 +281,64 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
             <p><strong>Offer Date:</strong> {application.applicationDate}</p>
           </div>
 
-          {/* CANDIDATE & PARENT OCCUPATION DETAILS */}
-          <div className="space-y-1 text-xs">
-            <p className="font-semibold text-slate-500 uppercase tracking-wider">To,</p>
-            <p className="font-extrabold text-base text-slate-900">{application.studentName}</p>
-            <p className="text-slate-700 font-medium">Father / Guardian: <strong>{application.parentName}</strong> ({application.parentOccupation || 'Professional'})</p>
-            <p className="text-slate-600">Contact: {application.contactNumber} | Email: {application.email}</p>
-            <p className="text-slate-600">Previous Institution: {application.previousSchool}</p>
+          {/* CANDIDATE & ADMISSION DETAILS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+            <div>
+              <p className="font-semibold text-slate-500 uppercase tracking-wider">Candidate Name</p>
+              <p className="font-extrabold text-base text-slate-900">{application.studentName}</p>
+              <p className="text-slate-700 font-medium">
+                Father / Guardian: <strong>{application.parentName}</strong> ({application.parentOccupation || 'Professional'})
+              </p>
+              <p className="text-slate-600">Contact: {application.contactNumber} | Email: {application.email}</p>
+            </div>
+
+            <div className="space-y-1 sm:text-right">
+              <p className="text-slate-700">
+                <strong>Category:</strong> {application.studentCategory || 'Day Scholar'}
+              </p>
+              <p className="text-slate-700">
+                <strong>Date of Joining:</strong> {application.dateOfJoining || '2026-04-01'}
+              </p>
+              <p className="text-slate-700">
+                <strong>Previous School & Class:</strong> {application.previousSchool || 'Fresher'} ({application.previousSchoolClass || 'Playgroup (PG)'})
+              </p>
+              <p className="text-emerald-700 font-bold">
+                <strong>Fee Applicable From:</strong> {startMonth} (Session 2026-27)
+              </p>
+            </div>
           </div>
+
+          {/* ENTRANCE TEST EVALUATION SUMMARY */}
+          {application.entranceTestScore !== undefined && (
+            <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Award className="w-4 h-4 text-indigo-600" />
+                <span className="font-bold text-indigo-950">
+                  Entrance Evaluation Result: {application.entranceTestScore} / {application.entranceTestMaxMarks || 40} Marks ({application.entranceTestStatus || 'Passed'})
+                </span>
+              </div>
+              <span className="text-[11px] font-medium text-slate-600">
+                {application.interviewRemarks || 'Aptitude Qualified'}
+              </span>
+            </div>
+          )}
+
+          {/* SPECIAL ADMISSION REMARKS / DISCOUNT */}
+          {application.admissionRemarks && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs space-y-0.5">
+              <div className="font-bold text-amber-900 flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-amber-600" />
+                Special Remark / Concession Approved:
+              </div>
+              <p className="text-amber-800 font-medium italic">{application.admissionRemarks}</p>
+            </div>
+          )}
 
           {/* LETTER TEXT */}
           <p className="leading-relaxed text-slate-800 text-xs sm:text-sm">
             Dear Candidate & Parents,
             <br /><br />
-            We are pleased to inform you that following your entrance examination performance score (<strong>{application.entranceTestScore || 90} / {application.entranceTestMaxMarks || 100}</strong>) and interview evaluation, you have been provisionally selected for admission into <strong>{application.applyingClass}</strong> for the Academic Session 2026-2027.
+            We are pleased to inform you that following your entrance examination performance and admission review, you have been provisionally selected for admission into <strong>{application.applyingClass}</strong> for the Academic Session 2026-2027 as a <strong>{application.studentCategory || 'Day Scholar'}</strong>.
           </p>
 
           {/* ITEMIZED FEE TABLE */}
@@ -226,7 +355,7 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
                 <strong className="text-slate-800">₹{feeHeads.admissionFee.toLocaleString('en-IN')}</strong>
               </div>
               <div className="p-2 bg-white rounded border">
-                <span className="text-slate-500 block text-[10px]">Tuition Fee (1st Term)</span>
+                <span className="text-slate-500 block text-[10px]">Prorated Tuition ({startMonth} Start)</span>
                 <strong className="text-slate-800">₹{feeHeads.tuitionFee.toLocaleString('en-IN')}</strong>
               </div>
               <div className="p-2 bg-white rounded border">

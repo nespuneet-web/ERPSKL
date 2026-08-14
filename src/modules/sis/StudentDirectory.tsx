@@ -26,17 +26,24 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   const [selectedCategory, setSelectedCategory] = useState('All');
 
   const filteredStudents = students.filter((student) => {
+    const term = (searchTerm || '').trim().toLowerCase();
     const matchesSearch =
-      student.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.admissionNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.penNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.apaarId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.aadhaarNo.includes(searchTerm);
+      !term ||
+      (student.fullName && student.fullName.toLowerCase().includes(term)) ||
+      (student.admissionNo && student.admissionNo.toLowerCase().includes(term)) ||
+      (student.registrationNo && student.registrationNo.toLowerCase().includes(term)) ||
+      (student.scholarNo && student.scholarNo.toLowerCase().includes(term)) ||
+      (student.penNo && student.penNo.toLowerCase().includes(term)) ||
+      (student.apaarId && student.apaarId.toLowerCase().includes(term)) ||
+      (student.aadhaarNo && student.aadhaarNo.toLowerCase().includes(term)) ||
+      (student.parents?.fatherName && student.parents.fatherName.toLowerCase().includes(term)) ||
+      (student.parents?.motherName && student.parents.motherName.toLowerCase().includes(term)) ||
+      (student.parents?.fatherMobile && student.parents.fatherMobile.toLowerCase().includes(term));
 
-    const matchesClass = selectedClass === 'All' || student.currentClass === selectedClass;
+    const matchesClass = selectedClass === 'All' || student.currentClass === selectedClass || student.admissionClass === selectedClass;
     const matchesSection = selectedSection === 'All' || student.section === selectedSection;
-    const matchesHouse = selectedHouse === 'All' || student.house === selectedHouse;
-    const matchesCategory = selectedCategory === 'All' || student.category === selectedCategory;
+    const matchesHouse = selectedHouse === 'All' || (student.house && student.house.toLowerCase().includes(selectedHouse.toLowerCase()));
+    const matchesCategory = selectedCategory === 'All' || student.category === selectedCategory || student.studentCategory === selectedCategory;
 
     return matchesSearch && matchesClass && matchesSection && matchesHouse && matchesCategory;
   });
@@ -44,16 +51,16 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   const exportCSV = () => {
     const headers = ['Admission No', 'PEN Number', 'APAAR ID', 'Full Name', 'Class', 'Section', 'Roll No', 'Gender', 'Father Name', 'Mobile'];
     const rows = filteredStudents.map((s) => [
-      s.admissionNo,
-      s.penNo,
-      s.apaarId,
-      s.fullName,
-      s.currentClass,
-      s.section,
-      s.rollNo,
-      s.gender,
-      s.parents.fatherName,
-      s.parents.fatherMobile
+      s.admissionNo || '',
+      s.penNo || '',
+      s.apaarId || '',
+      s.fullName || '',
+      s.currentClass || '',
+      s.section || '',
+      s.rollNo || '',
+      s.gender || '',
+      s.parents?.fatherName || '',
+      s.parents?.fatherMobile || ''
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -237,8 +244,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                     </td>
 
                     <td className="py-3 px-4 text-xs">
-                      <p className="font-medium text-slate-800 dark:text-slate-200">{student.parents.fatherName}</p>
-                      <p className="text-slate-500">{student.parents.fatherMobile}</p>
+                      <p className="font-medium text-slate-800 dark:text-slate-200">{student.parents?.fatherName || student.parents?.motherName || 'Parent / Guardian'}</p>
+                      <p className="text-slate-500">{student.parents?.fatherMobile || student.parents?.motherMobile || student.parents?.emergencyContact || 'N/A'}</p>
                     </td>
 
                     <td className="py-3 px-4">

@@ -36,12 +36,28 @@ export function triggerDbProgress(
     status,
     timestamp: Date.now()
   };
-  listeners.forEach((fn) => fn(currentDbState));
+
+  // Safely notify listeners asynchronously outside any active React render/state updater phase
+  setTimeout(() => {
+    listeners.forEach((fn) => {
+      try {
+        fn(currentDbState);
+      } catch (err) {
+        console.error('Error dispatching DB notification state:', err);
+      }
+    });
+  }, 0);
 
   if (status === 'success' || status === 'error') {
     setTimeout(() => {
       currentDbState = { ...currentDbState, active: false };
-      listeners.forEach((fn) => fn(currentDbState));
+      listeners.forEach((fn) => {
+        try {
+          fn(currentDbState);
+        } catch (err) {
+          console.error('Error dispatching DB notification state:', err);
+        }
+      });
     }, 4500);
   }
 }

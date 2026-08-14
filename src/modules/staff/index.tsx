@@ -21,10 +21,12 @@ import {
   GraduationCap,
   SlidersHorizontal,
   Check,
-  Award
+  Award,
+  UserCheck
 } from 'lucide-react';
 import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
 import { StaffAllocationItem, StaffMember } from '../../types/otherModules';
+import { StaffAttendanceRegisterView } from './StaffAttendanceRegisterView';
 
 export const DEPARTMENTS = [
   'Mathematics',
@@ -83,9 +85,10 @@ const ALL_CLASS_SECTIONS = ALL_SCHOOL_CLASSES.flatMap((cls) => [
 
 export const StaffModule: React.FC = () => {
   const { staff, addStaffMember, deleteStaffMember, updateStaffStatus, updateStaffAllocation } = useOtherModulesStore();
-  const [activeTab, setActiveTab] = useState<'directory' | 'departments' | 'class_allocation'>('directory');
+  const [activeTab, setActiveTab] = useState<'directory' | 'departments' | 'class_allocation' | 'staff_attendance'>('directory');
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [directoryStatusFilter, setDirectoryStatusFilter] = useState<'All' | 'Active' | 'Absent' | 'On Leave' | 'Half Day'>('All');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
@@ -192,15 +195,23 @@ export const StaffModule: React.FC = () => {
   };
 
   const filteredStaff = staff.filter((s) => {
-    const q = searchTerm.toLowerCase();
-    return (
+    const q = searchTerm.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
       s.fullName.toLowerCase().includes(q) ||
       s.employeeCode.toLowerCase().includes(q) ||
       s.department.toLowerCase().includes(q) ||
       s.designation.toLowerCase().includes(q) ||
       (s.assignedSubjects && s.assignedSubjects.some(sub => sub.toLowerCase().includes(q))) ||
-      (s.assignedClasses && s.assignedClasses.some(cls => cls.toLowerCase().includes(q)))
-    );
+      (s.assignedClasses && s.assignedClasses.some(cls => cls.toLowerCase().includes(q)));
+
+    const currentStatus = s.status || 'Active';
+    const matchesStatus =
+      directoryStatusFilter === 'All' ||
+      (directoryStatusFilter === 'Active' && (currentStatus === 'Active' || (currentStatus as any) === 'Present')) ||
+      currentStatus === directoryStatusFilter;
+
+    return matchesSearch && matchesStatus;
   });
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -404,20 +415,87 @@ export const StaffModule: React.FC = () => {
           <BookOpen className="w-4 h-4" />
           3. Allocate Subjects & Classes
         </button>
+
+        <button
+          onClick={() => setActiveTab('staff_attendance')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer shrink-0 ${
+            activeTab === 'staff_attendance'
+              ? 'bg-indigo-600 text-white shadow-sm'
+              : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+          }`}
+        >
+          <UserCheck className="w-4 h-4" />
+          4. Daily Staff Attendance Register
+        </button>
       </div>
 
       {/* TAB 1: DIRECTORY & REGISTRATION */}
       {activeTab === 'directory' && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-200 dark:border-slate-800 shadow-xs">
-            <Search className="w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search teacher by name, employee code, department, subject, or assigned class..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-transparent text-xs font-medium text-slate-900 dark:text-white outline-none"
-            />
+          {/* SEARCH & STATUS FILTER BAR */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+            <div className="flex items-center gap-3 flex-1 px-1">
+              <Search className="w-4 h-4 text-slate-400 shrink-0" />
+              <input
+                type="text"
+                placeholder="Search teacher by name, employee code (e.g. PAR01), department, subject, or assigned class..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-transparent text-xs font-medium text-slate-900 dark:text-white outline-none"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="text-xs text-slate-400 hover:text-slate-600">
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* STATUS FILTER CHIPS */}
+            <div className="flex items-center gap-1.5 overflow-x-auto shrink-0 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-slate-800 pt-2 sm:pt-0 sm:pl-3">
+              <button
+                onClick={() => setDirectoryStatusFilter('All')}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold cursor-pointer transition-all ${
+                  directoryStatusFilter === 'All'
+                    ? 'bg-indigo-600 text-white shadow-xs'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200'
+                }`}
+              >
+                All ({staff.length})
+              </button>
+
+              <button
+                onClick={() => setDirectoryStatusFilter('Active')}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold cursor-pointer transition-all ${
+                  directoryStatusFilter === 'Active'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100'
+                }`}
+              >
+                🟢 Present ({staff.filter((s) => (s.status || 'Active') === 'Active' || (s.status as any) === 'Present').length})
+              </button>
+
+              <button
+                onClick={() => setDirectoryStatusFilter('Absent')}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold cursor-pointer transition-all ${
+                  directoryStatusFilter === 'Absent'
+                    ? 'bg-rose-600 text-white shadow-xs'
+                    : 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100'
+                }`}
+              >
+                🔴 Absent ({staff.filter((s) => s.status === 'Absent').length})
+              </button>
+
+              <button
+                onClick={() => setDirectoryStatusFilter('On Leave')}
+                className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold cursor-pointer transition-all ${
+                  directoryStatusFilter === 'On Leave'
+                    ? 'bg-amber-500 text-white shadow-xs'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100'
+                }`}
+              >
+                🟡 Leave ({staff.filter((s) => s.status === 'On Leave').length})
+              </button>
+            </div>
           </div>
 
           <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
@@ -564,9 +642,9 @@ export const StaffModule: React.FC = () => {
       {/* TAB 2: DEPARTMENTS */}
       {activeTab === 'departments' && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {DEPARTMENTS.map((dept) => {
+          {Array.from(new Set([...DEPARTMENTS, ...staff.map((s) => s.department).filter(Boolean)])).map((dept) => {
             const members = staff.filter((s) => s.department === dept);
-            const standardSubjs = DEPARTMENT_SUBJECT_MAPPING[dept] || [];
+            const standardSubjs = DEPARTMENT_SUBJECT_MAPPING[dept] || Array.from(new Set(members.flatMap((m) => m.assignedSubjects || [])));
 
             return (
               <div key={dept} className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
@@ -942,6 +1020,11 @@ export const StaffModule: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* TAB 4: DAILY STAFF ATTENDANCE REGISTER */}
+      {activeTab === 'staff_attendance' && (
+        <StaffAttendanceRegisterView />
       )}
 
       {/* ========================================================================= */}

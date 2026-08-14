@@ -101,7 +101,7 @@ const ROUND_DUTIES_KEY = 'schoolerp_round_duties_v1';
 const ROUND_LOCATIONS_KEY = 'schoolerp_round_locations_v1';
 
 export const TimetableModule: React.FC = () => {
-  const { staff, addStaffMember } = useOtherModulesStore();
+  const { staff, addStaffMember, updateStaffStatus } = useOtherModulesStore();
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<
@@ -153,12 +153,12 @@ export const TimetableModule: React.FC = () => {
   // Auto Sync: Ensure every member in central staff directory is present and updated in teacherTimetables
   useEffect(() => {
     if (staff && staff.length > 0) {
-      setTeacherTimetables((prev) => {
-        const staffMap = new Map<string, typeof staff[0]>();
-        staff.forEach((stf) => {
-          staffMap.set(stf.fullName.trim().toUpperCase(), stf);
-        });
+      const staffMap = new Map<string, typeof staff[0]>();
+      staff.forEach((stf) => {
+        staffMap.set(stf.fullName.trim().toUpperCase(), stf);
+      });
 
+      setTeacherTimetables((prev) => {
         const updatedList: TeacherTimetableRecord[] = prev.map((t) => {
           const upperName = t.teacherName.trim().toUpperCase();
           const stf = staffMap.get(upperName);
@@ -190,9 +190,12 @@ export const TimetableModule: React.FC = () => {
         });
 
         if (newRecords.length > 0) {
-          newRecords.forEach((rec) => {
-            syncTeacherAndTimetableToSupabase(rec);
-          });
+          // Sync new staff to database outside state updater
+          setTimeout(() => {
+            newRecords.forEach((rec) => {
+              syncTeacherAndTimetableToSupabase(rec);
+            });
+          }, 0);
           return [...updatedList, ...newRecords];
         }
         return updatedList;
@@ -210,6 +213,17 @@ export const TimetableModule: React.FC = () => {
       if (remoteTeachers && remoteTeachers.length > 0 && isMounted) {
         setTeacherTimetables((prev) => {
           const mergedMap: Record<string, TeacherTimetableRecord> = {};
+          // Preserve all staff records first
+          staff.forEach((s) => {
+            const upper = s.fullName.trim().toUpperCase();
+            mergedMap[upper] = {
+              id: `tt-stf-${s.id}`,
+              teacherName: upper,
+              department: s.department || 'Academics',
+              lastUpdated: new Date().toLocaleString(),
+              schedule: {}
+            };
+          });
           prev.forEach((t) => { mergedMap[t.teacherName.toUpperCase()] = t; });
           remoteTeachers.forEach((rt) => { mergedMap[rt.teacherName.toUpperCase()] = rt; });
           return Object.values(mergedMap);
@@ -734,23 +748,29 @@ export const TimetableModule: React.FC = () => {
       [teacherName.toUpperCase()]: status
     }));
 
-    // Find staff record if exists and update status
-    const matchingStaff = staff.find((s) => s.fullName.toUpperCase() === teacherName.toUpperCase());
+    // Find staff record if exists and update status in global store & Supabase
+    const cleanName = teacherName.trim().toUpperCase();
+    const matchingStaff = staff.find((s) => 
+      s.fullName.trim().toUpperCase() === cleanName ||
+      (s.employeeCode && s.employeeCode.trim().toUpperCase() === cleanName)
+    );
     if (matchingStaff) {
+      await updateStaffStatus(matchingStaff.id, status === 'Present' ? 'Active' : 'Absent');
+    } else {
       await syncStaffToSupabase({
-        ...matchingStaff,
+        id: `stf-${Date.now()}`,
+        employeeCode: `EMP-${teacherName.slice(0, 6).toUpperCase().replace(/[^A-Z0-9]/g, '')}`,
+        fullName: teacherName,
+        designation: 'Faculty Member',
+        department: 'Academics',
+        email: `${teacherName.toLowerCase().replace(/\s+/g, '')}@school.edu`,
+        phone: '+91 98000 00000',
+        joiningDate: new Date().toISOString().split('T')[0],
+        qualification: 'B.Ed. / M.Sc.',
+        monthlySalary: 50000,
         status: status === 'Present' ? 'Active' : 'Absent'
       });
     }
-
-    // Record daily attendance entry in Supabase DB
-    await syncAttendanceToSupabase({
-      date: new Date().toISOString().split('T')[0],
-      studentAdmissionNo: matchingStaff?.employeeCode || `EMP-${teacherName.slice(0, 4).toUpperCase()}`,
-      className: 'Staff Faculty',
-      section: 'Staff',
-      status: status
-    });
   };
 
   // GLOBAL AUTO-SUBSTITUTION FOR ALL ABSENT / ON LEAVE / HALF DAY TEACHERS ON SELECTED DAY
@@ -1187,7 +1207,7 @@ export const TimetableModule: React.FC = () => {
                 className="px-3 py-1.5 font-bold rounded-xl border bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white cursor-pointer"
               >
                 <option value="ALL">All Departments ({teacherTimetables.length} Teachers)</option>
-                {SCHOOL_DEPARTMENTS.map((d) => (
+                {Array.from(new Set([...SCHOOL_DEPARTMENTS, ...staff.map(s => s.department), ...teacherTimetables.map(t => t.department)])).filter(Boolean).map((d) => (
                   <option key={d} value={d}>
                     {d}
                   </option>
