@@ -150,11 +150,29 @@ export const TimetableModule: React.FC = () => {
     }
   }, [teacherTimetables]);
 
-  // Auto Sync: Ensure every member in central staff directory is present in teacherTimetables
+  // Auto Sync: Ensure every member in central staff directory is present and updated in teacherTimetables
   useEffect(() => {
     if (staff && staff.length > 0) {
       setTeacherTimetables((prev) => {
-        const existingNames = new Set(prev.map((t) => t.teacherName.trim().toUpperCase()));
+        const staffMap = new Map<string, typeof staff[0]>();
+        staff.forEach((stf) => {
+          staffMap.set(stf.fullName.trim().toUpperCase(), stf);
+        });
+
+        const updatedList: TeacherTimetableRecord[] = prev.map((t) => {
+          const upperName = t.teacherName.trim().toUpperCase();
+          const stf = staffMap.get(upperName);
+          if (stf && stf.department && stf.department !== t.department) {
+            return {
+              ...t,
+              department: stf.department,
+              lastUpdated: new Date().toLocaleString()
+            };
+          }
+          return t;
+        });
+
+        const existingNames = new Set(updatedList.map((t) => t.teacherName.trim().toUpperCase()));
         const newRecords: TeacherTimetableRecord[] = [];
 
         staff.forEach((stf) => {
@@ -175,9 +193,9 @@ export const TimetableModule: React.FC = () => {
           newRecords.forEach((rec) => {
             syncTeacherAndTimetableToSupabase(rec);
           });
-          return [...prev, ...newRecords];
+          return [...updatedList, ...newRecords];
         }
-        return prev;
+        return updatedList;
       });
     }
   }, [staff]);
@@ -519,7 +537,7 @@ export const TimetableModule: React.FC = () => {
       );
 
       const freeTeachers = teacherTimetables.filter((t) => {
-        if (teacherAttendanceMap[t.teacherName] === 'Absent' || teacherAttendanceMap[t.teacherName] === 'On Leave') return false;
+        if (teacherAttendanceMap[t.teacherName] === 'Absent') return false;
         if (subTeacherNames.has(t.teacherName)) return false;
         if (fixedTeachersMap.has(`${pNo}_${t.teacherName}`)) return false;
 
@@ -685,57 +703,53 @@ export const TimetableModule: React.FC = () => {
   const [constraintMode, setConstraintMode] = useState<SubstitutionConstraintMode>('same_dept_first');
   const [autoSubBanner, setAutoSubBanner] = useState<{ count: number; message: string } | null>(null);
 
-  // TEACHER DAILY ATTENDANCE STATE (Present / Absent / On Leave / Half Day) - Synced with Staff Directory
-  const [localAttendanceOverrides, setLocalAttendanceOverrides] = useState<Record<string, 'Present' | 'Absent' | 'On Leave' | 'Half Day'>>({});
+  // TEACHER DAILY ATTENDANCE STATE (Present / Absent) - Synced with Staff Directory
+  const [localAttendanceOverrides, setLocalAttendanceOverrides] = useState<Record<string, 'Present' | 'Absent'>>({});
 
   // Compute effective teacher attendance map combining staff directory and local overrides
-  const teacherAttendanceMap: Record<string, 'Present' | 'Absent' | 'On Leave' | 'Half Day'> = {};
+  const teacherAttendanceMap: Record<string, 'Present' | 'Absent'> = {};
   
-  // 1. Populate from staff directory
+  // 1. Populate automatically from central staff directory
   staff.forEach((stf) => {
-    const nameKey = stf.fullName.toUpperCase();
-    if (stf.status === 'Absent') teacherAttendanceMap[nameKey] = 'Absent';
-    else if (stf.status === 'On Leave') teacherAttendanceMap[nameKey] = 'On Leave';
-    else if (stf.status === 'Half Day') teacherAttendanceMap[nameKey] = 'Half Day';
-    else teacherAttendanceMap[nameKey] = 'Present';
+    const nameKey = stf.fullName.trim().toUpperCase();
+    const stfStatus = (stf.status || '').toLowerCase();
+    const isAbsentInStaff = stfStatus === 'absent' || stfStatus === 'on leave' || stfStatus === 'inactive';
+    teacherAttendanceMap[nameKey] = isAbsentInStaff ? 'Absent' : 'Present';
   });
 
-  // 2. Default overrides
+  // 2. Default baseline absences if not set
   if (!('POONAM SINGH' in teacherAttendanceMap)) teacherAttendanceMap['POONAM SINGH'] = 'Absent';
   if (!('ANITA DESHMUKH' in teacherAttendanceMap)) teacherAttendanceMap['ANITA DESHMUKH'] = 'Absent';
-  if (!('PRATEEK BANSAL' in teacherAttendanceMap)) teacherAttendanceMap['PRATEEK BANSAL'] = 'On Leave';
+  if (!('PRATEEK BANSAL' in teacherAttendanceMap)) teacherAttendanceMap['PRATEEK BANSAL'] = 'Absent';
 
-  // 3. Apply local overrides
+  // 3. Apply user local overrides
   Object.assign(teacherAttendanceMap, localAttendanceOverrides);
 
   const [isPrintGridModalOpen, setIsPrintGridModalOpen] = useState(false);
 
   // Toggle teacher attendance status & sync live to Supabase
-  const handleToggleAttendance = async (teacherName: string, status: 'Present' | 'Absent' | 'On Leave' | 'Half Day') => {
+  const handleToggleAttendance = async (teacherName: string, status: 'Present' | 'Absent') => {
     setLocalAttendanceOverrides((prev) => ({
       ...prev,
       [teacherName.toUpperCase()]: status
     }));
 
-    // Find staff record if exists
+    // Find staff record if exists and update status
     const matchingStaff = staff.find((s) => s.fullName.toUpperCase() === teacherName.toUpperCase());
     if (matchingStaff) {
       await syncStaffToSupabase({
         ...matchingStaff,
-        status: status === 'Present' ? 'Active' : status
+        status: status === 'Present' ? 'Active' : 'Absent'
       });
     }
 
     // Record daily attendance entry in Supabase DB
     await syncAttendanceToSupabase({
-      id: `att-teacher-${teacherName.toLowerCase().replace(/[^a-z0-9]/g, '')}-${new Date().toISOString().split('T')[0]}`,
       date: new Date().toISOString().split('T')[0],
-      studentId: matchingStaff?.employeeCode || `EMP-${teacherName.slice(0, 4).toUpperCase()}`,
-      studentName: teacherName.toUpperCase(),
+      studentAdmissionNo: matchingStaff?.employeeCode || `EMP-${teacherName.slice(0, 4).toUpperCase()}`,
       className: 'Staff Faculty',
       section: 'Staff',
-      status: status === 'Present' ? 'Present' : (status === 'Absent' ? 'Absent' : (status === 'Half Day' ? 'Half Day' : 'On Leave')),
-      remarks: `Timetable auto-attendance override: ${status}`
+      status: status
     });
   };
 
@@ -745,7 +759,7 @@ export const TimetableModule: React.FC = () => {
       .map((t) => t.teacherName)
       .filter((tName) => {
         const st = teacherAttendanceMap[tName.toUpperCase()];
-        return st === 'Absent' || st === 'On Leave' || st === 'Half Day';
+        return st === 'Absent';
       });
 
     if (absentTeacherNames.length === 0) {
@@ -1373,79 +1387,92 @@ export const TimetableModule: React.FC = () => {
               </div>
             </div>
 
-            {/* FACULTY ATTENDANCE & ABSENCE MARKER TRACKER */}
-            <div className="bg-blue-950/80 p-4 rounded-xl border border-blue-700/60 space-y-3">
-              <div className="flex items-center justify-between flex-wrap gap-2 border-b border-blue-800 pb-2">
+            {/* FACULTY ATTENDANCE & ABSENCE MARKER TRACKER (BIGGER TILES - PRESENT & ABSENT ONLY) */}
+            <div className="bg-blue-950/80 p-5 rounded-2xl border border-blue-700/60 space-y-4 shadow-md">
+              <div className="flex items-center justify-between flex-wrap gap-3 border-b border-blue-800/80 pb-3">
                 <div className="flex items-center gap-2">
-                  <ShieldAlert className="w-4 h-4 text-amber-300" />
-                  <span className="text-xs font-black text-white uppercase tracking-wider">
-                    Teacher Daily Attendance & Absence Tracker ({selectedDay}):
-                  </span>
+                  <ShieldAlert className="w-5 h-5 text-amber-300" />
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-wider">
+                      Teacher Daily Attendance & Substitution Status ({selectedDay}):
+                    </h4>
+                    <p className="text-[11px] text-blue-200">
+                      Auto-synchronized with Staff Faculty Directory. Toggle Present or Absent to recalculate substitution coverage.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold">
-                  <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <div className="flex items-center gap-2 text-xs font-black">
+                  <span className="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                     Present: {Object.values(teacherAttendanceMap).filter((v) => v === 'Present').length}
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                  <span className="px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1.5 shadow-xs">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
                     Absent: {Object.values(teacherAttendanceMap).filter((v) => v === 'Absent').length}
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                    On Leave: {Object.values(teacherAttendanceMap).filter((v) => v === 'On Leave').length}
                   </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-80 overflow-y-auto pr-1">
                 {teacherTimetables.map((t, idx) => {
                   const status = teacherAttendanceMap[t.teacherName] || 'Present';
+                  const isPresent = status === 'Present';
+                  const deptTheme = getDepartmentTheme(t.department);
+
                   return (
                     <div
                       key={`${t.id}-${idx}`}
-                      className={`p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all ${
-                        status === 'Absent'
-                          ? 'bg-rose-950/60 border-rose-500/80 text-rose-100'
-                          : status === 'On Leave'
-                          ? 'bg-amber-950/60 border-amber-500/80 text-amber-100'
-                          : 'bg-blue-900/30 border-blue-800/60 text-blue-200'
+                      className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between gap-3 shadow-xs ${
+                        !isPresent
+                          ? 'bg-rose-950/70 border-rose-500/90 shadow-rose-950/40 ring-1 ring-rose-500/50 text-rose-100'
+                          : 'bg-blue-900/40 border-blue-800/80 text-blue-100 hover:border-blue-700'
                       }`}
                     >
-                      <div className="truncate">
-                        <span className="font-bold block truncate">{t.teacherName}</span>
-                        <span className="text-[10px] opacity-75">{t.department || 'Senior Sec'}</span>
+                      <div className="space-y-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-extrabold text-sm text-white block leading-tight truncate">
+                            {t.teacherName}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider shrink-0 ${
+                              isPresent
+                                ? 'bg-emerald-500/30 text-emerald-300 border border-emerald-500/40'
+                                : 'bg-rose-500 text-white font-black shadow-xs'
+                            }`}
+                          >
+                            {status}
+                          </span>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold inline-block border ${deptTheme.badgeClass}`}>
+                          {deptTheme.label}
+                        </span>
                       </div>
 
-                      <div className="flex items-center gap-1 shrink-0">
+                      {/* BIGGER PRESENT & ABSENT ACTION BUTTONS */}
+                      <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/10">
                         <button
+                          type="button"
                           onClick={() => handleToggleAttendance(t.teacherName, 'Present')}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
-                            status === 'Present' ? 'bg-emerald-500 text-slate-950' : 'bg-blue-950 text-blue-300 hover:text-white'
+                          className={`py-2 px-3 rounded-xl text-xs font-black cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-xs ${
+                            isPresent
+                              ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 ring-2 ring-emerald-300 scale-100'
+                              : 'bg-slate-900/70 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700'
                           }`}
                         >
-                          P
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Present</span>
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleToggleAttendance(t.teacherName, 'Absent')}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
-                            status === 'Absent' ? 'bg-rose-500 text-white' : 'bg-blue-950 text-blue-300 hover:text-white'
+                          className={`py-2 px-3 rounded-xl text-xs font-black cursor-pointer transition-all flex items-center justify-center gap-1.5 shadow-xs ${
+                            !isPresent
+                              ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-300 font-black scale-100 animate-pulse'
+                              : 'bg-slate-900/70 text-slate-400 hover:text-rose-300 hover:bg-slate-800 border border-slate-700'
                           }`}
                         >
-                          A
-                        </button>
-                        <button
-                          onClick={() => handleToggleAttendance(t.teacherName, 'Half Day')}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
-                            status === 'Half Day' ? 'bg-amber-500 text-white' : 'bg-blue-950 text-blue-300 hover:text-white'
-                          }`}
-                        >
-                          H
-                        </button>
-                        <button
-                          onClick={() => handleToggleAttendance(t.teacherName, 'On Leave')}
-                          className={`px-1.5 py-0.5 rounded text-[10px] font-black cursor-pointer transition-all ${
-                            status === 'On Leave' ? 'bg-purple-500 text-white' : 'bg-blue-950 text-blue-300 hover:text-white'
-                          }`}
-                        >
-                          L
+                          <X className="w-3.5 h-3.5" />
+                          <span>Absent</span>
                         </button>
                       </div>
                     </div>
@@ -1671,7 +1698,7 @@ export const TimetableModule: React.FC = () => {
           {(() => {
             const activeAbsentArrangements = arrangements.filter((a) => {
               const teacherStatus = teacherAttendanceMap[a.absentTeacherName.trim().toUpperCase()];
-              return teacherStatus === 'Absent' || teacherStatus === 'On Leave' || teacherStatus === 'Half Day';
+              return teacherStatus === 'Absent';
             });
 
             return (

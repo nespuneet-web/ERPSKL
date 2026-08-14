@@ -179,26 +179,39 @@ export async function syncTeacherAndTimetableToSupabase(
   userContext?: { username?: string; role?: string }
 ): Promise<SupabaseSyncResult> {
   const cleanName = teacher.teacherName.trim().toUpperCase();
-  const cleanDept = teacher.department || 'Senior Secondary';
+  const cleanDept = (teacher.department || 'Senior Secondary').slice(0, 48);
   const empCode = `EMP-${cleanName.replace(/[^A-Z0-9]/g, '').slice(0, 8)}`;
 
-  // 1. Upsert into public.staff
+  // 1. Upsert into public.staff with assigned classes and schedule allocations
+  const activeSlots: string[] = [];
+  if (teacher.schedule) {
+    Object.entries(teacher.schedule).forEach(([k, v]) => {
+      if (v && v.trim()) activeSlots.push(`${k}: ${v}`);
+    });
+  }
+
   await upsertRecord('staff', {
     employee_code: empCode,
     full_name: cleanName,
     department: cleanDept,
     designation: 'Faculty / Teacher',
-    status: 'Active'
+    status: 'Active',
+    assigned_classes: JSON.stringify(activeSlots.slice(0, 20)),
+    assigned_allocations: JSON.stringify(teacher.schedule || {})
   }, 'employee_code', userContext);
 
-  // 2. Prepare & upsert timetable slot
+  // 2. Prepare & upsert timetable slot safely within VARCHAR(50) bounds
+  const scheduleSummary = activeSlots.length > 0
+    ? `${activeSlots.length} Periods Scheduled`
+    : 'Full Schedule';
+
   const timetablePayload = {
-    teacher_name: cleanName,
+    teacher_name: cleanName.slice(0, 48),
     department: cleanDept,
     day_of_week: 'Monday',
     period_number: 1,
-    class_and_section: JSON.stringify(teacher.schedule || {}),
-    subject_name: 'Regular Schedule',
+    class_and_section: scheduleSummary.slice(0, 48),
+    subject_name: (cleanDept || 'Academics').slice(0, 48),
     room_number: 'Classroom'
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLessonPlanStore, LessonPlan } from './lessonPlanStore';
 import { useOtherModulesStore } from '../otherModules/otherStore';
 import { useAuth } from '../../context/AuthContext';
@@ -18,13 +18,21 @@ import {
   Sparkles,
   ShieldAlert,
   ChevronRight,
+  ChevronDown,
   Eye,
   Check,
   Building,
   GraduationCap,
-  Printer
+  Printer,
+  Table
 } from 'lucide-react';
 import { PrintModal } from '../../components/PrintModal';
+import {
+  TIMETABLE_DAYS,
+  TIMETABLE_PERIODS,
+  TeacherTimetableRecord,
+  INITIAL_TEACHER_TIMETABLES
+} from '../timetable/timetableData';
 
 export const LessonPlansModule: React.FC = () => {
   const { plans, alerts, updateLessonPlanStatus, updateLessonPlan, addLessonPlan, sendAlertToTeacher } = useLessonPlanStore();
@@ -63,6 +71,33 @@ export const LessonPlansModule: React.FC = () => {
   const [status, setStatus] = useState<'COMPLETED_ON_TIME' | 'NOT_COMPLETED_ON_TIME' | 'IN_PROGRESS'>('NOT_COMPLETED_ON_TIME');
   const [remarks, setRemarks] = useState('Requires 4 additional lab periods to complete numericals.');
 
+  // Teacher's Timetable schedule view toggle
+  const [showTeacherTimetableSchedule, setShowTeacherTimetableSchedule] = useState(true);
+
+  // Load teacher timetables from store or localStorage
+  const [teacherTimetableRecords, setTeacherTimetableRecords] = useState<TeacherTimetableRecord[]>(() => {
+    try {
+      const stored = localStorage.getItem('SCHOOLDESK_TEACHER_TIMETABLES');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {
+      console.error(e);
+    }
+    return INITIAL_TEACHER_TIMETABLES;
+  });
+
+  // Keep timetable records updated
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('SCHOOLDESK_TEACHER_TIMETABLES');
+      if (stored) setTeacherTimetableRecords(JSON.parse(stored));
+    } catch (e) {}
+  }, [teacherName]);
+
+  // Active teacher's timetable
+  const activeTeacherTimetable = teacherTimetableRecords.find(
+    (t) => t.teacherName.trim().toUpperCase() === teacherName.trim().toUpperCase()
+  );
+
   // Search & Filter state for Principal View
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -83,7 +118,7 @@ export const LessonPlansModule: React.FC = () => {
     'Submit updated practical logbook by end of day.'
   ];
 
-  const handleTeacherSave = (e: React.FormEvent) => {
+  const handleTeacherSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) {
       alert('Please enter a valid lesson topic.');
@@ -103,7 +138,7 @@ export const LessonPlansModule: React.FC = () => {
     // Check if plan exists for this class + subject
     const existing = plans.find((p) => p.className === selectedClass && p.subject === selectedSubject);
     if (existing) {
-      updateLessonPlan(existing.id, {
+      await updateLessonPlan(existing.id, {
         teacherName,
         teacherRole,
         teacherGroup,
@@ -117,7 +152,7 @@ export const LessonPlansModule: React.FC = () => {
         remarks
       });
     } else {
-      addLessonPlan({
+      await addLessonPlan({
         className: selectedClass,
         subject: selectedSubject,
         teacherName,
@@ -140,8 +175,9 @@ export const LessonPlansModule: React.FC = () => {
       `Updated lesson plan for ${selectedClass} ${selectedSubject}: ${topic} (${status})`
     );
 
-    setAlertSuccessToast(`🟢 Lesson Plan for ${selectedClass} (${selectedSubject}) saved to Cloud Database!`);
-    setTimeout(() => setAlertSuccessToast(null), 5000);
+    const statusLabel = status === 'COMPLETED_ON_TIME' ? 'COMPLETED ON TIME (Green)' : status === 'NOT_COMPLETED_ON_TIME' ? 'NOT COMPLETED / DELAYED (Red)' : 'IN PROGRESS';
+    setAlertSuccessToast(`🟢 SUCCESS: Lesson Plan for ${selectedClass} (${selectedSubject}) updated to "${statusLabel}" & Saved to Cloud Database! Principal Section Updated.`);
+    setTimeout(() => setAlertSuccessToast(null), 6000);
   };
 
   const handleSendAlert = (plan: LessonPlan) => {
@@ -604,6 +640,95 @@ export const LessonPlansModule: React.FC = () => {
       {/* ==================================================================== */}
       {activeTab === 'teacher_entry' && (
         <div className="space-y-6">
+          {/* TEACHER SELECTOR BAR - INSPECT / UPDATE ANY TEACHER'S LESSON ENTRY */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                  <User className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
+                    Teacher Lesson Entry & Checking Portal
+                  </span>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white">
+                    Select Teacher to Inspect or Update Lesson Entry:
+                  </h3>
+                </div>
+              </div>
+
+              {/* Teacher Selector Dropdown */}
+              <div className="w-full md:w-80">
+                <select
+                  value={teacherName}
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    handleSelectTeacher(name);
+                    const found = staff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
+                    if (found) {
+                      setTeacherRole(found.designation);
+                      if (found.assignedClasses && found.assignedClasses.length > 0) {
+                        setSelectedClass(found.assignedClasses[0]);
+                      }
+                      const assignedList = [
+                        ...(found.assignedSubjects || []),
+                        ...(found.assignedAllocations?.map(a => a.subject) || [])
+                      ].filter(Boolean);
+                      if (assignedList.length > 0) {
+                        setSelectedSubject(assignedList[0]);
+                      }
+                    }
+                    setAlertSuccessToast(`👨‍🏫 Switched to ${name} — Ready to inspect & update lessons`);
+                    setTimeout(() => setAlertSuccessToast(null), 3000);
+                  }}
+                  className="w-full px-3.5 py-2.5 text-xs font-black bg-indigo-50 dark:bg-slate-800 border-2 border-indigo-500 rounded-xl text-slate-900 dark:text-white shadow-inner cursor-pointer"
+                >
+                  {staff.map((stf, idx) => (
+                    <option key={`sel-stf-${stf.id}-${idx}`} value={stf.fullName}>
+                      👨‍🏫 {stf.fullName} {stf.status === 'Absent' ? '🔴 (Absent)' : '🟢'} — [{stf.designation || stf.department}]
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Quick Switcher Chips for Teachers */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              <span className="text-[11px] font-bold text-slate-500 shrink-0">Quick Switch:</span>
+              {staff.map((stf, idx) => {
+                const isSelected = teacherName.toLowerCase() === stf.fullName.toLowerCase();
+                return (
+                  <button
+                    key={`chip-${stf.id}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      handleSelectTeacher(stf.fullName);
+                      if (stf.assignedClasses && stf.assignedClasses.length > 0) {
+                        setSelectedClass(stf.assignedClasses[0]);
+                      }
+                      const assignedList = [
+                        ...(stf.assignedSubjects || []),
+                        ...(stf.assignedAllocations?.map(a => a.subject) || [])
+                      ].filter(Boolean);
+                      if (assignedList.length > 0) {
+                        setSelectedSubject(assignedList[0]);
+                      }
+                      setAlertSuccessToast(`👨‍🏫 Selected ${stf.fullName} for Lesson Entry`);
+                      setTimeout(() => setAlertSuccessToast(null), 2500);
+                    }}
+                    className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
+                      isSelected
+                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {stf.fullName}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* TEACHER ASSIGNED CLASSES & SUBJECTS CARD MATRIX */}
           {(() => {
             const currentStaff = staff.find((s) => s.fullName.toLowerCase() === teacherName.toLowerCase());
@@ -713,6 +838,98 @@ export const LessonPlansModule: React.FC = () => {
               </div>
             );
           })()}
+
+          {/* TEACHER REGISTERED TIMETABLE SCHEDULE PREVIEW */}
+          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-2.5">
+              <div className="flex items-center gap-2">
+                <Table className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <div>
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                    Weekly Timetable Schedule for {teacherName}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Sourced directly from Timetable & Staff Registry. Click any cell to quickly plan lessons for that class.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowTeacherTimetableSchedule((prev) => !prev)}
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1 cursor-pointer"
+              >
+                {showTeacherTimetableSchedule ? (
+                  <>
+                    <ChevronDown className="w-4 h-4" /> Hide Timetable
+                  </>
+                ) : (
+                  <>
+                    <ChevronRight className="w-4 h-4" /> Show Timetable
+                  </>
+                )}
+              </button>
+            </div>
+
+            {showTeacherTimetableSchedule && (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-center border-collapse min-w-[700px]">
+                  <thead>
+                    <tr className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 font-extrabold text-slate-700 dark:text-slate-300">
+                      <th className="p-2 border border-slate-200 dark:border-slate-700 w-24">Day \ Period</th>
+                      {TIMETABLE_PERIODS.map((p) => (
+                        <th key={p} className="p-2 border border-slate-200 dark:border-slate-700">
+                          P{p}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {TIMETABLE_DAYS.map((day) => (
+                      <tr key={day} className="hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                        <td className="p-2 border border-slate-200 dark:border-slate-700 font-black text-indigo-900 dark:text-indigo-300 bg-slate-50 dark:bg-slate-800/50">
+                          {day.slice(0, 3)}
+                        </td>
+                        {TIMETABLE_PERIODS.map((p) => {
+                          const val = activeTeacherTimetable?.schedule[`${day}_${p}`] || '';
+                          return (
+                            <td
+                              key={p}
+                              className={`p-1.5 border border-slate-200 dark:border-slate-700 text-[11px] ${
+                                val
+                                  ? 'bg-indigo-50/70 dark:bg-indigo-950/40 text-indigo-950 dark:text-indigo-200 font-bold cursor-pointer hover:bg-indigo-100'
+                                  : 'text-slate-400 font-medium'
+                              }`}
+                              onClick={() => {
+                                if (val) {
+                                  // Auto-fill class and subject from clicked period
+                                  const parts = val.split('(');
+                                  const clsName = parts[0]?.trim();
+                                  const subName = parts[1]?.replace(')', '').trim() || selectedSubject;
+                                  if (clsName) setSelectedClass(clsName);
+                                  if (subName) setSelectedSubject(subName);
+                                  setAlertSuccessToast(`Selected ${clsName} (${subName}) from ${day} Period ${p}`);
+                                  setTimeout(() => setAlertSuccessToast(null), 3000);
+                                }
+                              }}
+                            >
+                              {val ? (
+                                <span className="px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-900/60 text-indigo-900 dark:text-indigo-200 font-extrabold inline-block">
+                                  {val}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-300 dark:text-slate-600">-</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
           {/* SECTION 1: PLAN LESSON */}
           <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">

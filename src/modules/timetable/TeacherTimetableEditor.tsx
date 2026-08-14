@@ -1,5 +1,12 @@
-import React, { useState } from 'react';
-import { TeacherTimetableRecord, TIMETABLE_DAYS, TIMETABLE_PERIODS, TimetableDay, getDepartmentTheme, SCHOOL_DEPARTMENTS } from './timetableData';
+import React, { useState, useEffect } from 'react';
+import {
+  TeacherTimetableRecord,
+  TIMETABLE_DAYS,
+  TIMETABLE_PERIODS,
+  TimetableDay,
+  getDepartmentTheme,
+  SCHOOL_DEPARTMENTS
+} from './timetableData';
 import {
   User,
   Search,
@@ -14,9 +21,13 @@ import {
   BookOpen,
   CheckCircle2,
   AlertCircle,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Wand2,
+  Layers,
+  GraduationCap
 } from 'lucide-react';
 import { PrintModal } from '../../components/PrintModal';
+import { useOtherModulesStore } from '../otherModules/otherStore';
 
 interface TeacherTimetableEditorProps {
   teachers: TeacherTimetableRecord[];
@@ -38,6 +49,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   onSaveTeacher,
   onAddNewTeacher
 }) => {
+  const { staff } = useOtherModulesStore();
   const [selectedTeacherId, setSelectedTeacherId] = useState<string>(teachers[0]?.id || '');
   const [searchFilter, setSearchFilter] = useState('');
   
@@ -47,33 +59,35 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
     (t.department && t.department.toLowerCase().includes(searchFilter.toLowerCase().trim()))
   );
 
-  // Selected teacher
+  // Selected teacher record from Timetable list
   const currentTeacher = teachers.find((t) => t.id === selectedTeacherId) || filteredTeachers[0] || teachers[0];
 
-  // Editable local state for the active teacher's schedule
+  // Matched staff record from central Staff module (for subjects & class allocations)
+  const matchedStaff = staff.find((s) =>
+    s.fullName.trim().toUpperCase() === currentTeacher?.teacherName.trim().toUpperCase() ||
+    `tt-stf-${s.id}` === currentTeacher?.id
+  );
+
+  // Derive teacher's registered subjects & classes
+  const teacherAllocations: { className: string; subject: string }[] = [];
+  if (matchedStaff?.assignedAllocations && matchedStaff.assignedAllocations.length > 0) {
+    matchedStaff.assignedAllocations.forEach((item) => {
+      teacherAllocations.push({ className: item.className, subject: item.subject });
+    });
+  } else if (matchedStaff?.assignedClasses && matchedStaff.assignedClasses.length > 0) {
+    const subjs = matchedStaff.assignedSubjects || [matchedStaff.department || 'General'];
+    matchedStaff.assignedClasses.forEach((c) => {
+      subjs.forEach((s) => teacherAllocations.push({ className: c, subject: s }));
+    });
+  } else if (matchedStaff?.classTeacherOf && matchedStaff.classTeacherOf !== 'None') {
+    teacherAllocations.push({ className: matchedStaff.classTeacherOf, subject: matchedStaff.department || 'General' });
+  }
+
+  // Editable local state for active teacher's schedule
   const [localSchedule, setLocalSchedule] = useState<Record<string, string>>(
     currentTeacher ? { ...currentTeacher.schedule } : {}
   );
 
-  // Sync local schedule when active teacher changes
-  React.useEffect(() => {
-    if (currentTeacher) {
-      setSelectedTeacherId(currentTeacher.id);
-      setLocalSchedule({ ...currentTeacher.schedule });
-      setIsDirty(false);
-      setEditingCell(null);
-    }
-  }, [currentTeacher?.id]);
-
-  // When typing search filter, if current teacher is no longer in filtered list, auto select first matching teacher
-  React.useEffect(() => {
-    if (searchFilter.trim() && filteredTeachers.length > 0) {
-      const existsInFiltered = filteredTeachers.some((t) => t.id === selectedTeacherId);
-      if (!existsInFiltered) {
-        setSelectedTeacherId(filteredTeachers[0].id);
-      }
-    }
-  }, [searchFilter]);
   const [isDirty, setIsDirty] = useState(false);
   const [editingCell, setEditingCell] = useState<{ day: TimetableDay; period: number } | null>(null);
   
@@ -93,6 +107,38 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
   const [newTeacherDeptInput, setNewTeacherDeptInput] = useState('Senior Secondary');
   const [newTeacherGradeInput, setNewTeacherGradeInput] = useState('Class 10');
 
+  // Success toast state
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Sync local schedule when active teacher changes
+  useEffect(() => {
+    if (currentTeacher) {
+      setSelectedTeacherId(currentTeacher.id);
+      setLocalSchedule({ ...currentTeacher.schedule });
+      setIsDirty(false);
+      setEditingCell(null);
+
+      // Pre-fill cell input defaults based on teacher allocations
+      if (teacherAllocations.length > 0) {
+        const firstAlloc = teacherAllocations[0];
+        const parts = firstAlloc.className.split('-');
+        if (parts[0]) setSelectedClassInput(parts[0].trim());
+        if (parts[1]) setSelectedSectionInput(parts[1].trim());
+        setCustomSubjectInput(firstAlloc.subject);
+      }
+    }
+  }, [currentTeacher?.id]);
+
+  // When typing search filter, auto-select first matching teacher if current selection lost
+  useEffect(() => {
+    if (searchFilter.trim() && filteredTeachers.length > 0) {
+      const existsInFiltered = filteredTeachers.some((t) => t.id === selectedTeacherId);
+      if (!existsInFiltered) {
+        setSelectedTeacherId(filteredTeachers[0].id);
+      }
+    }
+  }, [searchFilter]);
+
   // Switch active teacher
   const handleSelectTeacher = (tId: string) => {
     setSelectedTeacherId(tId);
@@ -111,7 +157,6 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
     setEditingCell({ day, period });
     setTempCellValue(rawVal);
 
-    // Try parsing existing string e.g. "Class 10-A" or "Class 10-A (Maths)"
     if (rawVal.includes('-')) {
       const parts = rawVal.split('-');
       const cls = parts[0]?.trim();
@@ -149,7 +194,6 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
 
     setIsDirty(true);
     setEditingCell(null);
-    setCustomSubjectInput('');
   };
 
   // Save all changes for teacher
@@ -162,7 +206,8 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
     };
     onSaveTeacher(updated);
     setIsDirty(false);
-    alert(`Timetable for ${currentTeacher.teacherName} successfully saved & synced to Supabase database!`);
+    setToastMessage(`🟢 Timetable for ${currentTeacher.teacherName} successfully saved & synced to Supabase database!`);
+    setTimeout(() => setToastMessage(null), 5000);
   };
 
   // Reset local changes
@@ -172,6 +217,46 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
       setIsDirty(false);
       setEditingCell(null);
     }
+  };
+
+  // Smart Auto-Distribute Schedule from Staff Allocations
+  const handleSmartAutoDistribute = () => {
+    // 1. Determine allocations to use
+    let activeAllocations = [...teacherAllocations];
+
+    // Fallback: If no explicit allocations in staff record, derive from department or default subjects
+    if (activeAllocations.length === 0) {
+      const deptName = currentTeacher?.department || matchedStaff?.department || 'Senior Secondary';
+      let defaultSubj = 'Mathematics';
+      if (deptName.toLowerCase().includes('sci')) defaultSubj = 'Physics';
+      else if (deptName.toLowerCase().includes('eng')) defaultSubj = 'English';
+      else if (deptName.toLowerCase().includes('hindi')) defaultSubj = 'Hindi';
+      else if (deptName.toLowerCase().includes('comm')) defaultSubj = 'Accountancy';
+      else if (deptName.toLowerCase().includes('social')) defaultSubj = 'Social Studies';
+      else if (deptName.toLowerCase().includes('prim')) defaultSubj = 'General Science';
+      else if (deptName.toLowerCase().includes('sport') || deptName.toLowerCase().includes('phys')) defaultSubj = 'Physical Education';
+
+      const defaultClasses = ['Class 9-A', 'Class 10-A', 'Class 11-A', 'Class 12-A'];
+      activeAllocations = defaultClasses.map((cls) => ({ className: cls, subject: defaultSubj }));
+    }
+
+    const newSchedule: Record<string, string> = {};
+    let allocIdx = 0;
+
+    // Distribute 4 to 5 periods per day evenly across Mon - Sat
+    TIMETABLE_DAYS.forEach((day) => {
+      const dailyPeriods = [1, 2, 3, 5, 6]; // Standard teaching periods (leaving 0 assembly & 4 lunch free)
+      dailyPeriods.forEach((periodNo) => {
+        const alloc = activeAllocations[allocIdx % activeAllocations.length];
+        newSchedule[`${day}_${periodNo}`] = `${alloc.className} (${alloc.subject})`;
+        allocIdx++;
+      });
+    });
+
+    setLocalSchedule(newSchedule);
+    setIsDirty(true);
+    setToastMessage(`✨ Auto-distributed ${activeAllocations.length} subjects & classes across the weekly timetable for ${currentTeacher?.teacherName}! Click "Save Timetable" to commit.`);
+    setTimeout(() => setToastMessage(null), 6000);
   };
 
   // Quick Add New Teacher
@@ -195,10 +280,21 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
 
   return (
     <div className="space-y-6">
-      
+      {/* TOAST MESSAGE */}
+      {toastMessage && (
+        <div className="p-4 bg-emerald-600 text-white rounded-2xl shadow-lg flex items-center justify-between text-xs font-black animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-5 h-5 text-white shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button onClick={() => setToastMessage(null)} className="text-white hover:opacity-80 cursor-pointer">
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* TEACHER SELECTION & TOOLBAR */}
       <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        
         {/* Left Search / Select Teacher */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
           <div className="relative flex-1 max-w-sm">
@@ -208,7 +304,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
               placeholder="Filter teacher by name..."
               value={searchFilter}
               onChange={(e) => setSearchFilter(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-medium"
+              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-medium outline-none"
             />
           </div>
 
@@ -216,7 +312,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
             <select
               value={selectedTeacherId}
               onChange={(e) => handleSelectTeacher(e.target.value)}
-              className="w-full px-3 py-2 text-xs font-bold bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-900 dark:text-indigo-200 cursor-pointer"
+              className="w-full px-3 py-2 text-xs font-black bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 rounded-xl text-indigo-900 dark:text-indigo-200 cursor-pointer"
             >
               {filteredTeachers.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -311,7 +407,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                 <User className="w-6 h-6 text-indigo-400" /> {currentTeacher.teacherName}
               </h2>
               <p className="text-xs text-slate-300">
-                Logged in as <strong>{currentTeacher.teacherName}</strong>. Department is set to <strong>{currentTeacher.department || 'Senior Secondary'}</strong> for smart substitution matching.
+                Active Faculty: <strong>{currentTeacher.teacherName}</strong>. Department: <strong>{currentTeacher.department || 'Senior Secondary'}</strong>.
               </p>
             </div>
 
@@ -333,6 +429,69 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
         );
       })()}
 
+      {/* ========================================================================= */}
+      {/* CONNECTED STAFF ALLOCATIONS & 1-CLICK TIMETABLE GENERATOR ACTION BAR     */}
+      {/* ========================================================================= */}
+      <div className="p-4 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200 dark:border-indigo-800 space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-200 dark:border-indigo-900 pb-2.5">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+              Allocated Subjects & Classes (From Staff Registry)
+            </h4>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleSmartAutoDistribute}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 active:scale-98 transition-all"
+            >
+              <Wand2 className="w-3.5 h-3.5" />
+              ✨ Auto-Distribute Allocated Schedule
+            </button>
+          </div>
+        </div>
+
+        {teacherAllocations.length === 0 ? (
+          <p className="text-xs text-slate-500 italic">
+            No subjects or classes allocated in the Staff module yet. You can still assign any class & subject by clicking any period box below.
+          </p>
+        ) : (
+          <div className="space-y-1.5">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+              Click any chip below to set as default input or click period box in table:
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {teacherAllocations.map((item, idx) => {
+                const parts = item.className.split('-');
+                const cls = parts[0]?.trim() || item.className;
+                const sec = parts[1]?.trim() || 'A';
+
+                return (
+                  <button
+                    key={`${item.className}-${item.subject}-${idx}`}
+                    type="button"
+                    onClick={() => {
+                      setSelectedClassInput(cls);
+                      setSelectedSectionInput(sec);
+                      setCustomSubjectInput(item.subject);
+                      setToastMessage(`Selected "${item.className} (${item.subject})" — Now click any period cell in the grid to assign!`);
+                      setTimeout(() => setToastMessage(null), 3500);
+                    }}
+                    className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 border border-indigo-300 dark:border-indigo-700 text-xs font-extrabold text-indigo-950 dark:text-indigo-200 shadow-2xs hover:bg-indigo-100 dark:hover:bg-indigo-900 cursor-pointer flex items-center gap-1.5 transition-all active:scale-98"
+                  >
+                    <span className="text-indigo-600 dark:text-indigo-400">⭐ {item.className}</span>
+                    <span className="text-slate-400">•</span>
+                    <span>{item.subject}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* INTERACTIVE WEEKLY TIMETABLE MATRIX GRID */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4 overflow-x-auto">
         <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
@@ -343,7 +502,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
             </h3>
           </div>
           <span className="text-xs font-semibold text-slate-500">
-            💡 Tip: Click on any period box to edit class or subject
+            💡 Tip: Click on any period box to assign or change class & subject
           </span>
         </div>
 
@@ -402,15 +561,36 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                           }`}
                         >
                           {isEditing ? (
-                            /* INLINE STRUCTURED CELL EDITOR WITH CLASS & SECTION PULLDOWNS */
-                            <div className="space-y-1.5 p-2 bg-white dark:bg-slate-900 rounded-xl border border-indigo-400 dark:border-indigo-600 shadow-xl min-w-[170px]" onClick={(e) => e.stopPropagation()}>
+                            /* INLINE STRUCTURED CELL EDITOR WITH PRESETS & CLASS/SECTION PULLDOWNS */
+                            <div className="space-y-2 p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-indigo-400 dark:border-indigo-600 shadow-2xl min-w-[210px]" onClick={(e) => e.stopPropagation()}>
+                              {/* 1-Click Allocated Chips inside cell editor */}
+                              {teacherAllocations.length > 0 && (
+                                <div className="space-y-1 pb-1.5 border-b border-slate-200 dark:border-slate-800">
+                                  <span className="text-[9px] font-black uppercase text-indigo-600 block">
+                                    Quick 1-Click Fill:
+                                  </span>
+                                  <div className="flex flex-wrap gap-1">
+                                    {teacherAllocations.slice(0, 3).map((a, i) => (
+                                      <button
+                                        key={i}
+                                        type="button"
+                                        onClick={() => handleSaveCell(`${a.className} (${a.subject})`)}
+                                        className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300 border border-indigo-200 hover:bg-indigo-600 hover:text-white cursor-pointer"
+                                      >
+                                        {a.className}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
                               <div className="grid grid-cols-2 gap-1 text-[11px]">
                                 <div>
                                   <label className="block text-[9px] font-extrabold uppercase text-slate-500">Class *</label>
                                   <select
                                     value={selectedClassInput}
                                     onChange={(e) => setSelectedClassInput(e.target.value)}
-                                    className="w-full px-1.5 py-1 font-bold text-xs bg-slate-100 dark:bg-slate-800 border rounded text-slate-900 dark:text-white"
+                                    className="w-full px-1.5 py-1 font-bold text-xs bg-slate-100 dark:bg-slate-800 border rounded text-slate-900 dark:text-white cursor-pointer"
                                   >
                                     {MASTER_CLASSES.map((cls) => (
                                       <option key={cls} value={cls}>{cls}</option>
@@ -423,7 +603,7 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                                   <select
                                     value={selectedSectionInput}
                                     onChange={(e) => setSelectedSectionInput(e.target.value)}
-                                    className="w-full px-1.5 py-1 font-bold text-xs bg-slate-100 dark:bg-slate-800 border rounded text-slate-900 dark:text-white"
+                                    className="w-full px-1.5 py-1 font-bold text-xs bg-slate-100 dark:bg-slate-800 border rounded text-slate-900 dark:text-white cursor-pointer"
                                   >
                                     {MASTER_SECTIONS.map((sec) => (
                                       <option key={sec} value={sec}>{sec !== 'None' ? `Sec ${sec}` : 'None'}</option>
@@ -433,18 +613,73 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                               </div>
 
                               <div>
-                                <label className="block text-[9px] font-extrabold uppercase text-slate-500">Subject / Note</label>
-                                <input
-                                  type="text"
-                                  placeholder="e.g. Maths, Physics, Lab"
+                                <label className="block text-[9px] font-extrabold uppercase text-slate-500 mb-0.5">
+                                  Subject *
+                                </label>
+                                <select
                                   value={customSubjectInput}
                                   onChange={(e) => setCustomSubjectInput(e.target.value)}
-                                  className="w-full px-1.5 py-1 font-bold text-xs bg-slate-50 dark:bg-slate-800 border rounded text-slate-900 dark:text-white"
-                                />
+                                  className="w-full px-1.5 py-1 font-bold text-xs bg-slate-100 dark:bg-slate-800 border rounded text-slate-900 dark:text-white cursor-pointer"
+                                >
+                                  <option value="">Select Subject...</option>
+                                  {teacherAllocations.length > 0 && (
+                                    <optgroup label="⭐ ALLOCATED SUBJECTS">
+                                      {Array.from(new Set(teacherAllocations.map((a) => a.subject))).map((subj) => (
+                                        <option key={`alloc-${subj}`} value={subj}>
+                                          ⭐ {subj}
+                                        </option>
+                                      ))}
+                                    </optgroup>
+                                  )}
+                                  <optgroup label="ALL SUBJECTS">
+                                    {[
+                                      'Mathematics',
+                                      'Physics',
+                                      'Chemistry',
+                                      'Biology',
+                                      'Science & Tech',
+                                      'English',
+                                      'English Core',
+                                      'Hindi',
+                                      'Sanskrit',
+                                      'Social Studies',
+                                      'History',
+                                      'Geography',
+                                      'Political Science',
+                                      'Economics',
+                                      'Accountancy',
+                                      'Business Studies',
+                                      'Computer Science',
+                                      'Information Practices',
+                                      'Physical Education',
+                                      'Art & Craft',
+                                      'Music',
+                                      'Dance',
+                                      'General Knowledge',
+                                      'Moral Science',
+                                      'Library Period',
+                                      'Zero Period / Remedial',
+                                      'Other'
+                                    ].map((sub) => (
+                                      <option key={sub} value={sub}>
+                                        {sub}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                </select>
+                                {customSubjectInput === 'Other' && (
+                                  <input
+                                    type="text"
+                                    placeholder="Enter custom subject..."
+                                    value={tempCellValue}
+                                    onChange={(e) => setTempCellValue(e.target.value)}
+                                    className="mt-1 w-full px-1.5 py-0.5 font-bold text-[11px] bg-slate-50 dark:bg-slate-800 border rounded text-slate-900 dark:text-white outline-none"
+                                  />
+                                )}
                               </div>
 
-                              {/* OR DIRECT FREE TEXT PRESET */}
-                              <div className="pt-1 flex flex-wrap gap-1">
+                              {/* FREE TEXT / CLEAR BUTTON */}
+                              <div className="pt-0.5 flex items-center justify-between">
                                 <button
                                   type="button"
                                   onClick={() => handleSaveCell('')}
@@ -458,14 +693,14 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                                 <button
                                   type="button"
                                   onClick={() => handleSaveCell()}
-                                  className="flex-1 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center justify-center gap-0.5 cursor-pointer shadow-xs"
+                                  className="flex-1 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-black flex items-center justify-center gap-0.5 cursor-pointer shadow-xs"
                                 >
                                   <Check className="w-3 h-3" /> Save Box
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setEditingCell(null)}
-                                  className="px-2 py-1 rounded bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold cursor-pointer"
+                                  className="px-2 py-1 rounded-lg bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold cursor-pointer"
                                 >
                                   <X className="w-3 h-3" />
                                 </button>
@@ -553,13 +788,13 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                   <select
                     value={newTeacherDeptInput}
                     onChange={(e) => setNewTeacherDeptInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
                     <option value="Pre-Primary (PG-UKG)">Pre-Primary (PG-UKG)</option>
                     <option value="Primary (1-5)">Primary (1-5)</option>
                     <option value="Middle (6-8)">Middle (6-8)</option>
                     <option value="Senior Secondary">Senior Secondary (9-12)</option>
-                    <option value="Sports & PE">Sports & PE</option>
+                    <option value="Physical Education / Activity">Physical Education / Activity</option>
                   </select>
                 </div>
 
@@ -570,45 +805,30 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
                   <select
                     value={newTeacherGradeInput}
                     onChange={(e) => setNewTeacherGradeInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border rounded-xl text-slate-900 dark:text-white font-bold outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                   >
-                    <option value="PG">PG</option>
-                    <option value="Nursery">Nursery</option>
-                    <option value="LKG">LKG</option>
-                    <option value="UKG">UKG</option>
-                    <option value="Class 1">Class 1</option>
-                    <option value="Class 2">Class 2</option>
-                    <option value="Class 3">Class 3</option>
-                    <option value="Class 4">Class 4</option>
-                    <option value="Class 5">Class 5</option>
-                    <option value="Class 6">Class 6</option>
-                    <option value="Class 7">Class 7</option>
-                    <option value="Class 8">Class 8</option>
-                    <option value="Class 9">Class 9</option>
-                    <option value="Class 10">Class 10</option>
-                    <option value="Class 11">Class 11</option>
-                    <option value="Class 12">Class 12</option>
+                    {MASTER_CLASSES.map((c) => (
+                      <option key={c} value={c}>
+                        {c}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              <div className="p-2.5 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 text-[11px] text-indigo-900 dark:text-indigo-300">
-                ✨ <strong>Note:</strong> Initial timetable will be created <strong>completely free/blank</strong>. You can then assign periods according to master class & section schedules.
-              </div>
-
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-3 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl"
+                  className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer"
+                  className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md cursor-pointer flex items-center gap-1.5"
                 >
-                  Create & Show Free Timetable
+                  <Plus className="w-4 h-4" /> Save Teacher
                 </button>
               </div>
             </form>
@@ -616,68 +836,52 @@ export const TeacherTimetableEditor: React.FC<TeacherTimetableEditorProps> = ({
         </div>
       )}
 
-      {/* PRINT MODAL PREVIEW & CUSTOMIZER */}
+      {/* PRINT MODAL */}
       <PrintModal
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
-        title={`Faculty Timetable - ${currentTeacher?.teacherName || 'Teacher'}`}
-        subtitle="Customizable Print & PDF Layout with Orientation Controls"
+        title={`Faculty Timetable - ${currentTeacher?.teacherName}`}
       >
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-b pb-3">
+        <div className="space-y-4 p-4 text-slate-900">
+          <div className="border-b-2 border-slate-900 pb-3 flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-black text-slate-900 uppercase">
-                Faculty Weekly Timetable ({currentTeacher?.teacherName})
-              </h2>
-              <p className="text-xs text-slate-600 font-bold">
-                Department: {currentTeacher?.department || 'Senior Secondary'} • Academic Session 2026-2027
+              <h1 className="text-xl font-black">{currentTeacher?.teacherName}</h1>
+              <p className="text-sm font-bold text-slate-600">
+                Department: {currentTeacher?.department || 'Senior Secondary'}
               </p>
             </div>
             <div className="text-right">
-              <span className="px-2.5 py-1 bg-slate-100 rounded text-xs font-mono font-bold text-slate-800">
-                Total Assigned: {totalSlotsAssigned} Periods
-              </span>
+              <span className="text-xs font-bold text-slate-500">Weekly Schedule</span>
+              <p className="text-sm font-black">{totalSlotsAssigned} Periods Assigned</p>
             </div>
           </div>
 
-          {/* PRINTABLE MATRIX */}
-          <table className="w-full text-left border-collapse text-xs border border-slate-300">
+          <table className="w-full border-collapse border border-slate-900 text-xs text-center">
             <thead>
-              <tr className="bg-slate-100 font-black text-slate-900">
-                <th className="p-2 border border-slate-300 text-center uppercase">Day \ Period</th>
+              <tr className="bg-slate-100">
+                <th className="border border-slate-900 p-2 font-black">Day</th>
                 {TIMETABLE_PERIODS.map((p) => (
-                  <th key={p} className="p-2 border border-slate-300 text-center">Period {p}</th>
+                  <th key={p} className="border border-slate-900 p-2 font-black">
+                    P{p}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {TIMETABLE_DAYS.map((day) => (
-                <tr key={day} className="border-b border-slate-200">
-                  <td className="p-2 border border-slate-300 font-black text-center bg-slate-50 uppercase text-[11px]">
-                    {day}
-                  </td>
-                  {TIMETABLE_PERIODS.map((periodNo) => {
-                    const key = `${day}_${periodNo}`;
-                    const val = localSchedule[key] || '';
-                    return (
-                      <td key={periodNo} className="p-2 border border-slate-300 text-center align-middle font-bold text-[11px]">
-                        {val ? (
-                          <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-950 font-black block">
-                            {val}
-                          </span>
-                        ) : (
-                          <span className="text-slate-400 font-normal italic">FREE</span>
-                        )}
-                      </td>
-                    );
-                  })}
+                <tr key={day}>
+                  <td className="border border-slate-900 p-2 font-black bg-slate-50">{day}</td>
+                  {TIMETABLE_PERIODS.map((p) => (
+                    <td key={p} className="border border-slate-900 p-2 font-bold">
+                      {localSchedule[`${day}_${p}`] || '-'}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </PrintModal>
-
     </div>
   );
 };
