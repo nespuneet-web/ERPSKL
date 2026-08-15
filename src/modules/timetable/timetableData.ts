@@ -173,6 +173,13 @@ export interface TeacherTimetableRecord {
   // Key format: "Day_Period", e.g., "Monday_0", "Monday_4" -> "XII A"
   schedule: Record<string, string>;
   lastUpdated?: string;
+  // Timetable Locking & Permission Request Architecture
+  isLocked?: boolean;
+  editAllowedUntil?: string; // ISO date timestamp when granted
+  editPermissionStatus?: 'LOCKED' | 'REQUEST_PENDING' | 'EDIT_GRANTED' | 'UNLOCKED';
+  permissionRequestReason?: string;
+  permissionRequestedAt?: string;
+  permissionGrantedBy?: string;
 }
 
 // Sample dataset accurately representing the Excel screenshot attached by the user

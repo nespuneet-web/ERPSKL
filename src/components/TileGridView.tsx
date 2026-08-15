@@ -27,7 +27,8 @@ import {
   Filter,
   Zap,
   Layers,
-  ArrowUpRight
+  ArrowUpRight,
+  UserPlus
 } from 'lucide-react';
 
 export interface ModuleTile {
@@ -40,20 +41,37 @@ export interface ModuleTile {
   bgLight: string;
   badge?: string;
   color: string;
+  accentBorder: string;
+  iconBg: string;
 }
 
 export const ALL_TILES: ModuleTile[] = [
   // Core Academic
   {
     id: 'sis',
-    name: 'Student Info & Admission',
-    shortDesc: 'Student records, admission portal, documents & profiles',
+    name: 'Student Information (SIS)',
+    shortDesc: 'Student records, directory, academic profiles & class lists',
     icon: Users,
     category: 'Core Academic',
     gradient: 'from-blue-600 to-indigo-600',
-    bgLight: 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-900',
+    bgLight: 'bg-sky-50/90 dark:bg-sky-950/40',
+    accentBorder: 'border-sky-200 dark:border-sky-800/70 hover:border-sky-400',
+    iconBg: 'from-blue-600 to-sky-600',
     badge: '1,200 Students',
-    color: 'text-blue-600 dark:text-blue-400'
+    color: 'text-sky-700 dark:text-sky-300'
+  },
+  {
+    id: 'admission',
+    name: 'Admission & Inquiries',
+    shortDesc: '3-Step admissions, prospect inquiries, registration & leads CRM',
+    icon: UserPlus,
+    category: 'Core Academic',
+    gradient: 'from-emerald-600 to-teal-600',
+    bgLight: 'bg-emerald-50/90 dark:bg-emerald-950/40',
+    accentBorder: 'border-emerald-200 dark:border-emerald-800/70 hover:border-emerald-400',
+    iconBg: 'from-emerald-600 to-teal-600',
+    badge: 'Admission Team',
+    color: 'text-emerald-700 dark:text-emerald-300'
   },
   {
     id: 'examination',
@@ -62,9 +80,11 @@ export const ALL_TILES: ModuleTile[] = [
     icon: Award,
     category: 'Core Academic',
     gradient: 'from-amber-500 to-orange-600',
-    bgLight: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900',
+    bgLight: 'bg-amber-50/90 dark:bg-amber-950/40',
+    accentBorder: 'border-amber-200 dark:border-amber-800/70 hover:border-amber-400',
+    iconBg: 'from-amber-500 to-orange-600',
     badge: 'Report Engine',
-    color: 'text-amber-600 dark:text-amber-400'
+    color: 'text-amber-700 dark:text-amber-300'
   },
   {
     id: 'attendance',
@@ -73,20 +93,24 @@ export const ALL_TILES: ModuleTile[] = [
     icon: Calendar,
     category: 'Core Academic',
     gradient: 'from-emerald-500 to-teal-600',
-    bgLight: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900',
+    bgLight: 'bg-emerald-50/90 dark:bg-emerald-950/40',
+    accentBorder: 'border-emerald-200 dark:border-emerald-800/70 hover:border-emerald-400',
+    iconBg: 'from-emerald-600 to-teal-600',
     badge: 'Live Sync',
-    color: 'text-emerald-600 dark:text-emerald-400'
+    color: 'text-emerald-700 dark:text-emerald-300'
   },
   {
     id: 'timetable',
     name: 'Timetable Engine',
-    shortDesc: 'Master schedule, automatic substitutions & period allocation',
+    shortDesc: 'Master schedule, round patrol radar, auto-substitution & period radar',
     icon: Clock,
     category: 'Core Academic',
     gradient: 'from-purple-600 to-indigo-600',
-    bgLight: 'bg-purple-50 dark:bg-purple-950/40 border-purple-200 dark:border-purple-900',
-    badge: 'Auto Substitute',
-    color: 'text-purple-600 dark:text-purple-400'
+    bgLight: 'bg-purple-50/90 dark:bg-purple-950/40',
+    accentBorder: 'border-purple-200 dark:border-purple-800/70 hover:border-purple-400',
+    iconBg: 'from-purple-600 to-indigo-600',
+    badge: 'Round & Sub',
+    color: 'text-purple-700 dark:text-purple-300'
   },
   {
     id: 'lesson_plans',
@@ -95,9 +119,11 @@ export const ALL_TILES: ModuleTile[] = [
     icon: BookOpen,
     category: 'Core Academic',
     gradient: 'from-cyan-600 to-blue-600',
-    bgLight: 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-900',
+    bgLight: 'bg-cyan-50/90 dark:bg-cyan-950/40',
+    accentBorder: 'border-cyan-200 dark:border-cyan-800/70 hover:border-cyan-400',
+    iconBg: 'from-cyan-600 to-blue-600',
     badge: 'Curriculum',
-    color: 'text-cyan-600 dark:text-cyan-400'
+    color: 'text-cyan-700 dark:text-cyan-300'
   },
 
   // Finance & Admin
@@ -107,10 +133,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Fee receipts, installment schedules, online ledger & defaulters',
     icon: DollarSign,
     category: 'Finance & Admin',
-    gradient: 'from-emerald-600 to-green-700',
-    bgLight: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900',
+    gradient: 'from-lime-600 to-green-700',
+    bgLight: 'bg-lime-50/90 dark:bg-lime-950/40',
+    accentBorder: 'border-lime-200 dark:border-lime-800/70 hover:border-lime-400',
+    iconBg: 'from-lime-600 to-green-700',
     badge: 'Instant Receipt',
-    color: 'text-emerald-600 dark:text-emerald-400'
+    color: 'text-lime-800 dark:text-lime-300'
   },
   {
     id: 'staff',
@@ -118,10 +146,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Teacher profiles, designations, subject load & payroll data',
     icon: Users,
     category: 'Finance & Admin',
-    gradient: 'from-violet-600 to-purple-700',
-    bgLight: 'bg-violet-50 dark:bg-violet-950/40 border-violet-200 dark:border-violet-900',
+    gradient: 'from-fuchsia-600 to-pink-700',
+    bgLight: 'bg-fuchsia-50/90 dark:bg-fuchsia-950/40',
+    accentBorder: 'border-fuchsia-200 dark:border-fuchsia-800/70 hover:border-fuchsia-400',
+    iconBg: 'from-fuchsia-600 to-pink-700',
     badge: '70 Teachers',
-    color: 'text-violet-600 dark:text-violet-400'
+    color: 'text-fuchsia-700 dark:text-fuchsia-300'
   },
   {
     id: 'interview',
@@ -130,20 +160,24 @@ export const ALL_TILES: ModuleTile[] = [
     icon: Briefcase,
     category: 'Finance & Admin',
     gradient: 'from-rose-500 to-pink-600',
-    bgLight: 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-900',
+    bgLight: 'bg-rose-50/90 dark:bg-rose-950/40',
+    accentBorder: 'border-rose-200 dark:border-rose-800/70 hover:border-rose-400',
+    iconBg: 'from-rose-500 to-pink-600',
     badge: 'HR Portal',
-    color: 'text-rose-600 dark:text-rose-400'
+    color: 'text-rose-700 dark:text-rose-300'
   },
   {
     id: 'reports',
-    name: 'Executive Analytics',
-    shortDesc: 'Comprehensive academic graphs, attendance trends & KPI summaries',
+    name: 'Custom Student Reports',
+    shortDesc: 'Comprehensive report engine, column picker, topper/average, PDF & Excel',
     icon: BarChart3,
     category: 'Finance & Admin',
     gradient: 'from-indigo-600 to-cyan-600',
-    bgLight: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900',
-    badge: 'Analytics',
-    color: 'text-indigo-600 dark:text-indigo-400'
+    bgLight: 'bg-indigo-50/90 dark:bg-indigo-950/40',
+    accentBorder: 'border-indigo-200 dark:border-indigo-800/70 hover:border-indigo-400',
+    iconBg: 'from-indigo-600 to-blue-600',
+    badge: 'PDF & Excel',
+    color: 'text-indigo-700 dark:text-indigo-300'
   },
 
   // Campus Logistics
@@ -153,10 +187,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'School bus fleets, live routes, pickup points & driver info',
     icon: Bus,
     category: 'Campus Logistics',
-    gradient: 'from-amber-600 to-yellow-600',
-    bgLight: 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-900',
+    gradient: 'from-orange-600 to-amber-600',
+    bgLight: 'bg-orange-50/90 dark:bg-orange-950/40',
+    accentBorder: 'border-orange-200 dark:border-orange-800/70 hover:border-orange-400',
+    iconBg: 'from-orange-600 to-amber-600',
     badge: 'GPS Tracking',
-    color: 'text-amber-600 dark:text-amber-400'
+    color: 'text-orange-700 dark:text-orange-300'
   },
   {
     id: 'library',
@@ -165,9 +201,11 @@ export const ALL_TILES: ModuleTile[] = [
     icon: Book,
     category: 'Campus Logistics',
     gradient: 'from-teal-600 to-emerald-600',
-    bgLight: 'bg-teal-50 dark:bg-teal-950/40 border-teal-200 dark:border-teal-900',
+    bgLight: 'bg-teal-50/90 dark:bg-teal-950/40',
+    accentBorder: 'border-teal-200 dark:border-teal-800/70 hover:border-teal-400',
+    iconBg: 'from-teal-600 to-emerald-600',
     badge: 'Barcode Ready',
-    color: 'text-teal-600 dark:text-teal-400'
+    color: 'text-teal-700 dark:text-teal-300'
   },
   {
     id: 'inventory',
@@ -175,10 +213,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Science lab equipment, stationery inventory & purchase logs',
     icon: Package,
     category: 'Campus Logistics',
-    gradient: 'from-blue-600 to-slate-700',
-    bgLight: 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-800',
+    gradient: 'from-slate-700 to-zinc-800',
+    bgLight: 'bg-slate-100/90 dark:bg-slate-900/80',
+    accentBorder: 'border-slate-300 dark:border-slate-700/80 hover:border-slate-500',
+    iconBg: 'from-slate-700 to-zinc-800',
     badge: 'Stock Ledger',
-    color: 'text-slate-600 dark:text-slate-300'
+    color: 'text-slate-800 dark:text-slate-200'
   },
   {
     id: 'hostel',
@@ -186,10 +226,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Dorm allocation, mess meal logs & warden visitor registry',
     icon: Home,
     category: 'Campus Logistics',
-    gradient: 'from-orange-500 to-amber-600',
-    bgLight: 'bg-orange-50 dark:bg-orange-950/40 border-orange-200 dark:border-orange-900',
+    gradient: 'from-yellow-500 to-amber-600',
+    bgLight: 'bg-yellow-50/90 dark:bg-yellow-950/40',
+    accentBorder: 'border-yellow-200 dark:border-yellow-800/70 hover:border-yellow-400',
+    iconBg: 'from-yellow-600 to-amber-600',
     badge: 'Dorm Registry',
-    color: 'text-orange-600 dark:text-orange-400'
+    color: 'text-yellow-800 dark:text-yellow-300'
   },
   {
     id: 'visitor',
@@ -198,9 +240,11 @@ export const ALL_TILES: ModuleTile[] = [
     icon: Shield,
     category: 'Campus Logistics',
     gradient: 'from-red-600 to-rose-700',
-    bgLight: 'bg-red-50 dark:bg-red-950/40 border-red-200 dark:border-red-900',
+    bgLight: 'bg-red-50/90 dark:bg-red-950/40',
+    accentBorder: 'border-red-200 dark:border-red-800/70 hover:border-red-400',
+    iconBg: 'from-red-600 to-rose-700',
     badge: 'Gate Security',
-    color: 'text-red-600 dark:text-red-400'
+    color: 'text-red-700 dark:text-red-300'
   },
 
   // Tools & Utilities
@@ -210,10 +254,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Circulars, parental SMS broadcasts & emergency alerts',
     icon: Bell,
     category: 'Tools & Utilities',
-    gradient: 'from-yellow-500 to-amber-600',
-    bgLight: 'bg-yellow-50 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-900',
+    gradient: 'from-amber-600 to-yellow-600',
+    bgLight: 'bg-amber-100/70 dark:bg-amber-950/50',
+    accentBorder: 'border-amber-300 dark:border-amber-800/80 hover:border-amber-500',
+    iconBg: 'from-amber-600 to-yellow-600',
     badge: 'Broadcast',
-    color: 'text-yellow-600 dark:text-yellow-400'
+    color: 'text-amber-800 dark:text-amber-300'
   },
   {
     id: 'certificates',
@@ -222,9 +268,11 @@ export const ALL_TILES: ModuleTile[] = [
     icon: GraduationCap,
     category: 'Tools & Utilities',
     gradient: 'from-emerald-600 to-cyan-600',
-    bgLight: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900',
+    bgLight: 'bg-emerald-100/70 dark:bg-emerald-950/50',
+    accentBorder: 'border-emerald-300 dark:border-emerald-800/80 hover:border-emerald-500',
+    iconBg: 'from-emerald-600 to-teal-700',
     badge: 'Govt Compliant',
-    color: 'text-emerald-600 dark:text-emerald-400'
+    color: 'text-emerald-800 dark:text-emerald-300'
   },
   {
     id: 'idcards',
@@ -232,10 +280,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Student & Staff PVC identity cards with QR and barcode',
     icon: CreditCard,
     category: 'Tools & Utilities',
-    gradient: 'from-indigo-500 to-purple-600',
-    bgLight: 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-900',
+    gradient: 'from-violet-600 to-purple-700',
+    bgLight: 'bg-violet-50/90 dark:bg-violet-950/40',
+    accentBorder: 'border-violet-200 dark:border-violet-800/70 hover:border-violet-400',
+    iconBg: 'from-violet-600 to-purple-700',
     badge: 'QR Generator',
-    color: 'text-indigo-600 dark:text-indigo-400'
+    color: 'text-violet-700 dark:text-violet-300'
   },
   {
     id: 'supabase_cloud',
@@ -243,10 +293,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Real-time database sync, cloud tables & cloud backup hub',
     icon: Database,
     category: 'Tools & Utilities',
-    gradient: 'from-emerald-500 to-green-600',
-    bgLight: 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-900',
+    gradient: 'from-teal-500 to-cyan-600',
+    bgLight: 'bg-cyan-100/70 dark:bg-cyan-950/50',
+    accentBorder: 'border-cyan-300 dark:border-cyan-800/80 hover:border-cyan-500',
+    iconBg: 'from-teal-600 to-cyan-700',
     badge: 'Real-Time Sync',
-    color: 'text-emerald-600 dark:text-emerald-400'
+    color: 'text-cyan-800 dark:text-cyan-300'
   },
   {
     id: 'settings',
@@ -254,10 +306,12 @@ export const ALL_TILES: ModuleTile[] = [
     shortDesc: 'Academic sessions, role permissions & school configuration',
     icon: Settings,
     category: 'Tools & Utilities',
-    gradient: 'from-slate-700 to-slate-900',
-    bgLight: 'bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800',
+    gradient: 'from-stone-700 to-zinc-900',
+    bgLight: 'bg-stone-100/90 dark:bg-stone-900/80',
+    accentBorder: 'border-stone-300 dark:border-stone-700/80 hover:border-stone-500',
+    iconBg: 'from-stone-700 to-zinc-900',
     badge: 'Admin Only',
-    color: 'text-slate-700 dark:text-slate-300'
+    color: 'text-stone-800 dark:text-stone-200'
   }
 ];
 
@@ -358,17 +412,17 @@ export const TileGridView: React.FC<TileGridViewProps> = ({ onSelectModule, isMo
             <button
               key={tile.id}
               onClick={() => onSelectModule(tile.id)}
-              className="group relative p-4.5 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 hover:border-indigo-400 dark:hover:border-indigo-500 shadow-sm hover:shadow-md transition-all duration-200 text-left flex flex-col justify-between cursor-pointer active:scale-98 overflow-hidden"
+              className={`group relative p-4.5 rounded-3xl ${tile.bgLight} border ${tile.accentBorder} shadow-sm hover:shadow-md transition-all duration-200 text-left flex flex-col justify-between cursor-pointer active:scale-98 overflow-hidden`}
             >
               {/* Top Row: Icon + Badge */}
               <div className="flex items-start justify-between gap-2 mb-3">
                 <div
-                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${tile.gradient} flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform`}
+                  className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${tile.iconBg || tile.gradient} flex items-center justify-center text-white shadow-md shadow-indigo-500/20 group-hover:scale-105 transition-transform`}
                 >
                   <Icon className="w-6 h-6" />
                 </div>
                 {tile.badge && (
-                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700/60">
+                  <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded-full bg-white/80 dark:bg-slate-900/80 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 shadow-2xs backdrop-blur-xs">
                     {tile.badge}
                   </span>
                 )}
@@ -377,21 +431,21 @@ export const TileGridView: React.FC<TileGridViewProps> = ({ onSelectModule, isMo
               {/* Title and Short Description */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
-                  <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                  <h3 className={`font-black text-sm sm:text-base ${tile.color} group-hover:underline transition-colors`}>
                     {tile.name}
                   </h3>
-                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
+                  <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-slate-900 dark:group-hover:text-white group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed font-normal">
+                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed font-medium">
                   {tile.shortDesc}
                 </p>
               </div>
 
               {/* Bottom Category Marker & Stage indicator */}
-              <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 dark:text-slate-500">
-                <span className="font-semibold">{tile.category}</span>
-                <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-0.5 group-hover:underline">
-                  Open Stage <ChevronRight className="w-3 h-3" />
+              <div className="mt-4 pt-3 border-t border-slate-200/70 dark:border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400">
+                <span className="font-bold">{tile.category}</span>
+                <span className="font-extrabold text-indigo-700 dark:text-indigo-400 flex items-center gap-0.5 group-hover:underline">
+                  Launch <ChevronRight className="w-3 h-3" />
                 </span>
               </div>
             </button>

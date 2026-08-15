@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import {
   FileText,
   Printer,
@@ -6,7 +6,6 @@ import {
   Sliders,
   CheckSquare,
   Square,
-  Calculator,
   Award,
   Users,
   GraduationCap,
@@ -16,242 +15,409 @@ import {
   Percent,
   CheckCircle2,
   TrendingUp,
-  Filter
+  Filter,
+  ArrowUpDown,
+  Search,
+  School,
+  FileSpreadsheet,
+  AlertCircle
 } from 'lucide-react';
 import { useSisStore } from '../sis/sisStore';
 import { Student } from '../../types/sis';
 import { ALL_SCHOOL_CLASSES } from '../../types/admission';
 
-interface CalculationSettings {
-  includeTheoryMarks: boolean;
-  includePeriodicTests: boolean;
-  includePracticalMarks: boolean;
-  includeGrandTotal: boolean;
-  includePercentage: boolean;
-  includeClassRank: boolean;
-  includeCbseGrades: boolean;
-  includeAttendance: boolean;
-  includeCoScholastic: boolean;
-  includeSubjectAverage: boolean;
-  includeTeacherRemarks: boolean;
-  includeSignatures: boolean;
+export interface ColumnOption {
+  id: string;
+  label: string;
+  category: 'Profile' | 'Demographics' | 'Academic' | 'Administrative';
 }
+
+export const AVAILABLE_COLUMNS: ColumnOption[] = [
+  { id: 'rollNo', label: 'Roll No', category: 'Profile' },
+  { id: 'fullName', label: 'Student Name', category: 'Profile' },
+  { id: 'admissionNo', label: 'Admission No', category: 'Profile' },
+  { id: 'penNo', label: 'PEN Number', category: 'Profile' },
+  { id: 'apaarId', label: 'APAAR ID', category: 'Profile' },
+  { id: 'classSection', label: 'Class & Section', category: 'Profile' },
+  { id: 'age', label: 'Age', category: 'Demographics' },
+  { id: 'dob', label: 'Date of Birth (DOB)', category: 'Demographics' },
+  { id: 'gender', label: 'Gender', category: 'Demographics' },
+  { id: 'category', label: 'Caste / Category', category: 'Demographics' },
+  { id: 'fatherName', label: "Father's Name", category: 'Demographics' },
+  { id: 'motherName', label: "Mother's Name", category: 'Demographics' },
+  { id: 'mobile', label: 'Contact Number', category: 'Demographics' },
+  { id: 'house', label: 'House / Club', category: 'Administrative' },
+  { id: 'attendance', label: 'Attendance %', category: 'Academic' },
+  { id: 'grandTotal', label: 'Total Marks (Obt/Max)', category: 'Academic' },
+  { id: 'percentage', label: 'Overall Percentage (%)', category: 'Academic' },
+  { id: 'cbseGrade', label: 'CBSE Grade', category: 'Academic' },
+  { id: 'rank', label: 'Class Rank', category: 'Academic' },
+  { id: 'criteriaStatus', label: 'Performance Status', category: 'Academic' },
+  { id: 'remarks', label: 'Teacher Remarks', category: 'Academic' }
+];
 
 export const CustomizableStudentReport: React.FC = () => {
   const { students } = useSisStore();
+  const printRef = useRef<HTMLDivElement>(null);
 
-  const [selectedClass, setSelectedClass] = useState<string>('Class 10');
+  // Institution Details
+  const schoolName = 'GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA';
+  const schoolAffiliation = 'Affiliated to CBSE, New Delhi | Affiliation No: 2130845 | School Code: 70412';
+
+  // 1. Target Selection
+  const [selectedClass, setSelectedClass] = useState<string>('Class 6');
   const [selectedSection, setSelectedSection] = useState<string>('A');
-  const [selectedTerm, setSelectedTerm] = useState<string>('Annual Examination 2026');
-  const [reportFormat, setReportFormat] = useState<'tabular_summary' | 'detailed_cards'>('tabular_summary');
+  const [academicTerm, setAcademicTerm] = useState<string>('Annual Examination 2025-26');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Calculation Checkbox Settings
-  const [calcSettings, setCalcSettings] = useState<CalculationSettings>({
-    includeTheoryMarks: true,
-    includePeriodicTests: true,
-    includePracticalMarks: true,
-    includeGrandTotal: true,
-    includePercentage: true,
-    includeClassRank: true,
-    includeCbseGrades: true,
-    includeAttendance: true,
-    includeCoScholastic: true,
-    includeSubjectAverage: true,
-    includeTeacherRemarks: true,
-    includeSignatures: true
-  });
+  // 2. Academic Performance Filter Criteria
+  const [academicCriteria, setAcademicCriteria] = useState<
+    'ALL' | 'TOPPER' | 'DISTINCTION' | 'AVERAGE' | 'NEEDS_ATTENTION' | 'CUSTOM_RANGE'
+  >('ALL');
+  const [minPercent, setMinPercent] = useState<number>(60);
+  const [maxPercent, setMaxPercent] = useState<number>(100);
 
-  const toggleSetting = (key: keyof CalculationSettings) => {
-    setCalcSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Demographics Filters
+  const [genderFilter, setGenderFilter] = useState<string>('ALL');
+  const [casteFilter, setCasteFilter] = useState<string>('ALL');
+  const [houseFilter, setHouseFilter] = useState<string>('ALL');
+
+  // 3. Sorting Parameter
+  const [sortBy, setSortBy] = useState<
+    'RANK_ASC' | 'PERCENT_DESC' | 'PERCENT_ASC' | 'NAME_ASC' | 'ROLL_ASC' | 'AGE_ASC' | 'ATTENDANCE_DESC'
+  >('RANK_ASC');
+
+  // 4. Column Chooser (Selected Column IDs)
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([
+    'rollNo',
+    'fullName',
+    'admissionNo',
+    'age',
+    'dob',
+    'category',
+    'grandTotal',
+    'percentage',
+    'cbseGrade',
+    'rank',
+    'attendance',
+    'remarks'
+  ]);
+
+  const toggleColumn = (colId: string) => {
+    setSelectedColumns((prev) =>
+      prev.includes(colId) ? prev.filter((id) => id !== colId) : [...prev, colId]
+    );
+  };
+
+  const selectAllColumns = () => {
+    setSelectedColumns(AVAILABLE_COLUMNS.map((c) => c.id));
+  };
+
+  const selectDefaultColumns = () => {
+    setSelectedColumns([
+      'rollNo',
+      'fullName',
+      'admissionNo',
+      'age',
+      'dob',
+      'category',
+      'grandTotal',
+      'percentage',
+      'cbseGrade',
+      'rank',
+      'attendance',
+      'remarks'
+    ]);
+  };
+
+  // Helper to compute age from DOB or synthetic
+  const getStudentAge = (s: Student, index: number): number => {
+    if (s.dob) {
+      const birth = new Date(s.dob);
+      const diffMs = Date.now() - birth.getTime();
+      const ageDate = new Date(diffMs);
+      const computed = Math.abs(ageDate.getUTCFullYear() - 1970);
+      if (computed > 3 && computed < 25) return computed;
+    }
+    // Fallback based on class grade level
+    const classNum = parseInt(s.currentClass?.replace(/\D/g, '') || '6', 10);
+    return Math.max(5, (classNum || 6) + 5 + (index % 2));
   };
 
   // Filter students for the selected class and section
-  const targetStudents = useMemo(() => {
-    const list = students.filter(
-      (s) => s.currentClass === selectedClass && (selectedSection === 'All' || s.section === selectedSection)
-    );
-    return list.length > 0 ? list : students.slice(0, 15);
+  const baseStudents = useMemo(() => {
+    let list = students;
+    if (selectedClass !== 'ALL') {
+      list = list.filter((s) => s.currentClass === selectedClass);
+    }
+    if (selectedSection !== 'ALL') {
+      list = list.filter((s) => s.section === selectedSection);
+    }
+    return list.length > 0 ? list : students.slice(0, 20);
   }, [students, selectedClass, selectedSection]);
 
-  // Compute calculated academic performance records dynamically per student
-  const calculatedStudentRecords = useMemo(() => {
-    const subjectsList = ['English Core', 'Mathematics', 'Science', 'Social Science', 'Hindi / Sanskrit'];
+  // Compute calculated academic performance records dynamically
+  const calculatedRows = useMemo(() => {
+    const rawList = baseStudents.map((s, index) => {
+      const roll = s.rollNo || index + 1;
+      const seed = (roll * 13 + index * 17) % 100;
 
-    const studentRows = targetStudents.map((s, index) => {
-      // Deterministic synthetic marks based on student ID / index
-      const baseSeed = (s.rollNo * 7 + index * 11) % 25;
-      
-      const subjectScores = subjectsList.map((subj, subjIdx) => {
-        const variance = (subjIdx * 4 + index * 3) % 15;
-        const pt = Math.min(10, Math.max(7, 8 + ((baseSeed + subjIdx) % 3)));
-        const practical = Math.min(20, Math.max(16, 17 + ((baseSeed + subjIdx) % 4)));
-        const theory = Math.min(70, Math.max(45, 52 + ((baseSeed + variance) % 19)));
-        
-        let total = 0;
-        let max = 0;
-        if (calcSettings.includePeriodicTests) { total += pt; max += 10; }
-        if (calcSettings.includePracticalMarks) { total += practical; max += 20; }
-        if (calcSettings.includeTheoryMarks) { total += theory; max += 70; }
-        if (max === 0) { total = theory; max = 70; }
+      // Realistic academic percentage distribution
+      let syntheticPercent = 55 + (seed % 42); // 55% to 97%
+      if (index === 0) syntheticPercent = 96.8;
+      if (index === 1) syntheticPercent = 94.5;
+      if (index === 2) syntheticPercent = 92.4;
 
-        const subjectPercent = (total / max) * 100;
-        let grade = 'A1';
-        if (subjectPercent >= 91) grade = 'A1';
-        else if (subjectPercent >= 81) grade = 'A2';
-        else if (subjectPercent >= 71) grade = 'B1';
-        else if (subjectPercent >= 61) grade = 'B2';
-        else if (subjectPercent >= 51) grade = 'C1';
-        else if (subjectPercent >= 41) grade = 'C2';
-        else if (subjectPercent >= 33) grade = 'D';
-        else grade = 'E';
+      const grandTotal = Math.round((syntheticPercent / 100) * 500);
+      const grandMax = 500;
+      const age = getStudentAge(s, index);
+      const dobStr = s.dob || `201${Math.max(0, 4 - Math.floor(age / 3))}-0${(index % 9) + 1}-15`;
 
-        return {
-          subject: subj,
-          pt,
-          practical,
-          theory,
-          total,
-          max,
-          grade
-        };
-      });
+      let cbseGrade = 'A1';
+      if (syntheticPercent >= 91) cbseGrade = 'A1';
+      else if (syntheticPercent >= 81) cbseGrade = 'A2';
+      else if (syntheticPercent >= 71) cbseGrade = 'B1';
+      else if (syntheticPercent >= 61) cbseGrade = 'B2';
+      else if (syntheticPercent >= 51) cbseGrade = 'C1';
+      else if (syntheticPercent >= 41) cbseGrade = 'C2';
+      else if (syntheticPercent >= 33) cbseGrade = 'D';
+      else cbseGrade = 'E';
 
-      const grandTotal = subjectScores.reduce((sum, item) => sum + item.total, 0);
-      const grandMax = subjectScores.reduce((sum, item) => sum + item.max, 0);
-      const overallPercent = grandMax > 0 ? (grandTotal / grandMax) * 100 : 0;
+      let criteriaStatus = 'Average';
+      if (syntheticPercent >= 90) criteriaStatus = 'Topper (Top Rank)';
+      else if (syntheticPercent >= 75) criteriaStatus = 'Distinction';
+      else if (syntheticPercent >= 60) criteriaStatus = 'Average';
+      else criteriaStatus = 'Needs Attention';
 
-      let overallGrade = 'A1';
-      if (overallPercent >= 91) overallGrade = 'A1';
-      else if (overallPercent >= 81) overallGrade = 'A2';
-      else if (overallPercent >= 71) overallGrade = 'B1';
-      else if (overallPercent >= 61) overallGrade = 'B2';
-      else if (overallPercent >= 51) overallGrade = 'C1';
-      else if (overallPercent >= 41) overallGrade = 'C2';
-      else if (overallPercent >= 33) overallGrade = 'D';
-      else overallGrade = 'E';
+      const attendancePercent = Math.min(100, Math.max(70, 84 + (seed % 15)));
 
-      const attendancePercent = 88 + (index * 2) % 11;
-      const coScholasticGrade = index % 3 === 0 ? 'A' : index % 3 === 1 ? 'A+' : 'B+';
+      let remark = 'Exemplary academic understanding and conduct.';
+      if (syntheticPercent >= 90) remark = 'Outstanding scholar with top problem-solving skills.';
+      else if (syntheticPercent >= 75) remark = 'Good grasp of concepts. Consistent participation.';
+      else if (syntheticPercent >= 60) remark = 'Satisfactory performance. Daily revision recommended.';
+      else remark = 'Requires targeted remedial coaching in core subjects.';
 
-      let remark = 'Outstanding academic performance with exemplary discipline.';
-      if (overallPercent < 60) remark = 'Consistent effort required in problem solving and theory.';
-      else if (overallPercent < 75) remark = 'Good grasp of concepts. Regular revision recommended.';
-      else if (overallPercent < 90) remark = 'Very good performance. Excellent participation in class.';
+      const casteCategory = s.category || s.studentCategory || (index % 4 === 0 ? 'OBC' : index % 5 === 0 ? 'SC' : 'General');
+      const genderVal = s.gender || (index % 2 === 0 ? 'Male' : 'Female');
+      const houseVal = s.house || (['Agni (Red)', 'Vayu (Blue)', 'Jal (Green)', 'Prithvi (Yellow)'][index % 4]);
 
       return {
-        student: s,
-        subjectScores,
-        grandTotal,
-        grandMax,
-        overallPercent,
-        overallGrade,
-        attendancePercent,
-        coScholasticGrade,
-        remark
+        id: s.id,
+        rollNo: roll,
+        fullName: s.fullName || `Student ${roll}`,
+        admissionNo: s.admissionNo || `ADM-2025-${1000 + roll}`,
+        penNo: s.penNo || `PEN90218${100 + roll}`,
+        apaarId: s.apaarId || `APAAR-2025-${500 + roll}`,
+        classSection: `${s.currentClass || selectedClass} - ${s.section || selectedSection}`,
+        age,
+        dob: dobStr,
+        gender: genderVal,
+        category: casteCategory,
+        fatherName: s.parents?.fatherName || 'Shri R. K. Sharma',
+        motherName: s.parents?.motherName || 'Smt. Sunita Sharma',
+        mobile: s.parents?.fatherMobile || s.parents?.motherMobile || '9876543210',
+        house: houseVal,
+        attendance: attendancePercent,
+        grandTotal: `${grandTotal} / ${grandMax}`,
+        grandTotalNum: grandTotal,
+        percentage: Number(syntheticPercent.toFixed(1)),
+        cbseGrade,
+        rank: 1, // Will be computed after sorting
+        criteriaStatus,
+        remarks: remark
       };
     });
 
-    // Sort by grandTotal descending to assign ranks
-    const sorted = [...studentRows].sort((a, b) => b.grandTotal - a.grandTotal);
-    return sorted.map((row, rankIdx) => ({
-      ...row,
-      rank: rankIdx + 1
-    }));
-  }, [targetStudents, calcSettings]);
+    // Sort by percentage descending initially to calculate Ranks
+    const sortedForRank = [...rawList].sort((a, b) => b.percentage - a.percentage);
+    sortedForRank.forEach((item, idx) => {
+      item.rank = idx + 1;
+    });
 
-  const handlePrint = () => {
+    return sortedForRank;
+  }, [baseStudents, selectedClass, selectedSection]);
+
+  // Apply filters (Academic criteria, Demographics, Search query)
+  const filteredAndSortedRows = useMemo(() => {
+    let result = calculatedRows.filter((r) => {
+      // Academic Criteria Filter
+      if (academicCriteria === 'TOPPER' && r.percentage < 90) return false;
+      if (academicCriteria === 'DISTINCTION' && (r.percentage < 75 || r.percentage >= 90)) return false;
+      if (academicCriteria === 'AVERAGE' && (r.percentage < 60 || r.percentage >= 75)) return false;
+      if (academicCriteria === 'NEEDS_ATTENTION' && r.percentage >= 60) return false;
+      if (academicCriteria === 'CUSTOM_RANGE' && (r.percentage < minPercent || r.percentage > maxPercent)) return false;
+
+      // Gender Filter
+      if (genderFilter !== 'ALL' && r.gender.toLowerCase() !== genderFilter.toLowerCase()) return false;
+
+      // Caste Filter
+      if (casteFilter !== 'ALL' && !r.category.toLowerCase().includes(casteFilter.toLowerCase())) return false;
+
+      // House Filter
+      if (houseFilter !== 'ALL' && !r.house.toLowerCase().includes(houseFilter.toLowerCase())) return false;
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesName = r.fullName.toLowerCase().includes(q);
+        const matchesAdm = r.admissionNo.toLowerCase().includes(q);
+        const matchesPen = r.penNo.toLowerCase().includes(q);
+        const matchesRoll = String(r.rollNo).includes(q);
+        if (!matchesName && !matchesAdm && !matchesPen && !matchesRoll) return false;
+      }
+
+      return true;
+    });
+
+    // Apply Sorting
+    result.sort((a, b) => {
+      if (sortBy === 'RANK_ASC') return a.rank - b.rank;
+      if (sortBy === 'PERCENT_DESC') return b.percentage - a.percentage;
+      if (sortBy === 'PERCENT_ASC') return a.percentage - b.percentage;
+      if (sortBy === 'NAME_ASC') return a.fullName.localeCompare(b.fullName);
+      if (sortBy === 'ROLL_ASC') return a.rollNo - b.rollNo;
+      if (sortBy === 'AGE_ASC') return a.age - b.age;
+      if (sortBy === 'ATTENDANCE_DESC') return b.attendance - a.attendance;
+      return 0;
+    });
+
+    return result;
+  }, [
+    calculatedRows,
+    academicCriteria,
+    minPercent,
+    maxPercent,
+    genderFilter,
+    casteFilter,
+    houseFilter,
+    searchQuery,
+    sortBy
+  ]);
+
+  // Export to Excel / CSV
+  const exportToExcelCSV = () => {
+    const activeCols = AVAILABLE_COLUMNS.filter((c) => selectedColumns.includes(c.id));
+    const headerRow = activeCols.map((c) => `"${c.label}"`).join(',');
+
+    const dataRows = filteredAndSortedRows.map((r) => {
+      return activeCols
+        .map((c) => {
+          let val = (r as any)[c.id];
+          if (c.id === 'percentage') val = `${val}%`;
+          if (c.id === 'attendance') val = `${val}%`;
+          return `"${String(val ?? '').replace(/"/g, '""')}"`;
+        })
+        .join(',');
+    });
+
+    const csvContent = [
+      `"${schoolName}"`,
+      `"${schoolAffiliation}"`,
+      `"Report: ${selectedClass === 'ALL' ? 'All Classes' : selectedClass} (Section ${selectedSection}) - ${academicTerm}"`,
+      `"Filter Criteria: ${academicCriteria} | Total Students: ${filteredAndSortedRows.length}"`,
+      '',
+      headerRow,
+      ...dataRows
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `GDGPS_Agra_Student_Report_${selectedClass.replace(/\s+/g, '_')}_${Date.now()}.csv`;
+    link.click();
+  };
+
+  // Trigger Printable PDF view
+  const handlePrintPDF = () => {
     window.print();
   };
 
   return (
     <div className="space-y-6">
-      {/* Header Panel */}
+      {/* HEADER BANNER */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 rounded-full text-xs font-black uppercase tracking-wider">
-              Customizable Report Generator
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-3 py-1 bg-indigo-100 text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
+              Comprehensive Report Engine
             </span>
-            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-xs font-bold flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Dynamic Checkbox Calculations
+            <span className="px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 rounded-full text-[11px] font-extrabold uppercase tracking-wider">
+              PDF & Excel Exports
             </span>
           </div>
-          <h2 className="text-xl font-black text-slate-900 dark:text-white mt-1">
-            GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white flex items-center gap-2.5">
+            <GraduationCap className="w-7 h-7 text-indigo-600 dark:text-indigo-400" />
+            Customizable Student & Academic Report Engine
           </h2>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Student Information & Examination Performance Report Engine with Real-Time Formula Recalculations.
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-3xl">
+            Generate custom filtered student rosters and academic performance summaries. Select columns (Name, Age, DOB, Caste, Total Marks, Percentage, Rank, etc.), filter by Toppers, Average or Criteria, and export directly as <strong>Printable PDF</strong> or <strong>Excel Spreadsheet</strong>.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 shrink-0">
           <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-5 py-2.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg transition-all cursor-pointer"
+            onClick={exportToExcelCSV}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
           >
-            <Printer className="w-4 h-4" /> Print / Save as PDF
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Export Excel (.CSV)</span>
+          </button>
+
+          <button
+            onClick={handlePrintPDF}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer"
+          >
+            <Printer className="w-4 h-4" />
+            <span>Printable PDF Report</span>
           </button>
         </div>
       </div>
 
-      {/* Control & Calculation Checkboxes Panel */}
+      {/* FILTER & INPUT CONTROLS ACCORDION */}
       <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+        <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <h3 className="font-extrabold text-slate-900 dark:text-white text-sm flex items-center gap-2">
             <Sliders className="w-4 h-4 text-indigo-600" />
-            1. Report Settings & Target Class Selection
+            1. Report Parameters, Criteria & Sorting Controls
           </h3>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setReportFormat('tabular_summary')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                reportFormat === 'tabular_summary'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              Tabular Master Sheet
-            </button>
-            <button
-              onClick={() => setReportFormat('detailed_cards')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                reportFormat === 'detailed_cards'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-              }`}
-            >
-              Individual Report Cards
-            </button>
-          </div>
+          <span className="text-xs text-slate-500 font-bold">
+            Matched Students: <strong className="text-indigo-600 dark:text-indigo-400">{filteredAndSortedRows.length}</strong>
+          </span>
         </div>
 
-        {/* Filters Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* ROW 1: Class, Section, Academic Criteria & Sorting */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Class Selector */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-              Select Class
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Target Class:
             </label>
             <select
               value={selectedClass}
               onChange={(e) => setSelectedClass(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              {ALL_SCHOOL_CLASSES.map((cls) => (
-                <option key={cls} value={cls}>{cls}</option>
+              <option value="ALL">All Classes (PG to 12th)</option>
+              {ALL_SCHOOL_CLASSES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
               ))}
             </select>
           </div>
 
+          {/* Section Selector */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-              Select Section
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Target Section:
             </label>
             <select
               value={selectedSection}
               onChange={(e) => setSelectedSection(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="All">All Sections</option>
+              <option value="ALL">All Sections</option>
               <option value="A">Section A</option>
               <option value="B">Section B</option>
               <option value="C">Section C</option>
@@ -259,335 +425,410 @@ export const CustomizableStudentReport: React.FC = () => {
             </select>
           </div>
 
+          {/* Academic Criteria Presets */}
           <div>
-            <label className="block text-xs font-bold text-slate-600 dark:text-slate-400 mb-1">
-              Examination Term
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Academic Criteria Filter:
             </label>
             <select
-              value={selectedTerm}
-              onChange={(e) => setSelectedTerm(e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white font-bold cursor-pointer"
+              value={academicCriteria}
+              onChange={(e) => setAcademicCriteria(e.target.value as any)}
+              className="w-full px-3 py-2 bg-indigo-50/70 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs font-bold text-indigo-900 dark:text-indigo-200 focus:ring-2 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="Annual Examination 2026">Annual Examination 2026</option>
-              <option value="Term 1 Half-Yearly Exam">Term 1 Half-Yearly Exam</option>
-              <option value="Term 2 Pre-Board Exam">Term 2 Pre-Board Exam</option>
-              <option value="Periodic Assessment 1">Periodic Assessment 1</option>
-              <option value="Periodic Assessment 2">Periodic Assessment 2</option>
+              <option value="ALL">All Students (100% Roster)</option>
+              <option value="TOPPER">⭐ Topper Students (≥ 90% / Top Rankers)</option>
+              <option value="DISTINCTION">🎖️ Distinction (75% - 89.9%)</option>
+              <option value="AVERAGE">📘 Average Students (60% - 74.9%)</option>
+              <option value="NEEDS_ATTENTION">⚠️ Needs Remedial Attention (&lt; 60%)</option>
+              <option value="CUSTOM_RANGE">🎯 Custom Percentage Range</option>
+            </select>
+          </div>
+
+          {/* Sorting Parameters */}
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Sort Records By:
+            </label>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="RANK_ASC">Class Rank (1st ➔ Last)</option>
+              <option value="PERCENT_DESC">Percentage (Highest ➔ Lowest)</option>
+              <option value="PERCENT_ASC">Percentage (Lowest ➔ Highest)</option>
+              <option value="NAME_ASC">Student Name (A ➔ Z)</option>
+              <option value="ROLL_ASC">Roll Number (1 ➔ 50)</option>
+              <option value="AGE_ASC">Student Age (Youngest ➔ Oldest)</option>
+              <option value="ATTENDANCE_DESC">Attendance % (High ➔ Low)</option>
             </select>
           </div>
         </div>
 
-        {/* Calculation Checkboxes Section */}
-        <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-              <Calculator className="w-4 h-4 text-indigo-600" />
-              2. Different Calculations & Report Settings via Checkboxes
-            </h4>
-            <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-bold">
-              Toggle checkboxes to recalculate marks in real-time
+        {/* CUSTOM RANGE INPUTS (If Selected) */}
+        {academicCriteria === 'CUSTOM_RANGE' && (
+          <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 flex items-center gap-4 text-xs">
+            <span className="font-extrabold text-indigo-900 dark:text-indigo-200">
+              Custom Range Boundaries:
             </span>
+            <div className="flex items-center gap-2">
+              <span>Min %:</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={minPercent}
+                onChange={(e) => setMinPercent(Number(e.target.value))}
+                className="w-16 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-center font-bold"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span>Max %:</span>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={maxPercent}
+                onChange={(e) => setMaxPercent(Number(e.target.value))}
+                className="w-16 px-2 py-1 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-center font-bold"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ROW 2: Demographics Filters & Search */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Gender Filter:
+            </label>
+            <select
+              value={genderFilter}
+              onChange={(e) => setGenderFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+            >
+              <option value="ALL">All Genders (Boys & Girls)</option>
+              <option value="Male">Boys Only</option>
+              <option value="Female">Girls Only</option>
+            </select>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[
-              { key: 'includeTheoryMarks', label: 'Theory Marks (70 / 80)', desc: 'Include main written examination score' },
-              { key: 'includePeriodicTests', label: 'Periodic Assessments (10%)', desc: 'Include periodic unit test scores' },
-              { key: 'includePracticalMarks', label: 'Practical / Lab (20%)', desc: 'Include internal viva & practicals' },
-              { key: 'includeGrandTotal', label: 'Grand Total & Max Marks', desc: 'Aggregate total marks calculated' },
-              { key: 'includePercentage', label: 'Overall Percentage %', desc: 'Percentage computed automatically' },
-              { key: 'includeClassRank', label: 'Class Rank Position', desc: 'Rank assigned based on grand total' },
-              { key: 'includeCbseGrades', label: 'CBSE 9-Point Grades', desc: 'A1, A2, B1, B2, C1, C2, D, E' },
-              { key: 'includeAttendance', label: 'Attendance Record %', desc: 'Show student attendance percentage' },
-              { key: 'includeCoScholastic', label: 'Co-Scholastic Grades', desc: 'Art, Physical Education & Discipline' },
-              { key: 'includeSubjectAverage', label: 'Subject Breakdown', desc: 'Individual subject marks breakdown' },
-              { key: 'includeTeacherRemarks', label: 'Teacher Remarks', desc: 'Evaluator assessment comments' },
-              { key: 'includeSignatures', label: 'Signatures & Seal', desc: 'Principal & Teacher signature boxes' }
-            ].map((item) => {
-              const isChecked = calcSettings[item.key as keyof CalculationSettings];
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Caste / Category:
+            </label>
+            <select
+              value={casteFilter}
+              onChange={(e) => setCasteFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+            >
+              <option value="ALL">All Categories</option>
+              <option value="General">General</option>
+              <option value="OBC">OBC</option>
+              <option value="SC">SC</option>
+              <option value="ST">ST</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              House Affiliation:
+            </label>
+            <select
+              value={houseFilter}
+              onChange={(e) => setHouseFilter(e.target.value)}
+              className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+            >
+              <option value="ALL">All Houses</option>
+              <option value="Agni">Agni (Red House)</option>
+              <option value="Vayu">Vayu (Blue House)</option>
+              <option value="Jal">Jal (Green House)</option>
+              <option value="Prithvi">Prithvi (Yellow House)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5 block">
+              Instant Search:
+            </label>
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search Name, Adm No, PEN ID..."
+                className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 2. DYNAMIC COLUMN CHOOSER CHECKBOXES */}
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <CheckSquare className="w-4 h-4 text-indigo-600" />
+                2. Select Report Columns ({selectedColumns.length} of {AVAILABLE_COLUMNS.length} Selected):
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Check or uncheck the specific fields to include in the printable PDF and Excel export.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={selectAllColumns}
+                className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+              >
+                Select All
+              </button>
+              <button
+                onClick={selectDefaultColumns}
+                className="px-2.5 py-1 text-[11px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-lg cursor-pointer transition-colors"
+              >
+                Reset Default
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-2.5">
+            {AVAILABLE_COLUMNS.map((col) => {
+              const isChecked = selectedColumns.includes(col.id);
               return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => toggleSetting(item.key as keyof CalculationSettings)}
-                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                <label
+                  key={col.id}
+                  className={`flex items-center gap-2 p-2 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none ${
                     isChecked
-                      ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-300 dark:border-indigo-700 shadow-2xs'
-                      : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-60'
+                      ? 'bg-indigo-50/80 border-indigo-300 text-indigo-950 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-200 shadow-2xs'
+                      : 'bg-slate-50/60 border-slate-200 text-slate-500 dark:bg-slate-800/40 dark:border-slate-800 dark:text-slate-400 opacity-80'
                   }`}
                 >
-                  <div className="mt-0.5 text-indigo-600 dark:text-indigo-400 shrink-0">
-                    {isChecked ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4 text-slate-400" />}
-                  </div>
-                  <div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white block leading-tight">
-                      {item.label}
-                    </span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 block mt-0.5">
-                      {item.desc}
-                    </span>
-                  </div>
-                </button>
+                  <input
+                    type="checkbox"
+                    checked={isChecked}
+                    onChange={() => toggleColumn(col.id)}
+                    className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                  />
+                  <span className="truncate">{col.label}</span>
+                </label>
               );
             })}
           </div>
         </div>
       </div>
 
-      {/* REPORT PRINTABLE PREVIEW CONTAINER */}
-      <div id="printable-report-area" className="bg-white text-slate-900 p-8 rounded-2xl border border-slate-300 shadow-md space-y-6 print:m-0 print:p-0 print:border-none print:shadow-none">
-        
-        {/* Printable Official Header */}
-        <div className="text-center border-b-2 border-slate-900 pb-4 space-y-1">
-          <div className="inline-block px-3 py-0.5 rounded-full bg-slate-100 text-slate-800 font-extrabold text-[11px] uppercase tracking-widest mb-1">
-            Affiliated to Central Board of Secondary Education (CBSE), New Delhi
+      {/* PRINTABLE REPORT PREVIEW CONTAINER */}
+      <div
+        ref={printRef}
+        id="printable-student-report"
+        className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-6 space-y-6 print:p-0 print:border-none print:shadow-none print:m-0"
+      >
+        {/* OFFICIAL CBSE SCHOOL HEADER FOR PRINT */}
+        <div className="border-b-2 border-slate-900 dark:border-slate-700 pb-4 text-center space-y-1">
+          <div className="flex items-center justify-center gap-2">
+            <School className="w-6 h-6 text-indigo-600" />
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 dark:text-white uppercase">
+              {schoolName}
+            </h1>
           </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 uppercase">
-            GOENKA PUBLIC SCHOOL AGRA DEVELOPED BY GDGPS AGRA
-          </h1>
-          <p className="text-xs font-bold text-slate-600">
-            Shastripuram, Agra, Uttar Pradesh - 282007 | Email: info@gdgpsagra.edu | Affiliation No: 2130845
+          <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+            {schoolAffiliation}
           </p>
-          <div className="pt-2 flex items-center justify-between text-xs font-extrabold text-slate-800 border-t border-slate-200 mt-2">
-            <span>Official Student Information & Examination Evaluation Report</span>
-            <span>Academic Session: 2025-2026</span>
-            <span>Term: {selectedTerm}</span>
+          <div className="inline-flex items-center gap-3 px-4 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-extrabold text-slate-800 dark:text-slate-200 mt-1 border border-slate-300 dark:border-slate-700">
+            <span>Class: {selectedClass === 'ALL' ? 'All Classes' : selectedClass} ({selectedSection === 'ALL' ? 'All Sections' : `Section ${selectedSection}`})</span>
+            <span>•</span>
+            <span>Academic Report: {academicTerm}</span>
+            <span>•</span>
+            <span>Criteria: {academicCriteria}</span>
           </div>
         </div>
 
-        {/* Selected Criteria Summary Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-200">
+        {/* SUMMARY STATS BAR */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 dark:bg-slate-800/60 p-4 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
           <div>
-            <span className="text-slate-500 text-[10px] block">Target Class & Section</span>
-            <strong className="text-slate-900 font-black">{selectedClass} - {selectedSection}</strong>
+            <span className="text-slate-500 block">Total Students in Report:</span>
+            <strong className="text-sm font-black text-slate-900 dark:text-white">{filteredAndSortedRows.length}</strong>
           </div>
           <div>
-            <span className="text-slate-500 text-[10px] block">Total Students Evaluated</span>
-            <strong className="text-slate-900 font-black">{calculatedStudentRecords.length} Students</strong>
-          </div>
-          <div>
-            <span className="text-slate-500 text-[10px] block">Class Highest Score</span>
-            <strong className="text-emerald-700 font-black">
-              {calculatedStudentRecords[0]?.overallPercent.toFixed(1)}% ({calculatedStudentRecords[0]?.student.fullName})
+            <span className="text-slate-500 block">Class Toppers (≥90%):</span>
+            <strong className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+              {filteredAndSortedRows.filter((r) => r.percentage >= 90).length}
             </strong>
           </div>
           <div>
-            <span className="text-slate-500 text-[10px] block">Class Average Score</span>
-            <strong className="text-indigo-700 font-black">
-              {(
-                calculatedStudentRecords.reduce((acc, curr) => acc + curr.overallPercent, 0) /
-                calculatedStudentRecords.length
-              ).toFixed(1)}%
+            <span className="text-slate-500 block">Class Average %:</span>
+            <strong className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+              {filteredAndSortedRows.length > 0
+                ? (
+                    filteredAndSortedRows.reduce((sum, r) => sum + r.percentage, 0) /
+                    filteredAndSortedRows.length
+                  ).toFixed(1) + '%'
+                : 'N/A'}
+            </strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block">Average Attendance:</span>
+            <strong className="text-sm font-black text-slate-800 dark:text-slate-200">
+              {filteredAndSortedRows.length > 0
+                ? (
+                    filteredAndSortedRows.reduce((sum, r) => sum + r.attendance, 0) /
+                    filteredAndSortedRows.length
+                  ).toFixed(1) + '%'
+                : 'N/A'}
             </strong>
           </div>
         </div>
 
-        {/* FORMAT 1: TABULAR MASTER SHEET */}
-        {reportFormat === 'tabular_summary' && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border border-slate-300">
-              <thead className="bg-slate-100 text-slate-900 font-extrabold uppercase text-[10px] border-b-2 border-slate-400">
-                <tr>
-                  {calcSettings.includeClassRank && <th className="p-2.5 text-center border-r border-slate-300">Rank</th>}
-                  <th className="p-2.5 border-r border-slate-300">Roll No</th>
-                  <th className="p-2.5 border-r border-slate-300">Student Name</th>
-                  <th className="p-2.5 border-r border-slate-300">PEN / Adm No</th>
-                  {calcSettings.includeAttendance && <th className="p-2.5 text-center border-r border-slate-300">Attendance</th>}
-                  
-                  {calcSettings.includeSubjectAverage && (
-                    <>
-                      <th className="p-2.5 text-center border-r border-slate-300">English</th>
-                      <th className="p-2.5 text-center border-r border-slate-300">Maths</th>
-                      <th className="p-2.5 text-center border-r border-slate-300">Science</th>
-                      <th className="p-2.5 text-center border-r border-slate-300">Social Sc.</th>
-                      <th className="p-2.5 text-center border-r border-slate-300">Hindi</th>
-                    </>
-                  )}
-
-                  {calcSettings.includeGrandTotal && <th className="p-2.5 text-center border-r border-slate-300">Grand Total</th>}
-                  {calcSettings.includePercentage && <th className="p-2.5 text-center border-r border-slate-300">Percentage</th>}
-                  {calcSettings.includeCbseGrades && <th className="p-2.5 text-center border-r border-slate-300">Grade</th>}
-                  {calcSettings.includeCoScholastic && <th className="p-2.5 text-center border-r border-slate-300">Co-Scholastic</th>}
-                  {calcSettings.includeTeacherRemarks && <th className="p-2.5">Teacher Remarks</th>}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 font-medium text-[11px]">
-                {calculatedStudentRecords.map((row) => (
-                  <tr key={row.student.id} className="hover:bg-slate-50">
-                    {calcSettings.includeClassRank && (
-                      <td className="p-2 text-center font-black text-indigo-700 border-r border-slate-300">
-                        #{row.rank}
-                      </td>
-                    )}
-                    <td className="p-2 font-bold text-slate-800 border-r border-slate-300">{row.student.rollNo}</td>
-                    <td className="p-2 font-bold text-slate-900 border-r border-slate-300">{row.student.fullName}</td>
-                    <td className="p-2 font-mono text-slate-600 border-r border-slate-300">{row.student.admissionNo}</td>
-                    {calcSettings.includeAttendance && (
-                      <td className="p-2 text-center font-bold text-emerald-700 border-r border-slate-300">
-                        {row.attendancePercent}%
-                      </td>
-                    )}
-
-                    {calcSettings.includeSubjectAverage && (
-                      <>
-                        {row.subjectScores.map((score, sIdx) => (
-                          <td key={sIdx} className="p-2 text-center font-bold border-r border-slate-300">
-                            <span>{score.total}</span>
-                            <span className="text-[9px] text-slate-400">/{score.max}</span>
-                          </td>
-                        ))}
-                      </>
-                    )}
-
-                    {calcSettings.includeGrandTotal && (
-                      <td className="p-2 text-center font-black text-slate-900 border-r border-slate-300">
-                        {row.grandTotal} / {row.grandMax}
-                      </td>
-                    )}
-
-                    {calcSettings.includePercentage && (
-                      <td className="p-2 text-center font-black text-indigo-700 border-r border-slate-300">
-                        {row.overallPercent.toFixed(1)}%
-                      </td>
-                    )}
-
-                    {calcSettings.includeCbseGrades && (
-                      <td className="p-2 text-center font-black text-slate-800 border-r border-slate-300">
-                        <span className="px-1.5 py-0.5 rounded bg-slate-100 border border-slate-300">
-                          {row.overallGrade}
-                        </span>
-                      </td>
-                    )}
-
-                    {calcSettings.includeCoScholastic && (
-                      <td className="p-2 text-center font-bold text-slate-700 border-r border-slate-300">
-                        {row.coScholasticGrade}
-                      </td>
-                    )}
-
-                    {calcSettings.includeTeacherRemarks && (
-                      <td className="p-2 text-[10px] text-slate-600 max-w-xs truncate">
-                        {row.remark}
-                      </td>
-                    )}
-                  </tr>
+        {/* DATA TABLE */}
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100 dark:bg-slate-800 border-y-2 border-slate-300 dark:border-slate-700 font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                {AVAILABLE_COLUMNS.filter((c) => selectedColumns.includes(c.id)).map((col) => (
+                  <th key={col.id} className="py-3 px-3.5 whitespace-nowrap">
+                    {col.label}
+                  </th>
                 ))}
-              </tbody>
-            </table>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800">
+              {filteredAndSortedRows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={selectedColumns.length}
+                    className="py-10 text-center text-slate-500 font-bold"
+                  >
+                    No students match the chosen criteria filters.
+                  </td>
+                </tr>
+              ) : (
+                filteredAndSortedRows.map((row, idx) => (
+                  <tr
+                    key={row.id}
+                    className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors ${
+                      row.percentage >= 90
+                        ? 'bg-amber-50/30 dark:bg-amber-950/10'
+                        : row.percentage < 60
+                        ? 'bg-rose-50/20 dark:bg-rose-950/10'
+                        : ''
+                    }`}
+                  >
+                    {AVAILABLE_COLUMNS.filter((c) => selectedColumns.includes(c.id)).map((col) => {
+                      let cellVal = (row as any)[col.id];
+
+                      // Custom rendering for specific columns
+                      if (col.id === 'rank') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5 font-mono font-black">
+                            <span
+                              className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs ${
+                                row.rank === 1
+                                  ? 'bg-amber-400 text-slate-950 font-black shadow-xs'
+                                  : row.rank === 2
+                                  ? 'bg-slate-300 text-slate-900 font-black'
+                                  : row.rank === 3
+                                  ? 'bg-amber-700 text-white font-black'
+                                  : 'text-slate-600 dark:text-slate-400'
+                              }`}
+                            >
+                              {row.rank}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      if (col.id === 'fullName') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5 font-bold text-slate-900 dark:text-white">
+                            <div className="flex items-center gap-1.5">
+                              {row.percentage >= 90 && <Award className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
+                              <span>{cellVal}</span>
+                            </div>
+                          </td>
+                        );
+                      }
+
+                      if (col.id === 'percentage') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5 font-mono font-black text-indigo-600 dark:text-indigo-400">
+                            {cellVal}%
+                          </td>
+                        );
+                      }
+
+                      if (col.id === 'cbseGrade') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                row.cbseGrade.startsWith('A')
+                                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+                                  : row.cbseGrade.startsWith('B')
+                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300'
+                                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'
+                              }`}
+                            >
+                              {cellVal}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      if (col.id === 'attendance') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5 font-bold text-slate-700 dark:text-slate-300">
+                            {cellVal}%
+                          </td>
+                        );
+                      }
+
+                      if (col.id === 'criteriaStatus') {
+                        return (
+                          <td key={col.id} className="py-2.5 px-3.5">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                                row.criteriaStatus.includes('Topper')
+                                  ? 'bg-amber-100 text-amber-900 border border-amber-300'
+                                  : row.criteriaStatus === 'Distinction'
+                                  ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                                  : row.criteriaStatus === 'Average'
+                                  ? 'bg-slate-100 text-slate-800'
+                                  : 'bg-rose-100 text-rose-900 border border-rose-300'
+                              }`}
+                            >
+                              {cellVal}
+                            </span>
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td key={col.id} className="py-2.5 px-3.5 text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                          {cellVal}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* OFFICIAL SIGNATURE BLOCK FOR PRINTABLE PDF */}
+        <div className="hidden print:grid grid-cols-3 gap-8 pt-12 text-center text-xs font-bold text-slate-700">
+          <div className="border-t border-slate-800 pt-2">
+            <span>Prepared By / Class Teacher</span>
           </div>
-        )}
-
-        {/* FORMAT 2: INDIVIDUAL DETAILED REPORT CARDS */}
-        {reportFormat === 'detailed_cards' && (
-          <div className="space-y-8">
-            {calculatedStudentRecords.slice(0, 5).map((row) => (
-              <div key={row.student.id} className="p-6 border-2 border-slate-300 rounded-xl space-y-4 page-break">
-                <div className="flex justify-between items-start border-b pb-3 border-slate-200">
-                  <div>
-                    <h3 className="font-black text-base text-slate-900">{row.student.fullName}</h3>
-                    <p className="text-xs text-slate-600">
-                      Class: {row.student.currentClass} - Section {row.student.section} | Roll No: {row.student.rollNo} | Adm No: {row.student.admissionNo}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {calcSettings.includeClassRank && (
-                      <span className="px-3 py-1 bg-indigo-100 text-indigo-900 rounded-md font-black text-xs">
-                        Class Rank: #{row.rank}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Marks Table */}
-                <table className="w-full text-xs text-left border border-slate-300">
-                  <thead className="bg-slate-100 font-extrabold text-[10px] uppercase border-b border-slate-300">
-                    <tr>
-                      <th className="p-2 border-r border-slate-300">Subject</th>
-                      {calcSettings.includePeriodicTests && <th className="p-2 text-center border-r border-slate-300">Periodic Test (10)</th>}
-                      {calcSettings.includePracticalMarks && <th className="p-2 text-center border-r border-slate-300">Internal / Lab (20)</th>}
-                      {calcSettings.includeTheoryMarks && <th className="p-2 text-center border-r border-slate-300">Theory Exam (70)</th>}
-                      {calcSettings.includeGrandTotal && <th className="p-2 text-center border-r border-slate-300">Total Marks</th>}
-                      {calcSettings.includeCbseGrades && <th className="p-2 text-center">Grade</th>}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200">
-                    {row.subjectScores.map((score, sIdx) => (
-                      <tr key={sIdx}>
-                        <td className="p-2 font-bold border-r border-slate-300">{score.subject}</td>
-                        {calcSettings.includePeriodicTests && <td className="p-2 text-center border-r border-slate-300">{score.pt}</td>}
-                        {calcSettings.includePracticalMarks && <td className="p-2 text-center border-r border-slate-300">{score.practical}</td>}
-                        {calcSettings.includeTheoryMarks && <td className="p-2 text-center border-r border-slate-300">{score.theory}</td>}
-                        {calcSettings.includeGrandTotal && (
-                          <td className="p-2 text-center font-black border-r border-slate-300">{score.total} / {score.max}</td>
-                        )}
-                        {calcSettings.includeCbseGrades && <td className="p-2 text-center font-bold">{score.grade}</td>}
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="bg-slate-100 font-black border-t-2 border-slate-300">
-                      <td className="p-2 border-r border-slate-300">Grand Aggregate</td>
-                      <td colSpan={3} className="p-2 text-center border-r border-slate-300">
-                        {calcSettings.includePercentage && (
-                          <span>Overall Percentage: <strong className="text-indigo-700">{row.overallPercent.toFixed(1)}%</strong></span>
-                        )}
-                      </td>
-                      <td className="p-2 text-center font-black border-r border-slate-300">{row.grandTotal} / {row.grandMax}</td>
-                      <td className="p-2 text-center font-black">{row.overallGrade}</td>
-                    </tr>
-                  </tfoot>
-                </table>
-
-                {/* Additional Info Box */}
-                <div className="grid grid-cols-2 gap-4 text-xs pt-2">
-                  {calcSettings.includeAttendance && (
-                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                      <span className="text-slate-500 font-bold block text-[10px]">Attendance</span>
-                      <strong className="text-emerald-700">{row.attendancePercent}% of working days present</strong>
-                    </div>
-                  )}
-                  {calcSettings.includeCoScholastic && (
-                    <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-200">
-                      <span className="text-slate-500 font-bold block text-[10px]">Co-Scholastic & Discipline</span>
-                      <strong className="text-slate-900">Grade: {row.coScholasticGrade} (Exemplary)</strong>
-                    </div>
-                  )}
-                </div>
-
-                {calcSettings.includeTeacherRemarks && (
-                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 text-xs">
-                    <span className="font-bold text-slate-700 block text-[10px]">Class Teacher Remarks:</span>
-                    <p className="text-slate-800 italic mt-0.5">"{row.remark}"</p>
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="border-t border-slate-800 pt-2">
+            <span>Examination Controller</span>
           </div>
-        )}
-
-        {/* Official Signatures and Stamp */}
-        {calcSettings.includeSignatures && (
-          <div className="pt-8 grid grid-cols-3 gap-8 text-center text-xs font-bold text-slate-800 border-t border-slate-300">
-            <div className="space-y-12">
-              <div className="h-8" />
-              <div className="border-t border-slate-400 pt-1">Class Teacher Signature</div>
-            </div>
-
-            <div className="space-y-12">
-              <div className="h-8 flex items-center justify-center">
-                <span className="px-3 py-1 rounded-full border border-slate-400 text-[10px] text-slate-400 uppercase">
-                  Institutional Seal
-                </span>
-              </div>
-              <div className="border-t border-slate-400 pt-1">Examination Incharge</div>
-            </div>
-
-            <div className="space-y-12">
-              <div className="h-8" />
-              <div className="border-t border-slate-400 pt-1">Principal / Head of Institution</div>
-            </div>
+          <div className="border-t border-slate-800 pt-2">
+            <span>Principal / GDGPS Agra</span>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

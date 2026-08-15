@@ -284,6 +284,32 @@ export const CertificatesModule: React.FC = () => {
               <p className="text-indigo-950 font-black">Principal / Head of Institution</p>
             </div>
           </div>
+
+          {/* BOTTOM ACTION BAR */}
+          <div className="pt-6 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setRemarks('All school dues cleared. Sincere and hardworking student.');
+                  setReasonForLeaving('Parent Relocation / Higher Studies');
+                }}
+                className="px-4 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-all flex items-center gap-1"
+              >
+                ← Reset Defaults
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="px-5 py-2.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all flex items-center gap-2"
+              >
+                <Printer className="w-4 h-4" /> Print / Save PDF
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

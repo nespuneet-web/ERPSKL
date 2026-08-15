@@ -68,11 +68,13 @@ import {
   FileText,
   Ticket,
   User,
-  LogOut
+  LogOut,
+  UserPlus
 } from 'lucide-react';
 
 const MODULE_LIST = [
-  { id: 'sis', name: 'Student Info & Admission', icon: Users, category: 'Core Academic' },
+  { id: 'sis', name: 'Student Information (SIS)', icon: Users, category: 'Core Academic' },
+  { id: 'admission', name: 'Admission & Inquiries', icon: UserPlus, category: 'Core Academic' },
   { id: 'examination', name: 'Examination & Reports', icon: Award, category: 'Core Academic' },
   { id: 'attendance', name: 'Daily Attendance', icon: Calendar, category: 'Core Academic' },
   { id: 'timetable', name: 'Timetable Engine', icon: Clock, category: 'Core Academic' },
@@ -173,8 +175,10 @@ function ErpLayout() {
     let content;
     switch (activeModule) {
       case 'sis':
-      case 'admission':
         content = <SisModule />;
+        break;
+      case 'admission':
+        content = <AdmissionModule />;
         break;
       case 'examination':
         content = <ExaminationModule />;

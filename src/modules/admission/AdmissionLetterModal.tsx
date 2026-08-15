@@ -396,14 +396,41 @@ export const AdmissionLetterModal: React.FC<AdmissionLetterModalProps> = ({
 
         </div>
 
-        {/* BOTTOM MODAL CLOSE BUTTON */}
-        <div className="flex justify-end gap-3 print:hidden">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-all"
-          >
-            Close Window
-          </button>
+        {/* BOTTOM ACTION BAR WITH BACK / CANCEL / CLOSE / PRINT BUTTONS */}
+        <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl cursor-pointer transition-all"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 text-xs font-bold text-slate-800 bg-slate-200 hover:bg-slate-300 rounded-xl cursor-pointer transition-all"
+            >
+              Close Window
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-5 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all flex items-center gap-2"
+            >
+              <Printer className="w-4 h-4" /> Print Offer Letter
+            </button>
+          </div>
         </div>
 
       </div>

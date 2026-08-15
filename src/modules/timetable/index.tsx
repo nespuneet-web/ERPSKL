@@ -78,6 +78,7 @@ import {
 import { TeacherTimetableEditor } from './TeacherTimetableEditor';
 import { BulkUploadSection } from './BulkUploadSection';
 import { TeacherDutyAnalytics } from './TeacherDutyAnalytics';
+import { useAuth } from '../../context/AuthContext';
 
 export interface RoundDutyRecord {
   id: string;
@@ -96,12 +97,47 @@ export interface RoundDutyRecord {
   alertDetails?: string;
 }
 
+export interface RoundObservationRecord {
+  id: string;
+  dutyId: string;
+  timestamp: string;
+  day: TimetableDay;
+  periodNumber: number;
+  location: string;
+  reportingTeacher: string;
+  type: 'NO_REMARK' | 'REMARKS_OBSERVATION';
+  selectedClass?: string;
+  scheduledTeacher?: string;
+  scheduledSubject?: string;
+  delayType?: string;
+  message?: string;
+  status: 'Reported' | 'Acknowledged' | 'Substitute_Dispatched' | 'Resolved';
+  feedbackSentTo: string[];
+}
+
 const STORAGE_KEY = 'schoolerp_teacher_timetables_v2';
 const ROUND_DUTIES_KEY = 'schoolerp_round_duties_v1';
 const ROUND_LOCATIONS_KEY = 'schoolerp_round_locations_v1';
+const ROUND_OBSERVATIONS_KEY = 'schoolerp_round_observations_v2';
 
 export const TimetableModule: React.FC = () => {
   const { staff, addStaffMember, updateStaffStatus } = useOtherModulesStore();
+  const { activeRole, currentUser, isSubSectionAllowed } = useAuth();
+  const isTeacher = activeRole === 'Teacher' || activeRole === 'Class Teacher';
+  const isAdmin = !isTeacher;
+
+  // Sub-section permission checks
+  const canMyTimetable = isSubSectionAllowed('timetable_my') || isSubSectionAllowed('timetable_editor') || isSubSectionAllowed('timetable_teacher_view');
+  const canBulkUpload = isSubSectionAllowed('timetable_bulk_upload');
+  const canSubstitutions = isSubSectionAllowed('timetable_substitutions');
+  const canRoundDuty = isSubSectionAllowed('timetable_round_duty');
+  const canDutyAnalytics = isSubSectionAllowed('timetable_duty_analytics');
+  const canDeptRules = isSubSectionAllowed('timetable_dept_rules');
+  const canMasterSchedule = isSubSectionAllowed('timetable_master_schedule');
+
+  // Compute clean logged-in teacher name
+  const cleanUserName = (currentUser?.name || '').replace(/\s*\([^)]*\)/g, '').trim().toUpperCase();
+  const [selectedActiveTeacherName, setSelectedActiveTeacherName] = useState<string>('ANIL KUMAR SINGH');
 
   // Active Tab state
   const [activeTab, setActiveTab] = useState<
@@ -113,7 +149,41 @@ export const TimetableModule: React.FC = () => {
     | 'duty_analytics'
     | 'dept_manager'
     | 'schedule'
-  >('teacher_editor');
+  >(() => {
+    if (canMyTimetable) return 'teacher_editor';
+    if (canSubstitutions) return 'arrangements';
+    if (canRoundDuty) return 'round_duty';
+    if (canMasterSchedule) return 'schedule';
+    return 'teacher_editor';
+  });
+
+  // Ensure active tab matches allowed permissions
+  useEffect(() => {
+    if (activeTab === 'teacher_editor' && !canMyTimetable) {
+      if (canSubstitutions) setActiveTab('arrangements');
+      else if (canRoundDuty) setActiveTab('round_duty');
+      else if (canMasterSchedule) setActiveTab('schedule');
+    } else if (activeTab === 'bulk_upload' && !canBulkUpload) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canSubstitutions) setActiveTab('arrangements');
+      else if (canRoundDuty) setActiveTab('round_duty');
+    } else if (activeTab === 'arrangements' && !canSubstitutions) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canRoundDuty) setActiveTab('round_duty');
+    } else if (activeTab === 'round_duty' && !canRoundDuty) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canSubstitutions) setActiveTab('arrangements');
+    } else if (activeTab === 'duty_analytics' && !canDutyAnalytics) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canRoundDuty) setActiveTab('round_duty');
+    } else if (activeTab === 'dept_manager' && !canDeptRules) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canMasterSchedule) setActiveTab('schedule');
+    } else if (activeTab === 'schedule' && !canMasterSchedule) {
+      if (canMyTimetable) setActiveTab('teacher_editor');
+      else if (canSubstitutions) setActiveTab('arrangements');
+    }
+  }, [activeTab, canMyTimetable, canBulkUpload, canSubstitutions, canRoundDuty, canDutyAnalytics, canDeptRules, canMasterSchedule]);
 
   // Selected Day for Substitution & Availability checks
   const [selectedDay, setSelectedDay] = useState<TimetableDay>('Monday');
@@ -343,6 +413,84 @@ export const TimetableModule: React.FC = () => {
 
   // QR Code Scanner Modal state
   const [qrScannerDuty, setQrScannerDuty] = useState<RoundDutyRecord | null>(null);
+  const [qrScanStep, setQrScanStep] = useState<'TWO_BUTTONS' | 'REMARKS_FORM'>('TWO_BUTTONS');
+  const [selectedObsClass, setSelectedObsClass] = useState<string>('Class 6-A');
+  const [selectedDelayType, setSelectedDelayType] = useState<string>('5 minutes late');
+  const [customObsMessage, setCustomObsMessage] = useState<string>('');
+  const [selectedObsInspection, setSelectedObsInspection] = useState<RoundObservationRecord | null>(null);
+
+  // Round Observations Log (For Live Period Monitoring Matrix)
+  const [roundObservations, setRoundObservations] = useState<RoundObservationRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem(ROUND_OBSERVATIONS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      {
+        id: 'obs-1',
+        dutyId: 'rd-1',
+        timestamp: '09:05 AM',
+        day: 'Monday',
+        periodNumber: 2,
+        location: 'Block A - Ground & 1st Floor Corridor',
+        reportingTeacher: 'RAKESH SHARMA',
+        type: 'REMARKS_OBSERVATION',
+        selectedClass: 'Class 6-A',
+        scheduledTeacher: 'MISS GEETA',
+        scheduledSubject: 'Mathematics',
+        delayType: '5 minutes late',
+        message: 'Sixth A teacher, Miss Gita, did not reach on time (5 minutes late).',
+        status: 'Reported',
+        feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+      },
+      {
+        id: 'obs-2',
+        dutyId: 'rd-2',
+        timestamp: '10:35 AM',
+        day: 'Monday',
+        periodNumber: 4,
+        location: 'Ground Floor - Main Canteen & Courtyard',
+        reportingTeacher: 'SUDHIR MISHRA',
+        type: 'NO_REMARK',
+        message: 'Round done, no remark. All faculty reached on time.',
+        status: 'Acknowledged',
+        feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(ROUND_OBSERVATIONS_KEY, JSON.stringify(roundObservations));
+    } catch (e) {
+      console.error('Failed to save round observations:', e);
+    }
+  }, [roundObservations]);
+
+  // Dynamic Lookup: Find who is supposed to be in a given class and period
+  const getScheduledTeacherForClass = (day: TimetableDay, periodNo: number, className: string) => {
+    const cleanTarget = className.toLowerCase().replace(/\s+/g, '').replace('class', '');
+    for (const t of teacherTimetables) {
+      const cellVal = (t.schedule[`${day}_${periodNo}`] || '').toLowerCase().replace(/\s+/g, '');
+      if (cellVal.includes(cleanTarget) || (cleanTarget.includes('6-a') && cellVal.includes('6-a'))) {
+        // Extract subject if present in parentheses
+        const rawSchedule = t.schedule[`${day}_${periodNo}`] || '';
+        const match = rawSchedule.match(/\((.*?)\)/);
+        const subj = match ? match[1] : t.department || 'General Subject';
+        return { teacherName: t.teacherName, subject: subj };
+      }
+    }
+    // Fallback based on class grade
+    if (className.includes('6-A')) return { teacherName: 'MISS GEETA', subject: 'Mathematics' };
+    if (className.includes('6-B')) return { teacherName: 'PRIYA NAIR', subject: 'Science' };
+    if (className.includes('7-A')) return { teacherName: 'RAJESH KUMAR', subject: 'English' };
+    if (className.includes('8-A')) return { teacherName: 'SUDHIR MISHRA', subject: 'Social Studies' };
+    if (className.includes('9-A')) return { teacherName: 'AMIT VERMA', subject: 'Physics' };
+    if (className.includes('10-A')) return { teacherName: 'DR. ANKUR KABRA', subject: 'Chemistry' };
+    return { teacherName: 'TEACHER ON DUTY', subject: 'Scheduled Subject' };
+  };
 
   // Red Alert Dispatch Modal State for Administrators
   const [dispatchAlertModalDuty, setDispatchAlertModalDuty] = useState<RoundDutyRecord | null>(null);
@@ -371,6 +519,97 @@ export const TimetableModule: React.FC = () => {
           : r
       )
     );
+  };
+
+  // Function: QR Code Flow - Button 1: Round Done, No Remark
+  const handleRoundDoneNoRemark = (duty: RoundDutyRecord) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setRoundDuties((prev) =>
+      prev.map((r) =>
+        r.id === duty.id
+          ? {
+              ...r,
+              status: 'Completed',
+              checkInTime: timeStr,
+              checkInMethod: 'QR Code',
+              remarks: `Round done, no remark. Verified on time at ${duty.location}.`
+            }
+          : r
+      )
+    );
+
+    const newObs: RoundObservationRecord = {
+      id: `obs-${Date.now()}`,
+      dutyId: duty.id,
+      timestamp: timeStr,
+      day: duty.day,
+      periodNumber: duty.periodNumber,
+      location: duty.location,
+      reportingTeacher: duty.teacherName,
+      type: 'NO_REMARK',
+      message: `Round done, no remark. All faculty reached on time at ${duty.location}.`,
+      status: 'Acknowledged',
+      feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+    };
+    setRoundObservations((prev) => [newObs, ...prev]);
+
+    setQrScannerDuty(null);
+    setQrScanStep('TWO_BUTTONS');
+    alert(`✅ Round Duty Completed (No Remarks)!\nTime: ${timeStr}\nStatus: GREEN (All teachers reached on time).`);
+  };
+
+  // Function: QR Code Flow - Button 2: Round Done, Remarks
+  const handleOpenRemarksForm = () => {
+    setQrScanStep('REMARKS_FORM');
+    // Pre-populate observation message
+    if (qrScannerDuty) {
+      const scheduled = getScheduledTeacherForClass(qrScannerDuty.day, qrScannerDuty.periodNumber, selectedObsClass);
+      setCustomObsMessage(`${selectedObsClass} teacher, ${scheduled.teacherName}, did not reach on time (${selectedDelayType}).`);
+    }
+  };
+
+  // Function: Submit Remarks Observation to Principal & Timetable Incharge
+  const handleSubmitRemarksObservation = (duty: RoundDutyRecord) => {
+    const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const scheduled = getScheduledTeacherForClass(duty.day, duty.periodNumber, selectedObsClass);
+    const finalMsg = customObsMessage.trim() || `${selectedObsClass} teacher, ${scheduled.teacherName}, did not reach on time (${selectedDelayType}).`;
+
+    setRoundDuties((prev) =>
+      prev.map((r) =>
+        r.id === duty.id
+          ? {
+              ...r,
+              status: 'Completed',
+              checkInTime: timeStr,
+              checkInMethod: 'QR Code',
+              remarks: `⚠️ Observation Reported: ${finalMsg}`
+            }
+          : r
+      )
+    );
+
+    const newObs: RoundObservationRecord = {
+      id: `obs-${Date.now()}`,
+      dutyId: duty.id,
+      timestamp: timeStr,
+      day: duty.day,
+      periodNumber: duty.periodNumber,
+      location: duty.location,
+      reportingTeacher: duty.teacherName,
+      type: 'REMARKS_OBSERVATION',
+      selectedClass: selectedObsClass,
+      scheduledTeacher: scheduled.teacherName,
+      scheduledSubject: scheduled.subject,
+      delayType: selectedDelayType,
+      message: finalMsg,
+      status: 'Reported',
+      feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+    };
+    setRoundObservations((prev) => [newObs, ...prev]);
+
+    setQrScannerDuty(null);
+    setQrScanStep('TWO_BUTTONS');
+    alert(`🚨 Feedback Dispatched to Principal & Timetable Incharge!\n\nMessage: "${finalMsg}"\nPeriod #${duty.periodNumber} for ${selectedObsClass} marked 🔴 RED (Late / Unattended).`);
   };
 
   // Function: GPS Location Check-in
@@ -1105,90 +1344,139 @@ export const TimetableModule: React.FC = () => {
 
       {/* TABS NAVIGATION BAR */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveTab('teacher_editor')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'teacher_editor'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <User className="w-4 h-4" /> Teacher View & Editor
-        </button>
+        {canMyTimetable && (
+          <button
+            onClick={() => setActiveTab('teacher_editor')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'teacher_editor'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <User className="w-4 h-4" /> {isTeacher ? 'My Timetable' : 'Teacher View & Editor'}
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('bulk_upload')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'bulk_upload'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <FileSpreadsheet className="w-4 h-4 text-emerald-300" /> Bulk Excel Upload
-        </button>
+        {canBulkUpload && (
+          <button
+            onClick={() => setActiveTab('bulk_upload')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'bulk_upload'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-300" /> Bulk Excel Upload
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('arrangements')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'arrangements'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Layers className="w-4 h-4 text-cyan-300" /> Substitution Engine
-        </button>
+        {canSubstitutions && (
+          <button
+            onClick={() => setActiveTab('arrangements')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'arrangements'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-cyan-300" /> {isTeacher ? 'My Assigned Substitutions' : 'Substitution Engine'}
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('round_duty')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'round_duty'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Compass className="w-4 h-4 text-rose-300" /> Round Duty Patrol
-        </button>
+        {canRoundDuty && (
+          <button
+            onClick={() => setActiveTab('round_duty')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'round_duty'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-rose-300" /> {isTeacher ? 'My Round Duty & QR Check-In' : 'Round Duty Patrol & Live Radar'}
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('duty_analytics')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'duty_analytics'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Award className="w-4 h-4 text-amber-300" /> Duty Analytics & Leaderboard
-        </button>
+        {canDutyAnalytics && (
+          <button
+            onClick={() => setActiveTab('duty_analytics')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'duty_analytics'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-300" /> Duty Analytics & Leaderboard
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('dept_manager')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'dept_manager'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Settings className="w-4 h-4 text-amber-300" /> Depts & Rules
-        </button>
+        {canDeptRules && (
+          <button
+            onClick={() => setActiveTab('dept_manager')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'dept_manager'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Settings className="w-4 h-4 text-amber-300" /> Depts & Rules
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveTab('schedule')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
-            activeTab === 'schedule'
-              ? 'bg-indigo-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Calendar className="w-4 h-4 text-indigo-300" /> Master Schedule Matrix
-        </button>
+        {canMasterSchedule && (
+          <button
+            onClick={() => setActiveTab('schedule')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 ${
+              activeTab === 'schedule'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Calendar className="w-4 h-4 text-indigo-300" /> Master Schedule Matrix
+          </button>
+        )}
       </div>
+
+      {/* TEACHER PROFILE PERSONAL STATUS BANNER */}
+      {isTeacher && (
+        <div className="bg-indigo-50/80 dark:bg-indigo-950/40 p-3.5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-xs">
+              👨‍🏫
+            </div>
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block">
+                Active Faculty Schedule & Duty Portal
+              </span>
+              <strong className="text-slate-900 dark:text-white text-xs">
+                {currentUser?.name || selectedActiveTeacherName}
+              </strong>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-2.5 py-1 rounded-xl bg-indigo-100 dark:bg-indigo-950 text-indigo-800 dark:text-indigo-300 font-bold text-[11px]">
+              🔒 Personalized View
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: TEACHER INDIVIDUAL VIEW & INTERACTIVE EDITOR */}
       {activeTab === 'teacher_editor' && (
         <TeacherTimetableEditor
           teachers={teacherTimetables}
+          roundDuties={roundDuties}
+          arrangements={arrangements}
           onSaveTeacher={handleSaveTeacher}
           onAddNewTeacher={handleAddNewTeacher}
+          onUpdateRoundDuty={(updatedDuty) => {
+            setRoundDuties((prev) =>
+              prev.map((d) => (d.id === updatedDuty.id ? updatedDuty : d))
+            );
+            setTimeout(() => {
+              syncRoundDutyToSupabase(updatedDuty);
+            }, 0);
+          }}
         />
       )}
 
@@ -1310,8 +1598,81 @@ export const TimetableModule: React.FC = () => {
       {/* TAB 4: ARRANGEMENT / SUBSTITUTION ENGINE */}
       {activeTab === 'arrangements' && (
         <div className="space-y-6">
-          {/* VIBRANT BLUE HEADER & AUTO-SUB ENGINE BANNER */}
-          <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-900 p-6 rounded-2xl border border-blue-700/50 shadow-lg text-white space-y-6">
+          {/* IF TEACHER IS LOGGED IN: SHOW ONLY THEIR ASSIGNED SUBSTITUTIONS */}
+          {isTeacher ? (
+            <div className="space-y-5">
+              <div className="p-6 bg-gradient-to-r from-blue-900 to-indigo-900 rounded-2xl text-white space-y-2 border border-blue-700/60 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-cyan-400 text-slate-950">
+                    Faculty Substitution Roster
+                  </span>
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/40 text-blue-100 border border-blue-400/30">
+                    Day: {selectedDay}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black text-white flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-cyan-300" />
+                  My Assigned Substitution Classes
+                </h3>
+                <p className="text-xs text-blue-200">
+                  Showing periods assigned to you for covering classes of absent faculty members on {selectedDay}.
+                </p>
+              </div>
+
+              {arrangements.filter((a) => {
+                const curName = (currentUser?.name || selectedMobileTeacher || '').toUpperCase();
+                return a.substituteTeacherName.toUpperCase().includes(curName) || curName.includes(a.substituteTeacherName.toUpperCase());
+              }).length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white">
+                    No Substitution Assigned to You on {selectedDay}
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    You have no extra coverage periods assigned for this day. Follow your standard timetable schedule.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {arrangements
+                    .filter((a) => {
+                      const curName = (currentUser?.name || selectedMobileTeacher || '').toUpperCase();
+                      return a.substituteTeacherName.toUpperCase().includes(curName) || curName.includes(a.substituteTeacherName.toUpperCase());
+                    })
+                    .map((a) => (
+                      <div
+                        key={a.id}
+                        className="p-5 rounded-2xl border border-cyan-200 dark:border-cyan-800/60 bg-gradient-to-br from-cyan-50/50 via-white to-blue-50/30 dark:from-slate-900 dark:to-cyan-950/30 shadow-xs space-y-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-xs text-cyan-700 dark:text-cyan-400 flex items-center gap-1">
+                            <Clock className="w-3.5 h-3.5" /> Period #{a.periodNumber} ({a.timeSlot})
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            {a.status}
+                          </span>
+                        </div>
+
+                        <div>
+                          <div className="text-base font-black text-slate-900 dark:text-white">
+                            Class {a.classSection} • {a.subject}
+                          </div>
+                          <p className="text-xs text-rose-600 dark:text-rose-400 font-bold mt-0.5">
+                            Covering for Absent Faculty: {a.absentTeacherName}
+                          </p>
+                          {a.remarks && (
+                            <p className="text-[11px] text-slate-500 italic mt-1">"{a.remarks}"</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              {/* VIBRANT BLUE HEADER & AUTO-SUB ENGINE BANNER */}
+              <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-sky-900 p-6 rounded-2xl border border-blue-700/50 shadow-lg text-white space-y-6">
             
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-blue-700/50 pb-5">
               <div className="space-y-1">
@@ -1947,66 +2308,589 @@ export const TimetableModule: React.FC = () => {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 
       {/* TAB 5: ROUND DUTY CAMPUS PATROL & REAL-TIME SECURITY MONITOR */}
       {activeTab === 'round_duty' && (
         <div className="space-y-6">
-          {/* HEADER BANNER */}
-          <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 p-6 rounded-2xl border border-indigo-800/60 shadow-lg text-white space-y-5">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-800/50 pb-5">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-400 text-slate-950 shadow-xs">
-                    Campus Patrol & Geolocation Monitor
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/40 text-blue-100 border border-blue-400/30">
-                    Day: {selectedDay}
-                  </span>
+          {/* TEACHER VIEW: ONLY ASSIGNED DUTIES, QR SCANNER, AND TAKE A ROUND FEEDBACK FORM */}
+          {isTeacher ? (
+            <div className="space-y-6">
+              {/* TEACHER HEADER */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 p-6 rounded-2xl border border-indigo-800/60 shadow-lg text-white space-y-4">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-800/50 pb-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-400 text-slate-950 shadow-xs">
+                        Faculty Patrol Portal
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/40 text-blue-100 border border-blue-400/30">
+                        Day: {selectedDay}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <Compass className="w-6 h-6 text-rose-400" />
+                      My Assigned Round Duties & Patrol Observation
+                    </h3>
+                    <p className="text-xs text-indigo-200/90 max-w-2xl">
+                      View your assigned patrol duty points, verify check-in via GPS or Duty QR Code, and submit round feedback regarding teacher punctuality to the Principal & Timetable In-Charge.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={() => setActiveTab('teacher_editor')}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-700 shrink-0"
+                  >
+                    <ArrowLeft className="w-4 h-4 text-indigo-400" />
+                    <span>← Back to My Timetable</span>
+                  </button>
                 </div>
-                <h3 className="text-xl font-black text-white flex items-center gap-2">
-                  <Compass className="w-6 h-6 text-rose-400" />
-                  Free Period Campus Round Patrol Duty & Live Radar
-                </h3>
-                <p className="text-xs text-indigo-200/90 max-w-2xl">
-                  Free teachers are assigned to campus patrol (Block A, Block B, Canteen, etc.). <strong>When substitution is triggered, auto round duty is applied simultaneously.</strong> Geolocation & QR Code scanning track real-time duty attendance.
-                </p>
               </div>
 
-              {/* ACTION BUTTONS */}
-              <div className="flex items-center gap-2 flex-wrap shrink-0">
-                <button
-                  onClick={() => setActiveTab('teacher_editor')}
-                  className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
-                  title="Close Round Duty and Return to Main Timetable"
-                >
-                  <ArrowLeft className="w-5 h-5 text-indigo-400" />
-                  <span>← Close / Back to Timetable</span>
-                </button>
+              {/* SECTION 1: MY ASSIGNED ROUND DUTIES */}
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-rose-500" />
+                      My Round Duty Schedule ({selectedDay})
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      Duties allocated to you for campus monitoring during free periods.
+                    </p>
+                  </div>
+                </div>
 
-                <button
-                  onClick={() => {
-                    const count = runAutoRoundDutyForDay(selectedDay, arrangements);
-                    if (count > 0) {
-                      alert(`⚡ Auto-Assigned ${count} Round Patrol Duties for ${selectedDay}!`);
-                    } else {
-                      alert(`No additional free unassigned teachers available on ${selectedDay}.`);
-                    }
-                  }}
-                  className="px-5 py-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-rose-300"
-                >
-                  <Zap className="w-5 h-5 fill-white" />
-                  <span>⚡ 1-Click Auto-Assign Round Duty</span>
-                </button>
+                {roundDuties.filter((r) => {
+                  const curName = (currentUser?.name || selectedMobileTeacher || '').toUpperCase();
+                  return r.day === selectedDay && (r.teacherName.toUpperCase() === curName || curName.includes(r.teacherName.toUpperCase()) || r.teacherName.toUpperCase().includes(curName));
+                }).length === 0 ? (
+                  <div className="p-8 text-center rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 text-slate-500 space-y-2">
+                    <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto" />
+                    <p className="font-extrabold text-slate-800 dark:text-slate-200 text-sm">
+                      No Round Duty Assigned to You on {selectedDay}
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      You are not assigned any campus patrol duties for this day. Follow your standard class timetable.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {roundDuties
+                      .filter((r) => {
+                        const curName = (currentUser?.name || selectedMobileTeacher || '').toUpperCase();
+                        return r.day === selectedDay && (r.teacherName.toUpperCase() === curName || curName.includes(r.teacherName.toUpperCase()) || r.teacherName.toUpperCase().includes(curName));
+                      })
+                      .map((rd) => {
+                        const isChecked = rd.status === 'Checked In' || rd.status === 'Completed';
 
-                <button
-                  onClick={() => setIsPrintGridModalOpen(true)}
-                  className="px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-cyan-300"
-                >
-                  <Printer className="w-5 h-5 text-slate-950" />
-                  <span>🖨️ Printable Patrol Grid</span>
-                </button>
+                        return (
+                          <div
+                            key={rd.id}
+                            className="p-5 rounded-2xl border border-indigo-200 dark:border-indigo-800/60 bg-gradient-to-br from-indigo-50/50 via-white to-blue-50/30 dark:from-indigo-950/30 dark:via-slate-900 dark:to-slate-900 shadow-sm space-y-4"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-mono font-bold text-xs text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" /> Period #{rd.periodNumber} ({rd.timeSlot})
+                              </span>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                  isChecked
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300'
+                                    : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300 border border-amber-300'
+                                }`}
+                              >
+                                {rd.status}
+                              </span>
+                            </div>
+
+                            <div>
+                              <strong className="text-base font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <MapPin className="w-5 h-5 text-rose-500 shrink-0" />
+                                {rd.location}
+                              </strong>
+                              {rd.checkInTime && (
+                                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+                                  ✓ Verified {rd.checkInMethod || 'GPS'} Check-in at {rd.checkInTime}
+                                </p>
+                              )}
+                            </div>
+
+                            {/* Action Controls */}
+                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                              <button
+                                onClick={() => handleGPSCheckIn(rd.id)}
+                                className="px-3 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                              >
+                                <Navigation className="w-3.5 h-3.5" />
+                                <span>📍 Verify GPS</span>
+                              </button>
+
+                              <button
+                                onClick={() => setQrScannerDuty(rd)}
+                                className="px-3 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                <span>📷 Scan Duty QR</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+
+              {/* SECTION 2: TAKE A ROUND & SUBMIT LATE TEACHER FEEDBACK */}
+              <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+                <div className="border-b border-slate-200 dark:border-slate-800 pb-3">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                    Live Campus Feedback
+                  </span>
+                  <h4 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2 mt-1">
+                    <Radio className="w-5 h-5 text-rose-500" />
+                    Take a Round & Submit Observation / Teacher Punctuality Feedback
+                  </h4>
+                  <p className="text-xs text-slate-500">
+                    While on campus patrol, check classrooms and submit real-time updates regarding whether scheduled teachers reached on time or were late. Dispatches instantly to the Principal & Timetable In-Charge.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* Left Column: Selector */}
+                  <div className="space-y-4 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Select Period:
+                        </label>
+                        <select
+                          value={qrScannerDuty?.periodNumber || 2}
+                          onChange={(e) => {
+                            const pNo = Number(e.target.value);
+                            const matchedDuty = roundDuties.find((r) => r.day === selectedDay && r.periodNumber === pNo) || roundDuties[0];
+                            if (matchedDuty) setQrScannerDuty(matchedDuty);
+                          }}
+                          className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                        >
+                          {TIMETABLE_PERIODS.map((p) => (
+                            <option key={p} value={p}>
+                              Period #{p} ({getTimeSlotForPeriod(p)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                          Inspected Class / Room:
+                        </label>
+                        <select
+                          value={selectedObsClass}
+                          onChange={(e) => setSelectedObsClass(e.target.value)}
+                          className="w-full px-3 py-2 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-white"
+                        >
+                          {[
+                            'Class 6-A',
+                            'Class 6-B',
+                            'Class 7-A',
+                            'Class 7-B',
+                            'Class 8-A',
+                            'Class 8-B',
+                            'Class 9-A',
+                            'Class 10-A',
+                            'Class 11-A',
+                            'Class 12-A'
+                          ].map((c) => (
+                            <option key={c} value={c}>
+                              🏫 {c}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Scheduled Teacher Preview */}
+                    {(() => {
+                      const curPeriod = qrScannerDuty?.periodNumber || 2;
+                      const scheduled = getScheduledTeacherForClass(selectedDay, curPeriod, selectedObsClass);
+                      return (
+                        <div className="p-3 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl border border-indigo-200 dark:border-indigo-800 text-xs space-y-1">
+                          <span className="text-[10px] font-black uppercase text-indigo-700 dark:text-indigo-300 block">
+                            Scheduled Faculty in this Slot:
+                          </span>
+                          <div className="font-extrabold text-slate-900 dark:text-white text-sm">
+                            {scheduled.teacherName} • <span className="text-indigo-600 dark:text-indigo-400 font-bold">{scheduled.subject}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Right Column: Feedback Submission Buttons */}
+                  <div className="space-y-3 bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300 block">
+                      Choose Observation Type to Dispatch:
+                    </span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* Button 1: Green On Time */}
+                      <button
+                        onClick={() => {
+                          const curPeriod = qrScannerDuty?.periodNumber || 2;
+                          const activeDuty = roundDuties.find((r) => r.day === selectedDay && r.periodNumber === curPeriod) || roundDuties[0];
+                          if (activeDuty) {
+                            handleRoundDoneNoRemark(activeDuty);
+                          } else {
+                            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const newObs: RoundObservationRecord = {
+                              id: `obs-${Date.now()}`,
+                              dutyId: 'rd-manual',
+                              timestamp: timeStr,
+                              day: selectedDay,
+                              periodNumber: curPeriod,
+                              location: `${selectedObsClass} Room`,
+                              reportingTeacher: currentUser?.name || 'Faculty Member',
+                              type: 'NO_REMARK',
+                              message: `Round completed. ${selectedObsClass} faculty reached on-time. No remarks reported.`,
+                              status: 'Acknowledged',
+                              feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+                            };
+                            setRoundObservations((prev) => [newObs, ...prev]);
+                            alert(`✅ Round Done: All faculty reached on time for ${selectedObsClass}.`);
+                          }
+                        }}
+                        className="p-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs cursor-pointer shadow flex flex-col items-center justify-center gap-1.5 transition-all text-center"
+                      >
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span>🟢 Faculty On-Time (No Remarks)</span>
+                      </button>
+
+                      {/* Button 2: Red Late Feedback */}
+                      <div className="space-y-2">
+                        <select
+                          value={selectedDelayType}
+                          onChange={(e) => setSelectedDelayType(e.target.value)}
+                          className="w-full px-2.5 py-1.5 text-xs font-bold bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white"
+                        >
+                          <option value="5 minutes late">🔴 5 minutes late</option>
+                          <option value="10 minutes late">🔴 10 minutes late</option>
+                          <option value="15+ minutes late">🔴 15+ minutes late</option>
+                          <option value="Teacher Absent / Room Vacant">🔴 Teacher Did Not Arrive</option>
+                          <option value="Teacher Left Early">🔴 Teacher Left Early</option>
+                        </select>
+
+                        <button
+                          onClick={() => {
+                            const curPeriod = qrScannerDuty?.periodNumber || 2;
+                            const scheduled = getScheduledTeacherForClass(selectedDay, curPeriod, selectedObsClass);
+                            const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            const finalMsg = `${selectedObsClass} teacher, ${scheduled.teacherName}, did not reach on time (${selectedDelayType}).`;
+
+                            const newObs: RoundObservationRecord = {
+                              id: `obs-${Date.now()}`,
+                              dutyId: 'rd-manual',
+                              timestamp: timeStr,
+                              day: selectedDay,
+                              periodNumber: curPeriod,
+                              location: `${selectedObsClass} Room`,
+                              reportingTeacher: currentUser?.name || 'Faculty Member',
+                              type: 'REMARKS_OBSERVATION',
+                              selectedClass: selectedObsClass,
+                              scheduledTeacher: scheduled.teacherName,
+                              scheduledSubject: scheduled.subject,
+                              delayType: selectedDelayType,
+                              message: finalMsg,
+                              status: 'Reported',
+                              feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+                            };
+                            setRoundObservations((prev) => [newObs, ...prev]);
+                            alert(`🚨 Feedback Dispatched to Principal & Timetable In-Charge!\n\n${finalMsg}`);
+                          }}
+                          className="w-full p-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-black text-xs cursor-pointer shadow flex items-center justify-center gap-1.5 transition-all text-center"
+                        >
+                          <AlertTriangle className="w-4 h-4" />
+                          <span>Dispatch Late Alert</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Log of observations submitted */}
+                <div className="pt-2 border-t border-slate-200 dark:border-slate-800 space-y-2">
+                  <span className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider block">
+                    📢 Recent Round Observations Dispatched ({roundObservations.length}):
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {roundObservations.slice(0, 4).map((obs) => (
+                      <div
+                        key={obs.id}
+                        onClick={() => setSelectedObsInspection(obs)}
+                        className={`p-3 rounded-xl border text-xs cursor-pointer transition-all hover:scale-[1.01] ${
+                          obs.type === 'REMARKS_OBSERVATION'
+                            ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/80 text-rose-900 dark:text-rose-200'
+                            : 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-black">
+                          <span className="flex items-center gap-1.5">
+                            {obs.type === 'REMARKS_OBSERVATION' ? '🔴' : '🟢'} Period #{obs.periodNumber} • {obs.selectedClass || obs.location}
+                          </span>
+                          <span className="text-[10px] opacity-75">{obs.timestamp}</span>
+                        </div>
+                        <p className="font-bold mt-1 text-slate-800 dark:text-white">"{obs.message}"</p>
+                        <div className="text-[10px] opacity-75 mt-1 flex items-center justify-between">
+                          <span>Reported by: {obs.reportingTeacher}</span>
+                          <span className="font-bold text-indigo-600 dark:text-cyan-300">Click to Inspect ➔</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* ADMIN HEADER BANNER */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 p-6 rounded-2xl border border-indigo-800/60 shadow-lg text-white space-y-5">
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-indigo-800/50 pb-5">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-400 text-slate-950 shadow-xs">
+                        Campus Patrol & Geolocation Monitor
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/40 text-blue-100 border border-blue-400/30">
+                        Day: {selectedDay}
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-black text-white flex items-center gap-2">
+                      <Compass className="w-6 h-6 text-rose-400" />
+                      Free Period Campus Round Patrol Duty & Live Radar
+                    </h3>
+                    <p className="text-xs text-indigo-200/90 max-w-2xl">
+                      Free teachers are assigned to campus patrol (Block A, Block B, Canteen, etc.). <strong>When substitution is triggered, auto round duty is applied simultaneously.</strong> Geolocation & QR Code scanning track real-time duty attendance.
+                    </p>
+                  </div>
+
+                  {/* ACTION BUTTONS */}
+                  <div className="flex items-center gap-2 flex-wrap shrink-0">
+                    <button
+                      onClick={() => setActiveTab('teacher_editor')}
+                      className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-slate-700"
+                      title="Close Round Duty and Return to Main Timetable"
+                    >
+                      <ArrowLeft className="w-5 h-5 text-indigo-400" />
+                      <span>← Close / Back to Timetable</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const count = runAutoRoundDutyForDay(selectedDay, arrangements);
+                        if (count > 0) {
+                          alert(`⚡ Auto-Assigned ${count} Round Patrol Duties for ${selectedDay}!`);
+                        } else {
+                          alert(`No additional free unassigned teachers available on ${selectedDay}.`);
+                        }
+                      }}
+                      className="px-5 py-3 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-400 hover:to-pink-400 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-rose-300"
+                    >
+                      <Zap className="w-5 h-5 fill-white" />
+                      <span>⚡ 1-Click Auto-Assign Round Duty</span>
+                    </button>
+
+                    <button
+                      onClick={() => setIsPrintGridModalOpen(true)}
+                      className="px-4 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer border border-cyan-300"
+                    >
+                      <Printer className="w-5 h-5 text-slate-950" />
+                      <span>🖨️ Printable Patrol Grid</span>
+                    </button>
+                  </div>
+                </div>
+
+            {/* PRINCIPAL & TIMETABLE INCHARGE: LIVE PERIOD STATUS MATRIX (RED / GREEN RADAR) */}
+            <div className="bg-slate-950 p-5 rounded-2xl border border-indigo-500/50 shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500 text-white animate-pulse">
+                      Live Duty Radar
+                    </span>
+                    <span className="text-xs font-black text-indigo-300">
+                      Principal & Timetable In-Charge Console
+                    </span>
+                  </div>
+                  <h4 className="text-base font-black text-white mt-1 flex items-center gap-2">
+                    <Radio className="w-5 h-5 text-rose-400 animate-pulse" />
+                    Live Period Attendance & Round Duty Status Matrix
+                  </h4>
+                  <p className="text-xs text-slate-300">
+                    Real-time status of all classes and periods. Patrolling teachers submit QR feedback with two buttons (No Remark ➔ 🟢 Green / Remarks ➔ 🔴 Red).
+                  </p>
+                </div>
+
+                {/* Status Legend */}
+                <div className="flex items-center gap-2 flex-wrap text-[11px] font-bold">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400"></span> 🟢 On-Time / No Remarks
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-950 text-rose-300 border border-rose-500 animate-pulse">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span> 🔴 Teacher Late / Observation
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900 text-slate-400 border border-slate-700">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-500"></span> ⚪ Upcoming / Scheduled
+                  </span>
+                </div>
+              </div>
+
+              {/* LIVE MATRIX TABLE */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs min-w-[850px]">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-slate-300 uppercase font-black text-[11px]">
+                      <th className="py-2.5 px-3 w-36">Class / Room</th>
+                      {[1, 2, 3, 4, 5, 6, 7, 8].map((pNo) => (
+                        <th key={pNo} className="py-2.5 px-2 text-center">
+                          Period {pNo}
+                          <span className="block text-[9px] font-normal text-slate-400 lowercase">
+                            {getTimeSlotForPeriod(pNo).split('-')[0]}
+                          </span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/80">
+                    {[
+                      'Class 6-A',
+                      'Class 6-B',
+                      'Class 7-A',
+                      'Class 7-B',
+                      'Class 8-A',
+                      'Class 8-B',
+                      'Class 9-A',
+                      'Class 10-A',
+                      'Class 11-A',
+                      'Class 12-A'
+                    ].map((className) => (
+                      <tr key={className} className="hover:bg-slate-900/50">
+                        <td className="py-2.5 px-3 font-extrabold text-white bg-slate-900/60 border-r border-slate-800">
+                          {className}
+                        </td>
+                        {[1, 2, 3, 4, 5, 6, 7, 8].map((periodNo) => {
+                          const scheduled = getScheduledTeacherForClass(selectedDay, periodNo, className);
+                          const matchingObs = roundObservations.find(
+                            (o) =>
+                              o.day === selectedDay &&
+                              o.periodNumber === periodNo &&
+                              (o.selectedClass === className || (o.type === 'NO_REMARK' && periodNo === 4))
+                          );
+
+                          let cellStyle = 'bg-slate-900/60 text-slate-400 border-slate-800/80 hover:bg-slate-800/80';
+                          let statusLabel = scheduled.teacherName.split(' ')[0] || 'Scheduled';
+                          let isRed = false;
+                          let isGreen = false;
+
+                          if (matchingObs) {
+                            if (matchingObs.type === 'REMARKS_OBSERVATION') {
+                              isRed = true;
+                              cellStyle = 'bg-rose-900/90 text-rose-100 border-rose-500 ring-1 ring-rose-500 shadow-md animate-pulse cursor-pointer';
+                              statusLabel = `🔴 LATE (${matchingObs.delayType || 'Late'})`;
+                            } else if (matchingObs.type === 'NO_REMARK') {
+                              isGreen = true;
+                              cellStyle = 'bg-emerald-900/80 text-emerald-100 border-emerald-500 ring-1 ring-emerald-500 cursor-pointer';
+                              statusLabel = '🟢 ON-TIME';
+                            }
+                          } else if (periodNo <= 2) {
+                            // Default sample period simulation
+                            if (className === 'Class 6-A' && periodNo === 2) {
+                              isRed = true;
+                              cellStyle = 'bg-rose-900/90 text-rose-100 border-rose-500 ring-1 ring-rose-500 shadow-md animate-pulse cursor-pointer';
+                              statusLabel = '🔴 LATE (5 min)';
+                            } else {
+                              isGreen = true;
+                              cellStyle = 'bg-emerald-900/80 text-emerald-100 border-emerald-500 cursor-pointer';
+                              statusLabel = '🟢 ON-TIME';
+                            }
+                          }
+
+                          return (
+                            <td
+                              key={periodNo}
+                              onClick={() => {
+                                if (matchingObs) {
+                                  setSelectedObsInspection(matchingObs);
+                                } else {
+                                  setSelectedObsInspection({
+                                    id: `obs-temp-${Date.now()}`,
+                                    dutyId: 'rd-auto',
+                                    timestamp: 'Live Active Period',
+                                    day: selectedDay,
+                                    periodNumber: periodNo,
+                                    location: `${className} Room`,
+                                    reportingTeacher: 'Campus Patrol Faculty',
+                                    type: isRed ? 'REMARKS_OBSERVATION' : isGreen ? 'NO_REMARK' : 'NO_REMARK',
+                                    selectedClass: className,
+                                    scheduledTeacher: scheduled.teacherName,
+                                    scheduledSubject: scheduled.subject,
+                                    delayType: isRed ? '5 minutes late' : 'On Time',
+                                    message: isRed
+                                      ? `${className} teacher, ${scheduled.teacherName}, did not reach on time (5 minutes late).`
+                                      : `${className} faculty reached on-time. No remarks reported.`,
+                                    status: isRed ? 'Reported' : 'Acknowledged',
+                                    feedbackSentTo: ['Timetable In-Charge (Mr. Rakesh Sharma)', 'Principal (Dr. V. K. Sharma)']
+                                  });
+                                }
+                              }}
+                              className={`p-2 text-center align-middle border transition-all cursor-pointer select-none rounded-lg ${cellStyle}`}
+                              title={`Click to inspect Period #${periodNo} for ${className} (${scheduled.teacherName})`}
+                            >
+                              <div className="font-black text-[10px] uppercase truncate">{statusLabel}</div>
+                              <span className="text-[9px] opacity-75 block truncate">
+                                {scheduled.teacherName}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* RECENT FEEDBACK DISPATCHED LOG */}
+              <div className="pt-2 border-t border-slate-800 space-y-2">
+                <span className="text-xs font-black text-slate-300 uppercase tracking-wider block">
+                  📢 Live Round Duty Observations Dispatched to Principal & In-Charge ({roundObservations.length}):
+                </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                  {roundObservations.map((obs) => (
+                    <div
+                      key={obs.id}
+                      onClick={() => setSelectedObsInspection(obs)}
+                      className={`p-3 rounded-xl border text-xs cursor-pointer transition-all hover:scale-[1.01] ${
+                        obs.type === 'REMARKS_OBSERVATION'
+                          ? 'bg-rose-950/40 border-rose-800/80 text-rose-200'
+                          : 'bg-emerald-950/30 border-emerald-800/60 text-emerald-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between font-black">
+                        <span className="flex items-center gap-1.5">
+                          {obs.type === 'REMARKS_OBSERVATION' ? '🔴' : '🟢'} Period #{obs.periodNumber} • {obs.selectedClass || obs.location}
+                        </span>
+                        <span className="text-[10px] opacity-75">{obs.timestamp}</span>
+                      </div>
+                      <p className="font-bold mt-1 text-white">"{obs.message}"</p>
+                      <div className="text-[10px] opacity-75 mt-1 flex items-center justify-between">
+                        <span>Reported by: {obs.reportingTeacher}</span>
+                        <span className="font-bold text-cyan-300">Click to Inspect ➔</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -2534,6 +3418,8 @@ export const TimetableModule: React.FC = () => {
               </div>
             )}
           </div>
+          </>
+          )}
         </div>
       )}
 
@@ -3029,6 +3915,43 @@ export const TimetableModule: React.FC = () => {
 
             </div>
 
+            {/* BOTTOM ACTION BAR WITH CLOSE / BACK / CANCEL / PRINT BUTTONS FOR PRINT GRID MODAL */}
+            <div className="pt-4 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 no-print">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPrintGridModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+                >
+                  ← Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsPrintGridModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsPrintGridModalOpen(false)}
+                  className="px-4 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl cursor-pointer transition-all"
+                >
+                  Close Report
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all"
+                >
+                  <Printer className="w-4 h-4" /> Print Noticeboard
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -3099,52 +4022,342 @@ export const TimetableModule: React.FC = () => {
         </div>
       )}
 
-      {/* QR CODE CAMERA SCANNER SIMULATION MODAL */}
+      {/* QR CODE CAMERA SCANNER SIMULATION MODAL (TWO BUTTONS ONLY WORKFLOW) */}
       {qrScannerDuty && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-slate-900 border border-slate-700 text-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-5 relative">
+          <div className="bg-slate-900 border border-slate-700 text-white w-full max-w-lg rounded-3xl shadow-2xl p-6 space-y-5 relative">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <QrCode className="w-6 h-6 text-emerald-400" />
-                <h3 className="text-base font-extrabold text-white">Duty Point QR Scanner</h3>
+                <div>
+                  <h3 className="text-base font-extrabold text-white">Duty Point QR Attendance Scanner</h3>
+                  <span className="text-[10px] text-emerald-300 font-bold">
+                    {qrScanStep === 'TWO_BUTTONS' ? 'Step 1 of 2: Attendance Verification' : 'Step 2 of 2: Observation & Feedback'}
+                  </span>
+                </div>
               </div>
               <button
-                onClick={() => setQrScannerDuty(null)}
+                onClick={() => {
+                  setQrScannerDuty(null);
+                  setQrScanStep('TWO_BUTTONS');
+                }}
                 className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Simulated Camera Scanner Window */}
-            <div className="relative aspect-square w-full bg-slate-950 rounded-2xl border-2 border-dashed border-emerald-500/80 flex flex-col items-center justify-center p-4 overflow-hidden group">
-              {/* Laser Scan Line Effect */}
-              <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent top-1/4 animate-bounce opacity-80 shadow-[0_0_15px_#10b981]" />
+            {qrScanStep === 'TWO_BUTTONS' ? (
+              /* SCREEN 1: QR CODE CAMERA SCAN & TWO BUTTONS ONLY */
+              <div className="space-y-4">
+                {/* Simulated Camera Scanner Window */}
+                <div className="relative aspect-video w-full bg-slate-950 rounded-2xl border-2 border-dashed border-emerald-500/80 flex flex-col items-center justify-center p-4 overflow-hidden group">
+                  {/* Laser Scan Line Effect */}
+                  <div className="absolute inset-x-0 h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent top-1/3 animate-bounce opacity-80 shadow-[0_0_15px_#10b981]" />
 
-              <div className="w-48 h-48 border-2 border-emerald-400 rounded-2xl flex items-center justify-center bg-slate-900/60 p-4 text-center space-y-2 relative">
-                <QrCode className="w-24 h-24 text-emerald-400 mx-auto" />
+                  <div className="w-32 h-32 border-2 border-emerald-400 rounded-2xl flex items-center justify-center bg-slate-900/60 p-3 text-center space-y-2 relative">
+                    <QrCode className="w-20 h-20 text-emerald-400 mx-auto" />
+                  </div>
+
+                  <span className="text-xs font-bold text-emerald-300 mt-2 bg-slate-900/90 px-3 py-1 rounded-full border border-emerald-500/40">
+                    📷 QR Code Scanned & Location Matched
+                  </span>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1 text-xs">
+                  <p className="font-extrabold text-white text-sm flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-rose-400" />
+                    {qrScannerDuty.location}
+                  </p>
+                  <p className="text-slate-300">
+                    Patrolling Faculty: <strong className="text-white">{qrScannerDuty.teacherName}</strong> | Period #{qrScannerDuty.periodNumber} ({qrScannerDuty.timeSlot})
+                  </p>
+                </div>
+
+                {/* THE TWO BUTTONS ONLY */}
+                <div className="space-y-2.5 pt-2">
+                  <span className="text-[11px] font-black text-slate-400 uppercase tracking-wider block text-center">
+                    Select Round Completion Status:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* BUTTON 1: ROUND DONE, NO REMARK */}
+                    <button
+                      type="button"
+                      onClick={() => handleRoundDoneNoRemark(qrScannerDuty)}
+                      className="py-3.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 border border-emerald-400/40 text-center"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        <span className="font-black">Round done, no remark</span>
+                      </div>
+                      <span className="text-[10px] text-emerald-100 font-normal">All teachers reached on-time (🟢 GREEN)</span>
+                    </button>
+
+                    {/* BUTTON 2: ROUND DONE, REMARKS */}
+                    <button
+                      type="button"
+                      onClick={handleOpenRemarksForm}
+                      className="py-3.5 px-4 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-2xl shadow-lg active:scale-95 transition-all cursor-pointer flex flex-col items-center justify-center gap-1 border border-amber-400/40 text-center"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-white" />
+                        <span className="font-black">Round done, remarks</span>
+                      </div>
+                      <span className="text-[10px] text-amber-100 font-normal">Teacher late / observation (🔴 RED)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* CANCEL & CLOSE BUTTONS AT BOTTOM */}
+                <div className="flex items-center justify-between pt-2 border-t border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQrScannerDuty(null);
+                      setQrScanStep('TWO_BUTTONS');
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl cursor-pointer transition-all flex items-center gap-1"
+                  >
+                    ← Back / Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQrScannerDuty(null);
+                      setQrScanStep('TWO_BUTTONS');
+                    }}
+                    className="px-4 py-2 text-xs font-bold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl cursor-pointer transition-all"
+                  >
+                    Close Scanner
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* SCREEN 2: REMARKS & OBSERVATION FORM (SELECT CLASS, SCHEDULED TEACHER LOOKUP, DELAY OPTION) */
+              <div className="space-y-4">
+                <div className="p-3 bg-amber-950/40 border border-amber-500/40 rounded-xl space-y-1">
+                  <div className="flex items-center gap-2 text-amber-300 font-black text-xs uppercase tracking-wider">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>Report Class Observation to Principal & Incharge</span>
+                  </div>
+                  <p className="text-[11px] text-slate-300">
+                    Select the class you inspected. The system will look up who is scheduled to teach during Period #{qrScannerDuty.periodNumber} ({qrScannerDuty.timeSlot}).
+                  </p>
+                </div>
+
+                {/* 1. Class Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-200 uppercase tracking-wider block">
+                    1. Select Inspected Class / Room:
+                  </label>
+                  <select
+                    value={selectedObsClass}
+                    onChange={(e) => {
+                      const newCls = e.target.value;
+                      setSelectedObsClass(newCls);
+                      const scheduled = getScheduledTeacherForClass(qrScannerDuty.day, qrScannerDuty.periodNumber, newCls);
+                      setCustomObsMessage(`${newCls} teacher, ${scheduled.teacherName}, did not reach on time (${selectedDelayType}).`);
+                    }}
+                    className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-700 rounded-xl text-white font-bold text-xs cursor-pointer focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="Class 6-A">Class 6-A (Sixth A)</option>
+                    <option value="Class 6-B">Class 6-B (Sixth B)</option>
+                    <option value="Class 7-A">Class 7-A (Seventh A)</option>
+                    <option value="Class 7-B">Class 7-B (Seventh B)</option>
+                    <option value="Class 8-A">Class 8-A (Eighth A)</option>
+                    <option value="Class 8-B">Class 8-B (Eighth B)</option>
+                    <option value="Class 9-A">Class 9-A (Ninth A)</option>
+                    <option value="Class 10-A">Class 10-A (Tenth A)</option>
+                    <option value="Class 11-A">Class 11-A (Eleventh A)</option>
+                    <option value="Class 12-A">Class 12-A (Twelfth A)</option>
+                    <option value="Corridor / Labs Zone">Corridor / Labs Zone</option>
+                  </select>
+                </div>
+
+                {/* 2. Scheduled Teacher Dynamic Lookup Card */}
+                {(() => {
+                  const scheduled = getScheduledTeacherForClass(qrScannerDuty.day, qrScannerDuty.periodNumber, selectedObsClass);
+                  return (
+                    <div className="p-3 bg-slate-950 rounded-xl border border-indigo-700/60 flex items-center justify-between gap-3">
+                      <div>
+                        <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 block">
+                          Scheduled Faculty at Period #{qrScannerDuty.periodNumber}:
+                        </span>
+                        <h4 className="text-sm font-black text-white flex items-center gap-1.5 mt-0.5">
+                          👨‍🏫 {scheduled.teacherName}
+                        </h4>
+                        <p className="text-[11px] text-slate-300">
+                          Subject: <strong>{scheduled.subject}</strong> | Day: {qrScannerDuty.day}
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-900/60 text-indigo-200 border border-indigo-700">
+                        {selectedObsClass}
+                      </span>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Delay & Issue Selection */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-200 uppercase tracking-wider block">
+                    2. Select Observation / Delay:
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      '5 minutes late',
+                      '10 minutes late',
+                      '15 minutes late',
+                      'Teacher Not Reached / Unattended',
+                      'Teacher Absent (No Sub)',
+                      'Discipline / Noise Issue'
+                    ].map((opt) => (
+                      <button
+                        key={opt}
+                        type="button"
+                        onClick={() => {
+                          setSelectedDelayType(opt);
+                          const scheduled = getScheduledTeacherForClass(qrScannerDuty.day, qrScannerDuty.periodNumber, selectedObsClass);
+                          setCustomObsMessage(`${selectedObsClass} teacher, ${scheduled.teacherName}, did not reach on time (${opt}).`);
+                        }}
+                        className={`p-2 rounded-xl text-left text-xs font-bold transition-all cursor-pointer border ${
+                          selectedDelayType === opt
+                            ? 'bg-amber-500/20 border-amber-400 text-amber-200'
+                            : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 4. Feedback Message Textarea */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-black text-slate-200 uppercase tracking-wider block">
+                    3. Generated Feedback Message (Will be sent to Principal & Incharge):
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={customObsMessage}
+                    onChange={(e) => setCustomObsMessage(e.target.value)}
+                    className="w-full p-2.5 bg-slate-950 border border-slate-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    placeholder="Sixth A teacher, Miss Gita, did not reach on time..."
+                  />
+                  <div className="p-2 bg-rose-950/40 rounded-lg border border-rose-800/40 text-[10px] text-rose-200 font-bold flex items-center gap-1.5">
+                    <Bell className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                    <span>
+                      Dispatches instant alert to Principal (Dr. V. K. Sharma) and Timetable In-Charge (Mr. Rakesh Sharma). Period #{qrScannerDuty.periodNumber} for {selectedObsClass} will show 🔴 RED.
+                    </span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setQrScanStep('TWO_BUTTONS')}
+                    className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    ← Back
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSubmitRemarksObservation(qrScannerDuty)}
+                    className="flex-1 py-3 bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-500 hover:to-rose-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Send Message & Mark Period 🔴 RED</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* INSPECTION DETAIL MODAL (WHEN PRINCIPAL / INCHARGE CLICKS A RED/GREEN CELL) */}
+      {selectedObsInspection && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-700 text-white w-full max-w-md rounded-3xl shadow-2xl p-6 space-y-4 relative">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className={`w-3 h-3 rounded-full ${selectedObsInspection.type === 'REMARKS_OBSERVATION' ? 'bg-rose-500 animate-ping' : 'bg-emerald-500'}`} />
+                <h3 className="text-base font-extrabold text-white">
+                  Period #{selectedObsInspection.periodNumber} Duty Inspection
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedObsInspection(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+                <p className="text-slate-400">Inspected Class:</p>
+                <strong className="text-sm font-black text-white">{selectedObsInspection.selectedClass || 'Corridor Patrol'}</strong>
+                <p className="text-slate-400 pt-1">Scheduled Faculty:</p>
+                <p className="font-bold text-indigo-300">
+                  {selectedObsInspection.scheduledTeacher || 'Assigned Faculty'} {selectedObsInspection.scheduledSubject ? `(${selectedObsInspection.scheduledSubject})` : ''}
+                </p>
               </div>
 
-              <span className="text-xs font-bold text-emerald-300 mt-4 bg-slate-900/90 px-3 py-1 rounded-full border border-emerald-500/40">
-                Align Camera with QR Code at Duty Location
-              </span>
+              <div className={`p-3 rounded-xl border ${selectedObsInspection.type === 'REMARKS_OBSERVATION' ? 'bg-rose-950/50 border-rose-800/60 text-rose-200' : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-200'}`}>
+                <span className="text-[10px] font-black uppercase tracking-wider block">
+                  {selectedObsInspection.type === 'REMARKS_OBSERVATION' ? '⚠️ Observation Reported:' : '✅ Status:'}
+                </span>
+                <p className="font-bold text-sm mt-0.5">"{selectedObsInspection.message}"</p>
+                <p className="text-[10px] opacity-80 mt-1">
+                  Reported by {selectedObsInspection.reportingTeacher} at {selectedObsInspection.timestamp} ({selectedObsInspection.day})
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] font-black uppercase text-slate-400 block">Feedback Dispatched To:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {selectedObsInspection.feedbackSentTo.map((target, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-indigo-950 text-indigo-300 text-[10px] font-bold rounded border border-indigo-800">
+                      📩 {target}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
 
-            <div className="space-y-1 text-xs">
-              <p className="font-extrabold text-white text-sm">📍 {qrScannerDuty.location}</p>
-              <p className="text-slate-300">
-                Faculty: <strong className="text-white">{qrScannerDuty.teacherName}</strong> | Period #{qrScannerDuty.periodNumber} ({qrScannerDuty.timeSlot})
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2 pt-2">
+            <div className="pt-2 flex items-center justify-between gap-2 border-t border-slate-800">
               <button
-                onClick={() => handleVerifyQRScan(qrScannerDuty.id, qrScannerDuty.location)}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                type="button"
+                onClick={() => setSelectedObsInspection(null)}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer flex items-center gap-1"
               >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm QR Code Scan & Complete Duty</span>
+                ← Back
               </button>
+
+              <div className="flex items-center gap-2">
+                {selectedObsInspection.type === 'REMARKS_OBSERVATION' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('arrangements');
+                      setSelectedObsInspection(null);
+                      alert(`Opening Substitution Engine to assign replacement for ${selectedObsInspection.selectedClass}!`);
+                    }}
+                    className="py-2.5 px-4 bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-xs rounded-xl shadow cursor-pointer text-center"
+                  >
+                    ⚡ Dispatch Substitute Teacher
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedObsInspection(null)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -3229,10 +4442,28 @@ export const TimetableModule: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDispatchAlertModalDuty(null)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  ← Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDispatchAlertModalDuty(null)}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+
               <button
+                type="button"
                 onClick={handleDispatchAlertToIncharges}
-                className="w-full py-3 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
+                className="py-2.5 px-5 bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow-lg active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <Send className="w-4 h-4" />
                 <span>📲 Dispatch Instant SMS & System Alert Now</span>

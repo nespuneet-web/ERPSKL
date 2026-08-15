@@ -249,6 +249,43 @@ export const PrintModal: React.FC<PrintModalProps> = ({
           </div>
         </div>
 
+        {/* BOTTOM STICKY ACTION BAR WITH CLOSE / BACK / CANCEL / PRINT BUTTONS */}
+        <div className="p-3.5 bg-slate-900 text-white flex items-center justify-between border-t border-slate-800 shrink-0 no-print">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl transition-all cursor-pointer"
+            >
+              Close Preview
+            </button>
+            <button
+              type="button"
+              onClick={handleTriggerPrint}
+              className="px-5 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md flex items-center gap-2 cursor-pointer transition-all hover:scale-102 active:scale-98"
+            >
+              <Printer className="w-4 h-4" /> Print Document
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );

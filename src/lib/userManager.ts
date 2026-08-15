@@ -17,6 +17,9 @@ export interface UserAccount {
 
 const PASSWORD_STORAGE_KEY = 'schoolerp_user_passwords_v2';
 const CURRENT_USER_SESSION_KEY = 'schoolerp_active_user_session_v2';
+const CUSTOM_USERS_STORAGE_KEY = 'schoolerp_custom_users_v2';
+const USER_PERMISSIONS_OVERRIDE_KEY = 'schoolerp_user_permission_overrides_v2';
+const USER_SUBSECTION_OVERRIDES_KEY = 'schoolerp_user_subsection_overrides_v1';
 
 // 1. Core Default User definitions
 const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPasswordChanged'>[] = [
@@ -52,8 +55,143 @@ const ADMIN_STAFF_DEFINITIONS: Omit<UserAccount, 'currentPassword' | 'isPassword
     email: 'reception@gdgpsagra.edu',
     designation: 'Front Desk & Visitor Manager',
     department: 'Reception & Helpdesk'
+  },
+  {
+    id: 'usr-adm-1',
+    username: 'admission',
+    displayName: 'Mrs. Ritu Agarwal (Admission Incharge)',
+    role: 'Admission Team',
+    defaultPassword: 'gdgoenka',
+    category: 'admin_staff',
+    email: 'admission@gdgpsagra.edu',
+    designation: 'Head of Admissions & Inquiries',
+    department: 'Admissions'
+  },
+  {
+    id: 'usr-acc-1',
+    username: 'accountant',
+    displayName: 'Mr. Rajesh Mittal (Senior Accountant)',
+    role: 'Accountant',
+    defaultPassword: 'gdgoenka',
+    category: 'admin_staff',
+    email: 'accounts@gdgpsagra.edu',
+    designation: 'Bursar & Accounts Head',
+    department: 'Accounts & Finance'
   }
 ];
+
+// Helper to get stored custom created users
+export function getCustomUsers(): UserAccount[] {
+  try {
+    const saved = localStorage.getItem(CUSTOM_USERS_STORAGE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Error loading custom users:', e);
+  }
+  return [];
+}
+
+// Helper to save a custom user created by Admin
+export function saveCustomUser(newUser: UserAccount): boolean {
+  try {
+    const users = getCustomUsers();
+    const cleanUser = newUser.username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    const filtered = users.filter((u) => u.username !== cleanUser);
+    filtered.push({ ...newUser, username: cleanUser });
+    localStorage.setItem(CUSTOM_USERS_STORAGE_KEY, JSON.stringify(filtered));
+    return true;
+  } catch (e) {
+    console.error('Error saving custom user:', e);
+    return false;
+  }
+}
+
+// Helper to delete a custom user
+export function deleteCustomUser(username: string): boolean {
+  try {
+    const cleanUser = username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    const users = getCustomUsers().filter((u) => u.username !== cleanUser);
+    localStorage.setItem(CUSTOM_USERS_STORAGE_KEY, JSON.stringify(users));
+    return true;
+  } catch (e) {
+    console.error('Error deleting custom user:', e);
+    return false;
+  }
+}
+
+// User-specific permission overrides (username -> string[] of allowed module IDs)
+export function getUserPermissionOverrides(): Record<string, string[]> {
+  try {
+    const saved = localStorage.getItem(USER_PERMISSIONS_OVERRIDE_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Error loading user permission overrides:', e);
+  }
+  return {};
+}
+
+export function saveUserPermissionOverride(username: string, modules: string[]): boolean {
+  try {
+    const current = getUserPermissionOverrides();
+    const cleanUser = username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    current[cleanUser] = modules;
+    localStorage.setItem(USER_PERMISSIONS_OVERRIDE_KEY, JSON.stringify(current));
+    return true;
+  } catch (e) {
+    console.error('Error saving user permission override:', e);
+    return false;
+  }
+}
+
+export function removeUserPermissionOverride(username: string): boolean {
+  try {
+    const current = getUserPermissionOverrides();
+    const cleanUser = username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    delete current[cleanUser];
+    localStorage.setItem(USER_PERMISSIONS_OVERRIDE_KEY, JSON.stringify(current));
+    return true;
+  } catch (e) {
+    console.error('Error removing user permission override:', e);
+    return false;
+  }
+}
+
+// User-specific sub-section permission overrides (username -> string[] of allowed sub-section IDs)
+export function getUserSubSectionOverrides(): Record<string, string[]> {
+  try {
+    const saved = localStorage.getItem(USER_SUBSECTION_OVERRIDES_KEY);
+    if (saved) return JSON.parse(saved);
+  } catch (e) {
+    console.error('Error loading user sub-section overrides:', e);
+  }
+  return {};
+}
+
+export function saveUserSubSectionOverride(username: string, subSections: string[]): boolean {
+  try {
+    const current = getUserSubSectionOverrides();
+    const cleanUser = username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    current[cleanUser] = subSections;
+    localStorage.setItem(USER_SUBSECTION_OVERRIDES_KEY, JSON.stringify(current));
+    return true;
+  } catch (e) {
+    console.error('Error saving user sub-section override:', e);
+    return false;
+  }
+}
+
+export function removeUserSubSectionOverride(username: string): boolean {
+  try {
+    const current = getUserSubSectionOverrides();
+    const cleanUser = username.trim().toLowerCase().replace(/[\s_-]+/g, '');
+    delete current[cleanUser];
+    localStorage.setItem(USER_SUBSECTION_OVERRIDES_KEY, JSON.stringify(current));
+    return true;
+  } catch (e) {
+    console.error('Error removing user sub-section override:', e);
+    return false;
+  }
+}
 
 // Helper to get stored custom passwords
 function getCustomPasswords(): Record<string, string> {
@@ -142,8 +280,16 @@ export function getAllUserAccounts(): UserAccount[] {
 
   const teachers = generateTeacherAccounts(customPasswords);
   const students = generateStudentAccounts(customPasswords);
+  const customUsers = getCustomUsers().map((u) => {
+    const storedPass = customPasswords[u.username];
+    return {
+      ...u,
+      currentPassword: storedPass || u.currentPassword || u.defaultPassword,
+      isPasswordChanged: Boolean(storedPass && storedPass !== u.defaultPassword)
+    };
+  });
 
-  return [...adminStaff, ...teachers, ...students];
+  return [...adminStaff, ...customUsers, ...teachers, ...students];
 }
 
 // Update user password and persist in localStorage

@@ -6,10 +6,9 @@ import { StudentFormModal } from './StudentFormModal';
 import { StudentPortalView } from './StudentPortalView';
 import { ParentPortalView } from './ParentPortalView';
 import { HouseAndClubManager } from './HouseAndClubManager';
-import { AdmissionModule } from '../admission';
 import { Student } from '../../types/sis';
 import { useAuth } from '../../context/AuthContext';
-import { UserCheck, Eye, Plus, ShieldAlert, Shield, Award, UserPlus, Users } from 'lucide-react';
+import { UserCheck, Eye, Plus, ShieldAlert, Shield, Award, Users } from 'lucide-react';
 
 export const SisModule: React.FC = () => {
   const { students, syncStatus, addStudent, updateStudent, deleteStudent, addDocumentToStudent } = useSisStore();
@@ -18,7 +17,7 @@ export const SisModule: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [subView, setSubView] = useState<'directory' | 'admission' | 'houses-clubs' | 'student-portal' | 'parent-portal'>('directory');
+  const [subView, setSubView] = useState<'directory' | 'houses-clubs' | 'student-portal' | 'parent-portal'>('directory');
 
   const handleSaveStudent = (data: any) => {
     if (editingStudent) {
@@ -68,7 +67,7 @@ export const SisModule: React.FC = () => {
         </div>
       )}
 
-      {/* Unified SIS & Admission Mode Switcher Bar */}
+      {/* SIS Navigation Bar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
         <button
           onClick={() => { setSubView('directory'); setSelectedStudent(null); }}
@@ -83,18 +82,6 @@ export const SisModule: React.FC = () => {
         </button>
 
         <button
-          onClick={() => { setSubView('admission'); setSelectedStudent(null); }}
-          className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
-            subView === 'admission'
-              ? 'bg-indigo-600 text-white shadow-sm'
-              : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
-          }`}
-        >
-          <UserPlus className="w-4 h-4 text-emerald-500" />
-          2. Admission & Inquiry Pipeline (3 Steps)
-        </button>
-
-        <button
           onClick={() => { setSubView('houses-clubs'); setSelectedStudent(null); }}
           className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
             subView === 'houses-clubs'
@@ -103,7 +90,7 @@ export const SisModule: React.FC = () => {
           }`}
         >
           <Shield className="w-4 h-4 text-amber-500" />
-          3. Houses, Clubs & Activities
+          2. Houses, Clubs & Activities
         </button>
 
         <button
@@ -129,7 +116,6 @@ export const SisModule: React.FC = () => {
         </button>
       </div>
 
-      {subView === 'admission' && <AdmissionModule />}
       {subView === 'houses-clubs' && <HouseAndClubManager />}
       {subView === 'student-portal' && <StudentPortalView student={selectedStudent || students[0]} />}
       {subView === 'parent-portal' && <ParentPortalView students={students} />}

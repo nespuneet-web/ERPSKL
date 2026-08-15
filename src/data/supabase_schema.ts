@@ -384,6 +384,222 @@ CREATE TABLE IF NOT EXISTS public.audit_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- ====================================================================
+-- NEW ERP SYSTEM EXPANSION TABLES (14 ADVANCED SUBSYSTEM TABLES)
+-- ====================================================================
+
+-- 25. TIMETABLE PERMISSION REQUESTS TABLE (Teacher Request & Admin Lock/Unlock Workflow)
+CREATE TABLE IF NOT EXISTS public.timetable_permission_requests (
+    id VARCHAR(100) PRIMARY KEY,
+    teacher_name VARCHAR(150) NOT NULL,
+    teacher_id VARCHAR(100),
+    department VARCHAR(100),
+    request_reason TEXT NOT NULL,
+    requested_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    status VARCHAR(30) DEFAULT 'REQUEST_PENDING', -- REQUEST_PENDING, EDIT_GRANTED, REJECTED, LOCKED
+    allowed_until TIMESTAMP WITH TIME ZONE,
+    reviewed_by VARCHAR(150),
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    admin_notes TEXT
+);
+
+-- 26. BROADCAST NOTICES & COMMUNICATION LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.broadcast_notices (
+    id VARCHAR(100) PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    target_audience VARCHAR(50) DEFAULT 'All', -- All, Teachers, Students, Parents
+    channel VARCHAR(30) DEFAULT 'App Notice', -- App Notice, SMS, Email, WhatsApp
+    author_name VARCHAR(150),
+    is_urgent BOOLEAN DEFAULT false,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 27. GPS VEHICLE & STAFF PATROL LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.gps_tracking_logs (
+    id VARCHAR(100) PRIMARY KEY,
+    tracking_type VARCHAR(50) NOT NULL, -- BUS_ROUTE, ROUND_DUTY_PATROL, CAMPUS_CHECKPOINT
+    entity_id VARCHAR(100) NOT NULL, -- Bus Number or Teacher ID
+    entity_name VARCHAR(150) NOT NULL,
+    latitude DECIMAL(10, 7) NOT NULL,
+    longitude DECIMAL(10, 7) NOT NULL,
+    speed_kmh DECIMAL(5, 2) DEFAULT 0.0,
+    checkpoint_name VARCHAR(150),
+    logged_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 28. STAFF PAYROLL & SALARY DISBURSEMENTS TABLE
+CREATE TABLE IF NOT EXISTS public.payroll_disbursements (
+    id VARCHAR(100) PRIMARY KEY,
+    employee_code VARCHAR(50) NOT NULL,
+    employee_name VARCHAR(150) NOT NULL,
+    month_year VARCHAR(20) NOT NULL, -- e.g. 2026-03
+    basic_salary DECIMAL(10, 2) NOT NULL,
+    allowances DECIMAL(10, 2) DEFAULT 0.00,
+    deductions DECIMAL(10, 2) DEFAULT 0.00,
+    net_salary DECIMAL(10, 2) NOT NULL,
+    payment_status VARCHAR(30) DEFAULT 'Paid', -- Paid, Pending, On Hold
+    payment_mode VARCHAR(30) DEFAULT 'Bank Transfer',
+    transaction_ref VARCHAR(100),
+    disbursed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 29. GENERAL LEDGER & SCHOOL ACCOUNTING TABLE
+CREATE TABLE IF NOT EXISTS public.accounting_ledger (
+    id VARCHAR(100) PRIMARY KEY,
+    entry_date DATE DEFAULT CURRENT_DATE,
+    account_type VARCHAR(50) NOT NULL, -- INCOME, EXPENSE, ASSET, LIABILITY
+    category VARCHAR(100) NOT NULL, -- Fees, Maintenance, Salaries, Utilities
+    description TEXT NOT NULL,
+    debit_amount DECIMAL(12, 2) DEFAULT 0.00,
+    credit_amount DECIMAL(12, 2) DEFAULT 0.00,
+    payment_mode VARCHAR(50) DEFAULT 'Bank Transfer',
+    receipt_voucher_no VARCHAR(100),
+    recorded_by VARCHAR(150),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 30. STUDENT HEALTH & MEDICAL CLINIC RECORDS TABLE
+CREATE TABLE IF NOT EXISTS public.student_health_records (
+    id VARCHAR(100) PRIMARY KEY,
+    admission_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    blood_group VARCHAR(10),
+    height_cm DECIMAL(5, 2),
+    weight_kg DECIMAL(5, 2),
+    allergies TEXT,
+    medical_conditions TEXT,
+    checkup_date DATE DEFAULT CURRENT_DATE,
+    doctor_notes TEXT,
+    emergency_action_plan TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 31. HOSTEL OCCUPANCY & BED ALLOCATIONS TABLE
+CREATE TABLE IF NOT EXISTS public.hostel_allocations (
+    id VARCHAR(100) PRIMARY KEY,
+    student_admission_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    block_name VARCHAR(50) NOT NULL,
+    room_number VARCHAR(30) NOT NULL,
+    bed_number VARCHAR(20) NOT NULL,
+    allocation_date DATE DEFAULT CURRENT_DATE,
+    monthly_fee DECIMAL(10, 2) DEFAULT 5000.00,
+    warden_name VARCHAR(150),
+    status VARCHAR(30) DEFAULT 'Occupied',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 32. DISCIPLINARY & STUDENT CONDUCT LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.disciplinary_logs (
+    id VARCHAR(100) PRIMARY KEY,
+    student_admission_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    incident_date DATE DEFAULT CURRENT_DATE,
+    incident_category VARCHAR(100) NOT NULL, -- Punctuality, Uniform, Conduct, Misbehavior
+    severity_level VARCHAR(30) DEFAULT 'Low', -- Low, Medium, High, Critical
+    description TEXT NOT NULL,
+    action_taken TEXT,
+    reported_by VARCHAR(150) NOT NULL,
+    parent_notified BOOLEAN DEFAULT false,
+    status VARCHAR(30) DEFAULT 'Resolved',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 33. ALUMNI DIRECTORY & GRADUATION REGISTRY TABLE
+CREATE TABLE IF NOT EXISTS public.alumni_registry (
+    id VARCHAR(100) PRIMARY KEY,
+    admission_no VARCHAR(50) UNIQUE,
+    full_name VARCHAR(150) NOT NULL,
+    graduation_year INT NOT NULL,
+    final_class VARCHAR(50) DEFAULT 'Class 12',
+    current_profession VARCHAR(150),
+    current_organization VARCHAR(150),
+    contact_email VARCHAR(100),
+    contact_phone VARCHAR(20),
+    achievements TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 34. CERTIFICATE ISSUANCE & VERIFICATION LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.certificate_issuances (
+    id VARCHAR(100) PRIMARY KEY,
+    certificate_no VARCHAR(100) UNIQUE NOT NULL,
+    certificate_type VARCHAR(100) NOT NULL, -- Transfer Certificate, Bonafide, Character, Merit
+    student_admission_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_name VARCHAR(50) NOT NULL,
+    issue_date DATE DEFAULT CURRENT_DATE,
+    reason_for_issue TEXT,
+    issued_by VARCHAR(150),
+    verification_code VARCHAR(100) UNIQUE,
+    status VARCHAR(30) DEFAULT 'Issued',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 35. ID CARD PRINT QUEUE & RFID ENROLLMENT TABLE
+CREATE TABLE IF NOT EXISTS public.idcard_print_queue (
+    id VARCHAR(100) PRIMARY KEY,
+    card_type VARCHAR(50) NOT NULL, -- STUDENT, STAFF, VISITOR
+    holder_id VARCHAR(50) NOT NULL,
+    holder_name VARCHAR(150) NOT NULL,
+    class_or_dept VARCHAR(100) NOT NULL,
+    rfid_tag_no VARCHAR(100),
+    photo_url TEXT,
+    print_status VARCHAR(30) DEFAULT 'Printed', -- Queued, Printed, Dispatched
+    batch_no VARCHAR(50),
+    printed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 36. LIBRARY TRANSACTIONS & BOOK ISSUE/RETURNS TABLE
+CREATE TABLE IF NOT EXISTS public.library_transactions (
+    id VARCHAR(100) PRIMARY KEY,
+    accession_no VARCHAR(50) NOT NULL,
+    book_title VARCHAR(200) NOT NULL,
+    borrower_type VARCHAR(30) DEFAULT 'Student', -- Student, Staff
+    borrower_id VARCHAR(50) NOT NULL,
+    borrower_name VARCHAR(150) NOT NULL,
+    issue_date DATE DEFAULT CURRENT_DATE,
+    due_date DATE NOT NULL,
+    return_date DATE,
+    fine_amount DECIMAL(8, 2) DEFAULT 0.00,
+    status VARCHAR(30) DEFAULT 'Issued', -- Issued, Returned, Overdue, Lost
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 37. PARENT-TEACHER MEETING & OBSERVATION LOGS TABLE
+CREATE TABLE IF NOT EXISTS public.ptm_meetings (
+    id VARCHAR(100) PRIMARY KEY,
+    meeting_date DATE DEFAULT CURRENT_DATE,
+    class_name VARCHAR(50) NOT NULL,
+    student_admission_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    parent_name VARCHAR(150),
+    teacher_name VARCHAR(150) NOT NULL,
+    discussion_points TEXT,
+    parent_feedback TEXT,
+    action_items TEXT,
+    attendance_status VARCHAR(30) DEFAULT 'Attended',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- 38. ADMISSION ENTRANCE EXAM & INTERVIEW RESULTS TABLE
+CREATE TABLE IF NOT EXISTS public.admission_test_results (
+    id VARCHAR(100) PRIMARY KEY,
+    application_no VARCHAR(50) NOT NULL,
+    student_name VARCHAR(150) NOT NULL,
+    class_seeking VARCHAR(50) NOT NULL,
+    test_date DATE DEFAULT CURRENT_DATE,
+    written_test_score DECIMAL(5, 2) DEFAULT 0.00,
+    interview_score DECIMAL(5, 2) DEFAULT 0.00,
+    total_score DECIMAL(5, 2) DEFAULT 0.00,
+    evaluator_name VARCHAR(150),
+    recommendation VARCHAR(50) DEFAULT 'Approved for Admission', -- Approved, Waitlisted, Rejected
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS) & Grant Public Read/Write for ERP App safely
 DO $$ 
 BEGIN
@@ -567,6 +783,104 @@ BEGIN
         ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
         DROP POLICY IF EXISTS "Allow public full access to audit_logs" ON public.audit_logs;
         CREATE POLICY "Allow public full access to audit_logs" ON public.audit_logs FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Timetable Permission Requests
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'timetable_permission_requests') THEN
+        ALTER TABLE public.timetable_permission_requests ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to timetable_permission_requests" ON public.timetable_permission_requests;
+        CREATE POLICY "Allow public full access to timetable_permission_requests" ON public.timetable_permission_requests FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Broadcast Notices
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'broadcast_notices') THEN
+        ALTER TABLE public.broadcast_notices ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to broadcast_notices" ON public.broadcast_notices;
+        CREATE POLICY "Allow public full access to broadcast_notices" ON public.broadcast_notices FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- GPS Tracking Logs
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'gps_tracking_logs') THEN
+        ALTER TABLE public.gps_tracking_logs ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to gps_tracking_logs" ON public.gps_tracking_logs;
+        CREATE POLICY "Allow public full access to gps_tracking_logs" ON public.gps_tracking_logs FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Payroll Disbursements
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'payroll_disbursements') THEN
+        ALTER TABLE public.payroll_disbursements ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to payroll_disbursements" ON public.payroll_disbursements;
+        CREATE POLICY "Allow public full access to payroll_disbursements" ON public.payroll_disbursements FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Accounting Ledger
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'accounting_ledger') THEN
+        ALTER TABLE public.accounting_ledger ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to accounting_ledger" ON public.accounting_ledger;
+        CREATE POLICY "Allow public full access to accounting_ledger" ON public.accounting_ledger FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Student Health Records
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'student_health_records') THEN
+        ALTER TABLE public.student_health_records ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to student_health_records" ON public.student_health_records;
+        CREATE POLICY "Allow public full access to student_health_records" ON public.student_health_records FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Hostel Allocations
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'hostel_allocations') THEN
+        ALTER TABLE public.hostel_allocations ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to hostel_allocations" ON public.hostel_allocations;
+        CREATE POLICY "Allow public full access to hostel_allocations" ON public.hostel_allocations FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Disciplinary Logs
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'disciplinary_logs') THEN
+        ALTER TABLE public.disciplinary_logs ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to disciplinary_logs" ON public.disciplinary_logs;
+        CREATE POLICY "Allow public full access to disciplinary_logs" ON public.disciplinary_logs FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Alumni Registry
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'alumni_registry') THEN
+        ALTER TABLE public.alumni_registry ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to alumni_registry" ON public.alumni_registry;
+        CREATE POLICY "Allow public full access to alumni_registry" ON public.alumni_registry FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Certificate Issuances
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'certificate_issuances') THEN
+        ALTER TABLE public.certificate_issuances ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to certificate_issuances" ON public.certificate_issuances;
+        CREATE POLICY "Allow public full access to certificate_issuances" ON public.certificate_issuances FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- ID Card Print Queue
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'idcard_print_queue') THEN
+        ALTER TABLE public.idcard_print_queue ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to idcard_print_queue" ON public.idcard_print_queue;
+        CREATE POLICY "Allow public full access to idcard_print_queue" ON public.idcard_print_queue FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Library Transactions
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'library_transactions') THEN
+        ALTER TABLE public.library_transactions ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to library_transactions" ON public.library_transactions;
+        CREATE POLICY "Allow public full access to library_transactions" ON public.library_transactions FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- PTM Meetings
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'ptm_meetings') THEN
+        ALTER TABLE public.ptm_meetings ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to ptm_meetings" ON public.ptm_meetings;
+        CREATE POLICY "Allow public full access to ptm_meetings" ON public.ptm_meetings FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+
+    -- Admission Test Results
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'admission_test_results') THEN
+        ALTER TABLE public.admission_test_results ENABLE ROW LEVEL SECURITY;
+        DROP POLICY IF EXISTS "Allow public full access to admission_test_results" ON public.admission_test_results;
+        CREATE POLICY "Allow public full access to admission_test_results" ON public.admission_test_results FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
 

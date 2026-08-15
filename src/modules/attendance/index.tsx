@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOtherModulesStore } from '../otherModules/otherStore';
 import { useSisStore } from '../sis/sisStore';
-import { Calendar, CheckCircle2, XCircle, Clock, Bus, ShieldCheck, UserCheck, Save, Users, AlertCircle, RefreshCw, CalendarDays } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Calendar, CheckCircle2, XCircle, Clock, Bus, ShieldCheck, UserCheck, Save, Users, AlertCircle, RefreshCw, CalendarDays, Lock } from 'lucide-react';
 import { BusSeatingView } from './BusSeatingView';
 import { GateScanView } from './GateScanView';
 import { StudentAttendanceCalendarView } from './StudentAttendanceCalendarView';
@@ -10,11 +11,36 @@ import { StaffAttendanceRegisterView } from '../staff/StaffAttendanceRegisterVie
 export const AttendanceModule: React.FC = () => {
   const { attendance, markAttendance, routes } = useOtherModulesStore();
   const { students } = useSisStore();
+  const { isSubSectionAllowed, activeRole } = useAuth();
 
-  const [activeMode, setActiveMode] = useState<'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry' | 'staff_attendance'>('calendar');
+  const canCalendar = isSubSectionAllowed('attendance_calendar') || isSubSectionAllowed('attendance_history');
+  const canClassroom = isSubSectionAllowed('attendance_classroom') || isSubSectionAllowed('attendance_mark');
+  const canBusGuardian = isSubSectionAllowed('attendance_bus_guardian');
+  const canGateEntry = isSubSectionAllowed('attendance_gate_entry');
+  const canStaffAttendance = isSubSectionAllowed('attendance_staff_register');
+
+  const getInitialMode = (): 'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry' | 'staff_attendance' => {
+    if (canClassroom) return 'classroom';
+    if (canCalendar) return 'calendar';
+    if (canBusGuardian) return 'bus_guardian';
+    if (canGateEntry) return 'gate_entry';
+    if (canStaffAttendance) return 'staff_attendance';
+    return 'calendar';
+  };
+
+  const [activeMode, setActiveMode] = useState<'calendar' | 'classroom' | 'bus_guardian' | 'gate_entry' | 'staff_attendance'>(getInitialMode);
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedRouteId, setSelectedRouteId] = useState(routes[0]?.id || 'rt-1');
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Ensure active mode is allowed
+  useEffect(() => {
+    if (activeMode === 'classroom' && !canClassroom) setActiveMode(getInitialMode());
+    else if (activeMode === 'calendar' && !canCalendar) setActiveMode(getInitialMode());
+    else if (activeMode === 'bus_guardian' && !canBusGuardian) setActiveMode(getInitialMode());
+    else if (activeMode === 'gate_entry' && !canGateEntry) setActiveMode(getInitialMode());
+    else if (activeMode === 'staff_attendance' && !canStaffAttendance) setActiveMode(getInitialMode());
+  }, [canCalendar, canClassroom, canBusGuardian, canGateEntry, canStaffAttendance, activeMode]);
 
   // Filter students for selected class
   const classStudents = students.filter(
@@ -224,60 +250,70 @@ export const AttendanceModule: React.FC = () => {
 
       {/* View Mode Tabs */}
       <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
-        <button
-          onClick={() => setActiveMode('calendar')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeMode === 'calendar'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <CalendarDays className="w-4 h-4 text-emerald-300" /> Student Attendance Calendar
-        </button>
+        {canCalendar && (
+          <button
+            onClick={() => setActiveMode('calendar')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+              activeMode === 'calendar'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <CalendarDays className="w-4 h-4 text-emerald-300" /> Student Attendance Calendar
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveMode('classroom')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeMode === 'classroom'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Users className="w-4 h-4" /> Class Teacher Grid View
-        </button>
+        {canClassroom && (
+          <button
+            onClick={() => setActiveMode('classroom')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+              activeMode === 'classroom'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Users className="w-4 h-4" /> Class Teacher Grid View
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveMode('bus_guardian')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeMode === 'bus_guardian'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <Bus className="w-4 h-4 text-amber-300" /> Bus Guardian Seat View
-        </button>
+        {canBusGuardian && (
+          <button
+            onClick={() => setActiveMode('bus_guardian')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+              activeMode === 'bus_guardian'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <Bus className="w-4 h-4 text-amber-300" /> Bus Guardian Seat View
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveMode('gate_entry')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeMode === 'gate_entry'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <ShieldCheck className="w-4 h-4 text-emerald-300" /> Gate Arrival Duty
-        </button>
+        {canGateEntry && (
+          <button
+            onClick={() => setActiveMode('gate_entry')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+              activeMode === 'gate_entry'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <ShieldCheck className="w-4 h-4 text-emerald-300" /> Gate Arrival Duty
+          </button>
+        )}
 
-        <button
-          onClick={() => setActiveMode('staff_attendance')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeMode === 'staff_attendance'
-              ? 'bg-blue-600 text-white shadow-md'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-indigo-400" /> Faculty / Staff Attendance
-        </button>
+        {canStaffAttendance && (
+          <button
+            onClick={() => setActiveMode('staff_attendance')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer shrink-0 ${
+              activeMode === 'staff_attendance'
+                ? 'bg-blue-600 text-white shadow-md'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+            }`}
+          >
+            <UserCheck className="w-4 h-4 text-indigo-400" /> Faculty / Staff Attendance
+          </button>
+        )}
       </div>
 
       {/* MODE 0: MONTHLY ATTENDANCE CALENDAR VIEW */}

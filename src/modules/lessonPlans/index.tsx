@@ -49,19 +49,55 @@ export const LessonPlansModule: React.FC = () => {
     isTeacherOnly ? 'teacher_entry' : 'principal_view'
   );
 
-  React.useEffect(() => {
-    if (isTeacherOnly) {
-      setActiveTab('teacher_entry');
-    }
-  }, [isTeacherOnly]);
+  // Filter only academic teaching staff (exclude drivers, guards, sweepers, helpers, peons)
+  const teachingStaff = useMemo(() => {
+    const nonTeachingKeywords = ['driver', 'guard', 'helper', 'sweeper', 'peon', 'accountant', 'receptionist', 'conductor', 'bus incharge'];
+    const nonTeachingDepts = ['Transport', 'Security', 'Housekeeping', 'Maintenance', 'Pantry', 'Accounts', 'Reception'];
+    return staff.filter((s) => {
+      const nameL = s.fullName.toLowerCase();
+      const deptL = (s.department || '').toLowerCase();
+      const desigL = (s.designation || '').toLowerCase();
+      const isNonTeaching = nonTeachingDepts.some(d => deptL.includes(d.toLowerCase())) ||
+        nonTeachingKeywords.some(k => nameL.includes(k) || deptL.includes(k) || desigL.includes(k));
+      return !isNonTeaching;
+    });
+  }, [staff]);
+
+  // Clean teacher user name from active auth
+  const authTeacherName = useMemo(() => {
+    if (!currentUser?.name) return 'POONAM SINGH';
+    return currentUser.name.replace(/\s*\([^)]*\)/g, '').trim();
+  }, [currentUser?.name]);
 
   // Teacher Form State
   const [selectedClass, setSelectedClass] = useState('Class 10-A');
   const [selectedSubject, setSelectedSubject] = useState('Physics');
-  const [teacherName, setTeacherName] = useState('POONAM SINGH');
+  const [teacherName, setTeacherName] = useState(() => isTeacherOnly ? authTeacherName : 'POONAM SINGH');
   const [teacherRole, setTeacherRole] = useState('PGT Physics');
 
+  React.useEffect(() => {
+    if (isTeacherOnly) {
+      setActiveTab('teacher_entry');
+      setTeacherName(authTeacherName);
+      const matched = staff.find((s) => s.fullName.toLowerCase() === authTeacherName.toLowerCase() || s.fullName.toLowerCase().includes(authTeacherName.toLowerCase()));
+      if (matched) {
+        setTeacherRole(matched.designation);
+        if (matched.assignedClasses && matched.assignedClasses.length > 0) {
+          setSelectedClass(matched.assignedClasses[0]);
+        }
+        const assignedList = [
+          ...(matched.assignedSubjects || []),
+          ...(matched.assignedAllocations?.map(a => a.subject) || [])
+        ].filter(Boolean);
+        if (assignedList.length > 0) {
+          setSelectedSubject(assignedList[0]);
+        }
+      }
+    }
+  }, [isTeacherOnly, authTeacherName, staff]);
+
   const handleSelectTeacher = (name: string) => {
+    if (isTeacherOnly) return; // Prevent teacher from switching to another teacher
     setTeacherName(name);
     const found = staff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
     if (found) {
@@ -752,94 +788,123 @@ export const LessonPlansModule: React.FC = () => {
       {/* ==================================================================== */}
       {activeTab === 'teacher_entry' && (
         <div className="space-y-6">
-          {/* TEACHER SELECTOR BAR - INSPECT / UPDATE ANY TEACHER'S LESSON ENTRY */}
-          <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
-                  <User className="w-5 h-5" />
+          {/* TEACHER SELECTOR BAR - FOR PRINCIPAL/ADMIN OR ISOLATED PERSONAL PROFILE FOR TEACHERS */}
+          {isTeacherOnly ? (
+            <div className="bg-gradient-to-r from-indigo-900 via-indigo-950 to-slate-900 text-white p-5 rounded-2xl border border-indigo-800 shadow-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-800/80 pb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600/80 border border-indigo-400 text-white flex items-center justify-center font-black text-xl shadow-lg">
+                    👨‍🏫
+                  </div>
+                  <div>
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-500 text-white">
+                      Faculty Personal Portal
+                    </span>
+                    <h3 className="text-lg font-black text-white mt-0.5">
+                      {teacherName}
+                    </h3>
+                    <p className="text-xs text-indigo-200 font-medium">
+                      Designation: <span className="font-bold text-white">{teacherRole}</span> | Status: <span className="text-emerald-400 font-bold">● Active in Session</span>
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
-                    Teacher Lesson Entry & Checking Portal
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1.5 bg-indigo-950/80 border border-indigo-600/60 rounded-xl text-xs font-bold text-indigo-200">
+                    🔒 My Assigned Classes & Sections Only
                   </span>
-                  <h3 className="text-base font-black text-slate-900 dark:text-white">
-                    Select Teacher to Inspect or Update Lesson Entry:
-                  </h3>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 rounded-xl">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 tracking-wider">
+                      Teacher Lesson Entry & Checking Portal (Admin Oversight)
+                    </span>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white">
+                      Select Teacher to Inspect or Update Lesson Entry:
+                    </h3>
+                  </div>
+                </div>
+
+                {/* Teacher Selector Dropdown */}
+                <div className="w-full md:w-80">
+                  <select
+                    value={teacherName}
+                    onChange={(e) => {
+                      const name = e.target.value;
+                      handleSelectTeacher(name);
+                      const found = teachingStaff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
+                      if (found) {
+                        setTeacherRole(found.designation);
+                        if (found.assignedClasses && found.assignedClasses.length > 0) {
+                          setSelectedClass(found.assignedClasses[0]);
+                        }
+                        const assignedList = [
+                          ...(found.assignedSubjects || []),
+                          ...(found.assignedAllocations?.map(a => a.subject) || [])
+                        ].filter(Boolean);
+                        if (assignedList.length > 0) {
+                          setSelectedSubject(assignedList[0]);
+                        }
+                      }
+                      setAlertSuccessToast(`👨‍🏫 Switched to ${name} — Ready to inspect & update lessons`);
+                      setTimeout(() => setAlertSuccessToast(null), 3000);
+                    }}
+                    className="w-full px-3.5 py-2.5 text-xs font-black bg-indigo-50 dark:bg-slate-800 border-2 border-indigo-500 rounded-xl text-slate-900 dark:text-white shadow-inner cursor-pointer"
+                  >
+                    {teachingStaff.map((stf, idx) => (
+                      <option key={`sel-stf-${stf.id}-${idx}`} value={stf.fullName}>
+                        👨‍🏫 {stf.fullName} {stf.status === 'Absent' ? '🔴 (Absent)' : '🟢'} — [{stf.designation || stf.department}]
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Teacher Selector Dropdown */}
-              <div className="w-full md:w-80">
-                <select
-                  value={teacherName}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    handleSelectTeacher(name);
-                    const found = staff.find((s) => s.fullName.toLowerCase() === name.toLowerCase());
-                    if (found) {
-                      setTeacherRole(found.designation);
-                      if (found.assignedClasses && found.assignedClasses.length > 0) {
-                        setSelectedClass(found.assignedClasses[0]);
-                      }
-                      const assignedList = [
-                        ...(found.assignedSubjects || []),
-                        ...(found.assignedAllocations?.map(a => a.subject) || [])
-                      ].filter(Boolean);
-                      if (assignedList.length > 0) {
-                        setSelectedSubject(assignedList[0]);
-                      }
-                    }
-                    setAlertSuccessToast(`👨‍🏫 Switched to ${name} — Ready to inspect & update lessons`);
-                    setTimeout(() => setAlertSuccessToast(null), 3000);
-                  }}
-                  className="w-full px-3.5 py-2.5 text-xs font-black bg-indigo-50 dark:bg-slate-800 border-2 border-indigo-500 rounded-xl text-slate-900 dark:text-white shadow-inner cursor-pointer"
-                >
-                  {staff.map((stf, idx) => (
-                    <option key={`sel-stf-${stf.id}-${idx}`} value={stf.fullName}>
-                      👨‍🏫 {stf.fullName} {stf.status === 'Absent' ? '🔴 (Absent)' : '🟢'} — [{stf.designation || stf.department}]
-                    </option>
-                  ))}
-                </select>
+              {/* Quick Switcher Chips for Teachers */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                <span className="text-[11px] font-bold text-slate-500 shrink-0">Quick Switch:</span>
+                {teachingStaff.map((stf, idx) => {
+                  const isSelected = teacherName.toLowerCase() === stf.fullName.toLowerCase();
+                  return (
+                    <button
+                      key={`chip-${stf.id}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        handleSelectTeacher(stf.fullName);
+                        if (stf.assignedClasses && stf.assignedClasses.length > 0) {
+                          setSelectedClass(stf.assignedClasses[0]);
+                        }
+                        const assignedList = [
+                          ...(stf.assignedSubjects || []),
+                          ...(stf.assignedAllocations?.map(a => a.subject) || [])
+                        ].filter(Boolean);
+                        if (assignedList.length > 0) {
+                          setSelectedSubject(assignedList[0]);
+                        }
+                        setAlertSuccessToast(`👨‍🏫 Selected ${stf.fullName} for Lesson Entry`);
+                        setTimeout(() => setAlertSuccessToast(null), 2500);
+                      }}
+                      className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
+                        isSelected
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                      }`}
+                    >
+                      {stf.fullName}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {/* Quick Switcher Chips for Teachers */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-              <span className="text-[11px] font-bold text-slate-500 shrink-0">Quick Switch:</span>
-              {staff.map((stf, idx) => {
-                const isSelected = teacherName.toLowerCase() === stf.fullName.toLowerCase();
-                return (
-                  <button
-                    key={`chip-${stf.id}-${idx}`}
-                    type="button"
-                    onClick={() => {
-                      handleSelectTeacher(stf.fullName);
-                      if (stf.assignedClasses && stf.assignedClasses.length > 0) {
-                        setSelectedClass(stf.assignedClasses[0]);
-                      }
-                      const assignedList = [
-                        ...(stf.assignedSubjects || []),
-                        ...(stf.assignedAllocations?.map(a => a.subject) || [])
-                      ].filter(Boolean);
-                      if (assignedList.length > 0) {
-                        setSelectedSubject(assignedList[0]);
-                      }
-                      setAlertSuccessToast(`👨‍🏫 Selected ${stf.fullName} for Lesson Entry`);
-                      setTimeout(() => setAlertSuccessToast(null), 2500);
-                    }}
-                    className={`px-3 py-1 rounded-xl text-xs font-black transition-all cursor-pointer whitespace-nowrap shrink-0 border ${
-                      isSelected
-                        ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-400'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-indigo-50 dark:hover:bg-slate-700'
-                    }`}
-                  >
-                    {stf.fullName}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          )}
 
           {/* TEACHER ASSIGNED CLASSES & SUBJECTS CARD MATRIX */}
           {(() => {

@@ -421,19 +421,30 @@ export const BusSeatingView: React.FC<BusSeatingViewProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
+                type="button"
                 onClick={() => setShowBreakdownModal(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-all"
               >
-                Cancel
+                ← Back / Cancel
               </button>
-              <button
-                onClick={handleMergeRoutes}
-                className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow"
-              >
-                Confirm Route Merge
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowBreakdownModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMergeRoutes}
+                  className="px-4 py-2 text-xs font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg shadow cursor-pointer transition-all"
+                >
+                  Confirm Route Merge
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -481,19 +492,30 @@ export const BusSeatingView: React.FC<BusSeatingViewProps> = ({
               </div>
             </div>
 
-            <div className="flex justify-end gap-2 pt-3">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
               <button
+                type="button"
                 onClick={() => setShowTransferModal(false)}
-                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-lg"
+                className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-all"
               >
-                Cancel
+                ← Back / Cancel
               </button>
-              <button
-                onClick={handleTransferChild}
-                className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow"
-              >
-                Transfer Student
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowTransferModal(false)}
+                  className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg cursor-pointer transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={handleTransferChild}
+                  className="px-4 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow cursor-pointer transition-all"
+                >
+                  Transfer Student
+                </button>
+              </div>
             </div>
           </div>
         </div>

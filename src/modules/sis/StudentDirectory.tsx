@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Student } from '../../types/sis';
 import { ALL_SCHOOL_CLASSES } from '../../data/mockData';
-import { Search, Filter, Plus, Eye, Edit2, Trash2, ShieldCheck, Bus, Home, FileText, UserCheck, Download, Award, Shield } from 'lucide-react';
+import { Search, Filter, Plus, Eye, Edit2, Trash2, ShieldCheck, Bus, Home, FileText, UserCheck, Download, Award, Shield, Lock, Unlock } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface StudentDirectoryProps {
   students: Student[];
@@ -11,7 +12,6 @@ interface StudentDirectoryProps {
   onAddNew: () => void;
 }
 
-
 export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   students,
   onSelectStudent,
@@ -19,6 +19,10 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
   onDeleteStudent,
   onAddNew
 }) => {
+  const { activeRole, isStudentEditingAllowed, setStudentEditingAllowed } = useAuth();
+  const isTeacher = activeRole === 'Teacher' || activeRole === 'Class Teacher';
+  const isAdmin = activeRole === 'Super Admin' || activeRole === 'School Admin' || activeRole === 'Principal';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClass, setSelectedClass] = useState('All');
   const [selectedSection, setSelectedSection] = useState('All');
@@ -88,9 +92,31 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-bold rounded-lg">
-            <span>🔒 Read/Search Only Roster</span>
-          </div>
+          {isAdmin && (
+            <button
+              onClick={() => setStudentEditingAllowed(!isStudentEditingAllowed)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer border ${
+                isStudentEditingAllowed
+                  ? 'bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-950 dark:text-amber-300'
+              }`}
+              title="Toggle whether Teachers have permission to edit student information"
+            >
+              {isStudentEditingAllowed ? <Unlock className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+              <span>Teacher Edit Permission: {isStudentEditingAllowed ? 'Granted' : 'View-Only (Locked)'}</span>
+            </button>
+          )}
+
+          {isTeacher && (
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border ${
+              isStudentEditingAllowed
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300'
+                : 'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300'
+            }`}>
+              {isStudentEditingAllowed ? <Unlock className="w-3.5 h-3.5 text-emerald-600" /> : <Lock className="w-3.5 h-3.5 text-slate-500" />}
+              <span>Teacher Mode: {isStudentEditingAllowed ? 'Edit Permitted by Admin' : 'View-Only (Search)'}</span>
+            </div>
+          )}
 
           <button
             onClick={exportCSV}
@@ -277,24 +303,40 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                         <button
                           onClick={() => onSelectStudent(student)}
                           title="View Full Profile"
-                          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                          className="p-1.5 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                         >
                           <Eye className="w-4 h-4" />
                         </button>
-                        <button
-                          onClick={() => onEditStudent(student)}
-                          title="Edit Student"
-                          className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteStudent(student.id)}
-                          title="Delete Record"
-                          className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        
+                        {/* Edit Button with Permission Check */}
+                        {isTeacher && !isStudentEditingAllowed ? (
+                          <button
+                            onClick={() => alert("🔒 Student editing is currently restricted. Super Admin must grant edit permission before teachers can modify student records.")}
+                            title="Edit Locked (Requires Super Admin Permission)"
+                            className="p-1.5 rounded-lg text-slate-400 dark:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-not-allowed"
+                          >
+                            <Lock className="w-4 h-4 text-slate-400" />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => onEditStudent(student)}
+                            title="Edit Student"
+                            className="p-1.5 rounded-lg text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors cursor-pointer"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {/* Delete only for Admins */}
+                        {!isTeacher && (
+                          <button
+                            onClick={() => onDeleteStudent(student.id)}
+                            title="Delete Record"
+                            className="p-1.5 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

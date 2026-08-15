@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserRole, UserSession, AcademicSession, SystemNotification, AuditLog } from '../types/common';
-import { UserAccount, toUserSession, saveActiveSession, getSavedActiveSession, getAllUserAccounts } from '../lib/userManager';
+import { UserAccount, toUserSession, saveActiveSession, getSavedActiveSession, getAllUserAccounts, getUserPermissionOverrides, getUserSubSectionOverrides } from '../lib/userManager';
+import { DEFAULT_ROLE_SUBSECTION_PERMISSIONS, ALL_SUBSECTION_IDS } from '../lib/permissionRegistry';
 
 export const ALL_MODULE_IDS = [
   'sis',
@@ -31,28 +32,29 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   'Principal': [...ALL_MODULE_IDS],
   'Vice Principal': [...ALL_MODULE_IDS],
 
-  // Teachers have access to student marking, entering marks, reports, student directory search, timetable, staff profile, communication, lesson plans, library, idcards
-  'Teacher': ['sis', 'attendance', 'timetable', 'examination', 'reports', 'lesson_plans', 'staff', 'communication', 'library', 'idcards'],
-  'Class Teacher': ['sis', 'attendance', 'timetable', 'examination', 'reports', 'lesson_plans', 'staff', 'communication', 'library', 'idcards'],
+  // Teachers have access strictly to: Student Info, Daily Attendance, Timetable (personal + assigned round duty), Examination (enter marks), Lesson Plans, Digital Noticeboard
+  'Teacher': ['sis', 'attendance', 'timetable', 'examination', 'lesson_plans', 'communication'],
+  'Class Teacher': ['sis', 'attendance', 'timetable', 'examination', 'lesson_plans', 'communication'],
 
-  // Students have access strictly to the student section: profile/SIS, attendance, timetable, examination/marks, library, digital noticeboard, and smart ID card
+  // Students have access strictly to the student portal: Profile/SIS, attendance, timetable, marks/admit card, library, digital noticeboard, smart ID card
   'Student': ['sis', 'attendance', 'timetable', 'examination', 'library', 'communication', 'idcards'],
-  'Parent': ['sis', 'attendance', 'timetable', 'examination', 'fees', 'transport', 'communication', 'library'],
+  'Parent': ['sis', 'attendance', 'timetable', 'examination', 'fees', 'communication'],
 
-  'Examination Incharge': ['examination', 'sis', 'timetable', 'lesson_plans', 'reports', 'certificates', 'communication'],
-  'Timetable Incharge': ['timetable', 'sis', 'staff', 'attendance', 'lesson_plans', 'communication'],
-  'Admission Team': ['admission', 'sis', 'fees', 'communication'],
-  'Account Department': ['fees', 'reports', 'sis', 'communication', 'certificates'],
-  'Accountant': ['fees', 'reports', 'sis', 'communication', 'certificates'],
-  'Transport Department': ['transport', 'sis', 'communication'],
-  'Reception': ['visitor', 'sis', 'communication'],
+  'Admission Team': ['admission', 'sis', 'communication'],
+  'Accountant': ['fees', 'reports', 'communication'],
+  'Account Department': ['fees', 'reports', 'communication'],
+  'Timetable Incharge': ['timetable', 'staff', 'communication'],
+  'Reception': ['visitor', 'communication'],
   'HR': ['staff', 'interview', 'communication'],
   'Interview Panel': ['staff', 'interview', 'communication'],
+  'Examination Incharge': ['examination', 'sis', 'certificates', 'communication'],
+  'Transport Department': ['transport', 'communication'],
   'Visitor': ['visitor', 'communication'],
-  'Read-only Auditor': ['reports', 'sis', 'examination', 'attendance', 'fees']
+  'Read-only Auditor': ['reports', 'sis', 'examination', 'attendance']
 };
 
 const PERMISSIONS_STORAGE_KEY = 'schoolerp_role_permissions_v3';
+const SUBSECTION_PERMISSIONS_STORAGE_KEY = 'schoolerp_role_subsection_permissions_v1';
 
 interface AuthContextType {
   currentUser: UserSession;
@@ -85,6 +87,13 @@ interface AuthContextType {
   resetRolePermissions: () => void;
   isModuleAllowed: (moduleId: string, role?: UserRole) => boolean;
   getAllowedModules: (role?: UserRole) => string[];
+
+  // Granular Sub-Section Permissions
+  roleSubSectionPermissions: Record<UserRole, string[]>;
+  updateRoleSubSectionPermissions: (role: UserRole, allowedSubSections: string[]) => void;
+  resetRoleSubSectionPermissions: () => void;
+  isSubSectionAllowed: (subSectionId: string, role?: UserRole) => boolean;
+  getAllowedSubSections: (role?: UserRole) => string[];
 
   // Student specific edit permission controlled by Admin
   isStudentEditingAllowed: boolean;
@@ -195,6 +204,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return DEFAULT_ROLE_PERMISSIONS;
   });
 
+  const [roleSubSectionPermissions, setRoleSubSectionPermissions] = useState<Record<UserRole, string[]>>(() => {
+    try {
+      const saved = localStorage.getItem(SUBSECTION_PERMISSIONS_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...DEFAULT_ROLE_SUBSECTION_PERMISSIONS, ...parsed };
+      }
+    } catch (e) {
+      console.error('Error loading role sub-section permissions:', e);
+    }
+    return DEFAULT_ROLE_SUBSECTION_PERMISSIONS;
+  });
+
   useEffect(() => {
     try {
       localStorage.setItem(PERMISSIONS_STORAGE_KEY, JSON.stringify(rolePermissions));
@@ -202,6 +224,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error saving role permissions:', e);
     }
   }, [rolePermissions]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SUBSECTION_PERMISSIONS_STORAGE_KEY, JSON.stringify(roleSubSectionPermissions));
+    } catch (e) {
+      console.error('Error saving role sub-section permissions:', e);
+    }
+  }, [roleSubSectionPermissions]);
 
   const loginUser = (account: UserAccount) => {
     const session = toUserSession(account);
@@ -240,18 +270,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logActivity('RESET_PERMISSIONS', 'Access Control', 'Reset all role permissions to factory defaults');
   };
 
+  const updateRoleSubSectionPermissions = (role: UserRole, allowedSubSections: string[]) => {
+    setRoleSubSectionPermissions((prev) => ({
+      ...prev,
+      [role]: allowedSubSections
+    }));
+    logActivity('UPDATE_SUBSECTION_PERMISSIONS', 'Access Control', `Updated sub-section permissions for role "${role}" (${allowedSubSections.length} sub-sections)`);
+  };
+
+  const resetRoleSubSectionPermissions = () => {
+    setRoleSubSectionPermissions(DEFAULT_ROLE_SUBSECTION_PERMISSIONS);
+    localStorage.removeItem(SUBSECTION_PERMISSIONS_STORAGE_KEY);
+    logActivity('RESET_SUBSECTION_PERMISSIONS', 'Access Control', 'Reset all sub-section permissions to factory defaults');
+  };
+
   const getAllowedModules = (role?: UserRole): string[] => {
     const targetRole = role || activeRole;
     // Admins and Principals always have full access to everything
-    if (targetRole === 'Super Admin' || targetRole === 'School Admin' || targetRole === 'Principal') {
+    if (targetRole === 'Super Admin' || targetRole === 'School Admin' || targetRole === 'Principal' || targetRole === 'Vice Principal') {
       return ALL_MODULE_IDS;
     }
+
+    // Check if current user has a specific user-level override
+    if (!role && currentUser?.email) {
+      const userOverrides = getUserPermissionOverrides();
+      const cleanUname = (currentUser.name || '').toLowerCase().replace(/[\s_-]+/g, '');
+      const cleanEmailUser = (currentUser.email || '').split('@')[0].toLowerCase().replace(/[\s_-]+/g, '');
+      if (userOverrides[cleanEmailUser]) {
+        return userOverrides[cleanEmailUser];
+      }
+      if (userOverrides[cleanUname]) {
+        return userOverrides[cleanUname];
+      }
+    }
+
     return rolePermissions[targetRole] || DEFAULT_ROLE_PERMISSIONS[targetRole] || ['sis'];
   };
 
   const isModuleAllowed = (moduleId: string, role?: UserRole): boolean => {
     const allowed = getAllowedModules(role);
     return allowed.includes(moduleId);
+  };
+
+  const getAllowedSubSections = (role?: UserRole): string[] => {
+    const targetRole = role || activeRole;
+    // Admins and Principals always have full access to all sub-sections
+    if (targetRole === 'Super Admin' || targetRole === 'School Admin' || targetRole === 'Principal' || targetRole === 'Vice Principal') {
+      return ALL_SUBSECTION_IDS;
+    }
+
+    // Check if current user has a specific user-level sub-section override
+    if (!role && currentUser?.email) {
+      const userSubOverrides = getUserSubSectionOverrides();
+      const cleanUname = (currentUser.name || '').toLowerCase().replace(/[\s_-]+/g, '');
+      const cleanEmailUser = (currentUser.email || '').split('@')[0].toLowerCase().replace(/[\s_-]+/g, '');
+      if (userSubOverrides[cleanEmailUser]) {
+        return userSubOverrides[cleanEmailUser];
+      }
+      if (userSubOverrides[cleanUname]) {
+        return userSubOverrides[cleanUname];
+      }
+    }
+
+    return roleSubSectionPermissions[targetRole] || DEFAULT_ROLE_SUBSECTION_PERMISSIONS[targetRole] || [];
+  };
+
+  const isSubSectionAllowed = (subSectionId: string, role?: UserRole): boolean => {
+    const allowed = getAllowedSubSections(role);
+    return allowed.includes(subSectionId);
   };
 
   const setActiveRole = (role: UserRole) => {
@@ -341,6 +427,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resetRolePermissions,
         isModuleAllowed,
         getAllowedModules,
+        roleSubSectionPermissions,
+        updateRoleSubSectionPermissions,
+        resetRoleSubSectionPermissions,
+        isSubSectionAllowed,
+        getAllowedSubSections,
         isStudentEditingAllowed,
         setStudentEditingAllowed
       }}

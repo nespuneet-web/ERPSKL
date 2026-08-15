@@ -260,6 +260,32 @@ export const IDCardsModule: React.FC = () => {
           <p className="text-sm text-slate-500">No staff members match your filter criteria.</p>
         </div>
       )}
+
+      {/* BOTTOM ACTION BAR */}
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-wrap items-center justify-between gap-3 no-print">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedClass('All');
+              setSearchTerm('');
+            }}
+            className="px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl cursor-pointer transition-all flex items-center gap-1.5"
+          >
+            ← Reset Filters
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="px-5 py-2.5 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow cursor-pointer transition-all flex items-center gap-2"
+          >
+            <Printer className="w-4 h-4" /> Batch Print {cardType === 'student' ? 'Student' : 'Staff'} Cards ({cardType === 'student' ? filteredStudents.length : filteredStaff.length})
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
